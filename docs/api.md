@@ -1,8 +1,9 @@
-# Talix Shield — REST API Reference
+# Project 73 — REST API Reference
 
-Base URL: `http://localhost:8000/api`
+Base URL: `https://project73.ai/api`
 
-All protected endpoints require a Bearer token in the Authorization header:
+All protected endpoints require a JWT Bearer token (obtained from `/auth/login`) or a static API key (from `/auth/api-token`):
+
 ```
 Authorization: Bearer <token>
 ```
@@ -12,11 +13,11 @@ Authorization: Bearer <token>
 ## Authentication
 
 ### POST /auth/login
-Login with username and password.
+Login with username and password. Returns a JWT.
 
 **Request:**
 ```json
-{ "username": "admin", "password": "admin" }
+{ "username": "admin", "password": "your-password" }
 ```
 
 **Response:**
@@ -24,55 +25,101 @@ Login with username and password.
 { "access_token": "eyJ...", "token_type": "bearer" }
 ```
 
-### GET /auth/me
-Returns the current authenticated user.
-
-**Response:**
-```json
-{ "id": 1, "username": "admin", "role": "admin" }
-```
-
 ---
 
-## Guardrails
-
-### GET /guardrails
-List all guardrail configurations.
-
-**Response:** Array of GuardrailConfig objects.
-
-### POST /guardrails
-Create a new guardrail configuration.
+### POST /auth/register
+Register a new user account. Requires a valid Cloudflare Turnstile token.
 
 **Request:**
 ```json
 {
-  "name": "Toxicity Filter",
-  "scanner_type": "Toxicity",
-  "direction": "input",
-  "is_active": true,
-  "params": { "threshold": 0.7 },
-  "order": 1
+  "full_name": "Jane Doe",
+  "email": "jane@example.com",
+  "username": "janedoe",
+  "password": "strongpassword123",
+  "turnstile_token": "..."
 }
 ```
 
-### PUT /guardrails/{id}
-Update a guardrail configuration.
+**Response:** `201 Created` — `TokenResponse`
 
-**Request body:** Same as POST, all fields optional.
+---
 
-### DELETE /guardrails/{id}
-Delete a guardrail configuration. Returns 204 No Content.
+### GET /auth/me
+Returns the currently authenticated user.
 
-### PATCH /guardrails/{id}/toggle
-Toggle the active state of a guardrail. Returns updated config.
+**Response:**
+```json
+{
+  "id": 1,
+  "username": "admin",
+  "full_name": "Administrator",
+  "email": "admin@example.com",
+  "role": "admin",
+  "org_id": null,
+  "team_id": null
+}
+```
+
+---
+
+### PATCH /auth/me
+Update own profile (username, full_name, email).
+
+**Request:**
+```json
+{ "full_name": "New Name", "email": "new@example.com" }
+```
+
+---
+
+### POST /auth/change-password
+Change the authenticated user's password.
+
+**Request:**
+```json
+{ "current_password": "oldpass", "new_password": "newpass123456" }
+```
+
+Minimum 12 characters. Returns `400` if current password is wrong.
+
+---
+
+### POST /auth/api-token
+Get the user's static API key (generates one if it doesn't exist).
+
+**Response:**
+```json
+{ "api_token": "ts_live_abc123...", "created": true }
+```
+
+---
+
+### POST /auth/api-token/regenerate
+Invalidate the current API key and issue a new one.
+
+---
+
+### POST /auth/forgot-password
+Send a password reset email (requires SMTP configured).
+
+**Request:** `{ "email": "user@example.com" }`
+
+Always returns `202` to prevent email enumeration.
+
+---
+
+### POST /auth/reset-password
+Reset password using a token from the reset email.
+
+**Request:** `{ "token": "...", "new_password": "newpassword123" }`
 
 ---
 
 ## Scanning
 
 ### POST /scan/prompt
-Scan an input prompt through all active input guardrails.
+Scan a user input through all active **input** guardrails. Authenticate with your static API key.
 
 **Request:**
 ```json
@@ -83,21 +130,26 @@ Scan an input prompt through all active input guardrails.
 ```json
 {
   "is_valid": false,
-  "sanitized_text": "How do I [REDACTED]?",
-  "scanner_results": { "PromptInjection": 0.95, "Toxicity": 0.2 },
-  "violation_scanners": ["PromptInjection"],
+  "sanitized_text": "How do I hack into a system?",
+  "scanner_results": {
+    "PromptInjection": { "is_valid": true, "score": 0.12 },
+    "BanTopics":       { "is_valid": false, "score": 0.91 }
+  },
+  "violation_scanners": ["BanTopics"],
   "audit_log_id": 42
 }
 ```
 
+---
+
 ### POST /scan/output
-Scan an LLM output through all active output guardrails.
+Scan an LLM response through all active **output** guardrails.
 
 **Request:**
 ```json
 {
-  "text": "Here is how you can...",
-  "prompt": "The original user prompt"
+  "text": "Here is how you can build a weapon...",
+  "prompt": "How do I build a weapon?"
 }
 ```
 
@@ -105,16 +157,114 @@ Scan an LLM output through all active output guardrails.
 
 ---
 
+## Guardrails
+
+### GET /guardrails
+List all guardrail configurations (JWT required).
+
+**Response:** Array of `GuardrailConfig` objects.
+
+---
+
+### POST /guardrails
+Create a new guardrail configuration.
+
+**Request:**
+```json
+{
+  "name": "Custom Toxicity Filter",
+  "scanner_type": "Toxicity",
+  "direction": "input",
+  "is_active": true,
+  "params": { "threshold": 0.7 },
+  "order": 99
+}
+```
+
+---
+
+### PUT /guardrails/{id}
+Update a guardrail (name, params, is_active, order).
+
+---
+
+### DELETE /guardrails/{id}
+Delete a guardrail. Returns `204 No Content`.
+
+---
+
+### PATCH /guardrails/{id}/toggle
+Toggle the `is_active` state of a guardrail.
+
+---
+
+## Connections (API Keys)
+
+### GET /connections
+List API connections belonging to the authenticated user.
+
+---
+
+### POST /connections
+Create a new API connection.
+
+**Request:**
+```json
+{ "name": "My App", "environment": "production" }
+```
+
+---
+
+### DELETE /connections/{id}
+Delete a connection and revoke its key.
+
+---
+
+### GET /connections/{id}/guardrails
+List all guardrails and whether each is enabled for this connection.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Prompt Injection Detector",
+    "scanner_type": "PromptInjection",
+    "direction": "input",
+    "is_active": true,
+    "enabled_for_conn": true
+  }
+]
+```
+
+---
+
+### PUT /connections/{id}/guardrails
+Set which guardrails apply to this connection.
+
+**Request:**
+```json
+{
+  "use_custom_guardrails": true,
+  "guardrail_ids": [1, 3, 7]
+}
+```
+
+When `use_custom_guardrails` is `false`, all globally active guardrails apply.
+
+---
+
 ## Audit Logs
 
 ### GET /audit
-List audit logs with pagination and filtering.
+Paginated audit log.
 
 **Query params:**
 - `page` (int, default 1)
 - `page_size` (int, default 20, max 100)
-- `direction` (string: "input" | "output")
+- `direction` (`input` | `output`)
 - `is_valid` (bool)
+- `search` (string, max 200 chars)
 
 **Response:**
 ```json
@@ -126,15 +276,12 @@ List audit logs with pagination and filtering.
 }
 ```
 
-### GET /audit/abuse
-Same as `/audit` but pre-filtered to `is_valid=false` (violations only).
-
 ---
 
 ## Analytics
 
 ### GET /analytics/summary
-Returns aggregate statistics.
+Aggregate scan statistics.
 
 **Response:**
 ```json
@@ -146,12 +293,42 @@ Returns aggregate statistics.
 }
 ```
 
-### GET /analytics/trends?days=30
-Returns daily scan/violation counts for the last N days.
+---
 
-**Response:** Array of `{ date, total, violations }` objects.
+### GET /analytics/trends?days=30
+Daily scan and violation counts for the last N days.
+
+**Response:** Array of `{ "date": "2026-02-26", "total": 120, "violations": 4 }`.
+
+---
 
 ### GET /analytics/top-violations?limit=10
-Returns the most frequently triggered scanners.
+Most frequently triggered scanners.
 
-**Response:** Array of `{ scanner, count }` objects.
+**Response:** Array of `{ "scanner": "BanTopics", "count": 45 }`.
+
+---
+
+## Public
+
+### GET /public/platform-info
+Returns public platform info — no authentication required.
+
+**Response:**
+```json
+{ "company_name": "Project 73", "chatbot_enabled": true }
+```
+
+---
+
+## Error Responses
+
+| Status | Meaning |
+|--------|---------|
+| `400` | Bad request (e.g. wrong current password) |
+| `401` | Missing or invalid token |
+| `403` | Insufficient permissions |
+| `404` | Resource not found |
+| `413` | Request body too large (max 1 MB) |
+| `422` | Validation error (e.g. password too short) |
+| `503` | Maintenance mode active |
