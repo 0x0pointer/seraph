@@ -1,6 +1,6 @@
 # Project 73 — LLM Security Platform
 
-**Production-ready guardrails for Large Language Models**, built on top of [llm-guard](https://github.com/protectai/llm-guard).
+**Production-ready guardrails for Large Language Models**
 
 Project 73 wraps the llm-guard scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard + marketing site.
 
