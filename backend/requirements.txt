@@ -9,4 +9,4 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.9
 httpx==0.27.0
-llm-guard @ file:///Users/jorge.mendescarvalho/Documents/guardrails/llmguard/llm-guard
+llm-guard==0.3.16
