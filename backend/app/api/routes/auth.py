@@ -396,6 +396,27 @@ async def get_api_token(
     return ApiTokenResponse(api_token=token, created=True)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password", status_code=200)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 12:
+        raise HTTPException(status_code=422, detail="Password must be at least 12 characters")
+    current_user.hashed_password = hash_password(data.new_password)
+    session.add(current_user)
+    await session.commit()
+    return {"detail": "Password updated successfully"}
+
+
 @router.post("/api-token/regenerate", response_model=ApiTokenResponse)
 async def regenerate_api_token(
     current_user: User = Depends(get_current_user),
