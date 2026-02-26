@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project 73</title>
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0A0F1F;
+      --card:      #0d1426;
+      --card2:     #111827;
+      --border:    #1e2d45;
+      --teal:      #14B8A6;
+      --teal-dim:  #0f9488;
+      --teal-glow: rgba(20, 184, 166, 0.15);
+      --muted:     #94a3b8;
+      --text:      #e2e8f0;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+      --user-bg:   #14B8A6;
+      --user-text: #0A0F1F;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      flex-shrink: 0;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--teal);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg { display: block; }
+
+    .header-title { flex: 1; }
+    .header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-title p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .shield-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: var(--teal-glow);
+      border: 1px solid rgba(20,184,166,0.3);
+      font-size: 12px;
+      color: var(--teal);
+      font-weight: 500;
+    }
+
+    .shield-badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ── Messages area ──────────────────────────────────────────────── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 24px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── Individual message ─────────────────────────────────────────── */
+    .msg-row {
+      display: flex;
+      gap: 10px;
+      max-width: 100%;
+    }
+
+    .msg-row.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .avatar.user-av  { background: var(--teal); color: var(--user-text); }
+    .avatar.bot-av   { background: var(--card2); border: 1px solid var(--border); color: var(--muted); }
+    .avatar.bot-av svg { display: block; }
+
+    .bubble-wrap { max-width: 75%; display: flex; flex-direction: column; gap: 4px; }
+    .msg-row.user .bubble-wrap { align-items: flex-end; }
+
+    .bubble {
+      padding: 11px 15px;
+      border-radius: 16px;
+      font-size: 14.5px;
+      line-height: 1.65;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .bubble.user-b {
+      background: var(--teal);
+      color: var(--user-text);
+      border-bottom-right-radius: 4px;
+      font-weight: 500;
+    }
+
+    .bubble.bot-b {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Blocked message */
+    .bubble.blocked-b {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble.blocked-b .block-header {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--red);
+    }
+
+    .violation-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      padding: 2px 9px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      font-weight: 500;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    /* Scan tags shown under a message */
+    .scan-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(148, 163, 184, 0.06);
+      border: 1px solid var(--border);
+    }
+
+    .scan-tag.ok { color: var(--teal); border-color: rgba(20,184,166,0.25); background: var(--teal-glow); }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 12px 15px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      width: fit-content;
+    }
+
+    .typing-indicator span {
+      width: 7px; height: 7px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: bounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40%            { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* Welcome state */
+    .welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 24px;
+      gap: 12px;
+      color: var(--muted);
+    }
+
+    .welcome-icon {
+      width: 64px; height: 64px;
+      border-radius: 20px;
+      background: var(--teal-glow);
+      border: 1px solid rgba(20,184,166,0.3);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .welcome h2 { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; }
+    .welcome p  { font-size: 14px; max-width: 340px; }
+
+    .suggestion-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .suggestion-btn {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .suggestion-btn:hover {
+      border-color: var(--teal);
+      background: var(--teal-glow);
+      color: var(--teal);
+    }
+
+    /* ── Input area ─────────────────────────────────────────────────── */
+    .input-area {
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 10px 10px 16px;
+      transition: border-color 0.2s;
+    }
+
+    .input-row:focus-within {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px var(--teal-glow);
+    }
+
+    #user-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 14.5px;
+      line-height: 1.5;
+      resize: none;
+      max-height: 140px;
+      min-height: 24px;
+      font-family: inherit;
+    }
+
+    #user-input::placeholder { color: var(--muted); }
+
+    .send-btn {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: var(--teal);
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .send-btn:hover:not(:disabled)  { background: var(--teal-dim); }
+    .send-btn:active:not(:disabled) { transform: scale(0.93); }
+    .send-btn:disabled { background: var(--border); cursor: not-allowed; opacity: 0.5; }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .input-footer .talix-note {
+      display: flex; align-items: center; gap: 5px;
+      color: var(--teal);
+      opacity: 0.8;
+      font-weight: 500;
+    }
+
+    .clear-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11.5px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .clear-btn:hover { color: var(--text); background: var(--border); }
+
+    /* Offline banner */
+    .offline-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: rgba(245, 158, 11, 0.06);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+      font-size: 13px;
+      color: var(--amber);
+    }
+    .offline-banner.visible { display: flex; }
+    .offline-banner svg { flex-shrink: 0; }
+
+    /* Offline full-screen state */
+    .offline-state {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 24px;
+      gap: 12px;
+      color: var(--muted);
+    }
+    .offline-state.visible { display: flex; }
+    .offline-state h2 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .offline-state p  { font-size: 14px; max-width: 320px; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+              fill="#0A0F1F" stroke="#0A0F1F" stroke-width="0.5"/>
+        <path d="M12 4.5L5 8.5V12C5 15.65 8.12 19.15 12 20.25C15.88 19.15 19 15.65 19 12V8.5L12 4.5Z"
+              fill="#14B8A6" opacity="0.9"/>
+        <path d="M9.5 12.5L11 14L15 10" stroke="#0A0F1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="header-title">
+      <h1>Project 73</h1>
+      <p>Powered by GPT-4o mini · Guarded by Project 73 Security</p>
+    </div>
+    <div class="shield-badge">
+      <span class="dot"></span>
+      Guardrails Active
+    </div>
+  </header>
+
+  <!-- Offline banner (shown when chatbot is disabled) -->
+  <div class="offline-banner" id="offline-banner">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+            stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    The chatbot is currently offline. An administrator has temporarily disabled it.
+  </div>
+
+  <!-- Messages -->
+  <div class="messages" id="messages">
+    <div class="offline-state" id="offline-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+        <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h2>Chatbot offline</h2>
+      <p>This chatbot has been temporarily disabled by an administrator. Please check back later.</p>
+    </div>
+
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#14B8A6" stroke-width="1.5"/>
+          <path d="M9 12.5L11 14.5L15.5 10" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>How can I help you?</h2>
+      <p>Every message is scanned by Project 73 Security guardrails before it reaches the AI — and before the response reaches you.</p>
+      <div class="suggestion-grid">
+        <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
+        <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>
+        <button class="suggestion-btn" onclick="suggest(this)">How does JWT authentication work?</button>
+        <button class="suggestion-btn" onclick="suggest(this)">What are OWASP top 10 risks?</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-row">
+      <textarea
+        id="user-input"
+        placeholder="Type a message…"
+        rows="1"
+        autocomplete="off"
+        spellcheck="true"
+      ></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M22 2L11 13" stroke="#0A0F1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#0A0F1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="input-footer">
+      <div class="talix-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#14B8A6" stroke-width="2"/>
+        </svg>
+        Protected by Project 73 Security
+      </div>
+      <button class="clear-btn" onclick="clearChat()">Clear chat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const messagesEl    = document.getElementById('messages');
+  const welcomeEl     = document.getElementById('welcome');
+  const offlineState  = document.getElementById('offline-state');
+  const offlineBanner = document.getElementById('offline-banner');
+  const inputEl       = document.getElementById('user-input');
+  const sendBtn       = document.getElementById('send-btn');
+
+  // Conversation history sent to the backend (role/content pairs)
+  let history = [];
+
+  // ── Check chatbot status on load ──────────────────────────────────────────
+  async function checkStatus() {
+    try {
+      const res = await fetch('/status');
+      const data = await res.json();
+      if (!data.chatbot_enabled) {
+        offlineBanner.classList.add('visible');
+        offlineState.classList.add('visible');
+        if (welcomeEl) welcomeEl.style.display = 'none';
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        inputEl.placeholder = 'Chatbot is currently offline.';
+      }
+    } catch (_) { /* backend unreachable — leave UI enabled */ }
+  }
+  checkStatus();
+
+  // ── Auto-resize textarea ──────────────────────────────────────────────────
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // ── Suggestion buttons ────────────────────────────────────────────────────
+  function suggest(btn) {
+    inputEl.value = btn.textContent;
+    inputEl.dispatchEvent(new Event('input'));
+    inputEl.focus();
+  }
+
+  // ── Scroll to bottom ──────────────────────────────────────────────────────
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── Escape HTML ───────────────────────────────────────────────────────────
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ── Append a user bubble ──────────────────────────────────────────────────
+  function appendUser(text) {
+    hideWelcome();
+    const row = document.createElement('div');
+    row.className = 'msg-row user';
+    row.innerHTML = `
+      <div class="avatar user-av">U</div>
+      <div class="bubble-wrap">
+        <div class="bubble user-b">${esc(text)}</div>
+      </div>`;
+    messagesEl.appendChild(row);
+    scrollBottom();
+  }
+
+  // ── Show typing indicator, return element ────────────────────────────────
+  function showTyping() {
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    row.id = 'typing-row';
+    row.innerHTML = `
+      <div class="avatar bot-av">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div class="typing-indicator">
+        <span></span><span></span><span></span>
+      </div>`;
+    messagesEl.appendChild(row);
+    scrollBottom();
+    return row;
+  }
+
+  // ── Remove typing indicator ───────────────────────────────────────────────
+  function removeTyping() {
+    const el = document.getElementById('typing-row');
+    if (el) el.remove();
+  }
+
+  // ── Append AI response bubble ─────────────────────────────────────────────
+  function appendBot(text, scanInfo) {
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    const tag = (scanInfo && scanInfo.violations && scanInfo.violations.length === 0)
+      ? `<span class="scan-tag ok">✓ Clean scan</span>`
+      : '';
+    row.innerHTML = `
+      <div class="avatar bot-av">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div class="bubble-wrap">
+        <div class="bubble bot-b">${esc(text)}</div>
+        ${tag ? `<div>${tag}</div>` : ''}
+      </div>`;
+    messagesEl.appendChild(row);
+    scrollBottom();
+  }
+
+  // ── Append a blocked/error bubble ────────────────────────────────────────
+  function appendBlocked(data) {
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    const dirLabel = data.direction === 'input' ? 'Input' : 'Output';
+    const pillsHtml = (data.violations || [])
+      .map(v => `<span class="pill">${esc(v)}</span>`)
+      .join('');
+
+    row.innerHTML = `
+      <div class="avatar bot-av">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div class="bubble-wrap">
+        <div class="bubble blocked-b">
+          <div class="block-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-width="2"/>
+              <path d="M4.93 4.93L19.07 19.07" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            ${esc(dirLabel)} blocked by Project 73 Security
+          </div>
+          ${esc(data.message || 'This content was blocked by guardrails.')}
+          ${pillsHtml ? `<div class="violation-pills">${pillsHtml}</div>` : ''}
+        </div>
+      </div>`;
+    messagesEl.appendChild(row);
+    scrollBottom();
+  }
+
+  // ── Hide welcome screen ───────────────────────────────────────────────────
+  function hideWelcome() {
+    if (welcomeEl && welcomeEl.parentNode) {
+      welcomeEl.remove();
+    }
+  }
+
+  // ── Main send logic ───────────────────────────────────────────────────────
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    // Lock UI
+    sendBtn.disabled = true;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    appendUser(text);
+    const typingRow = showTyping();
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      });
+
+      removeTyping();
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        appendBlocked({
+          direction: 'output',
+          violations: [],
+          message: err.error || `Server error (${res.status})`,
+        });
+        return;
+      }
+
+      const data = await res.json();
+
+      if (data.blocked) {
+        appendBlocked(data);
+      } else {
+        appendBot(data.response, data.output_scan);
+        // Append to history for multi-turn context
+        history.push({ role: 'user', content: text });
+        history.push({ role: 'assistant', content: data.response });
+        // Keep history bounded (last 20 exchanges = 40 messages)
+        if (history.length > 40) history = history.slice(history.length - 40);
+      }
+    } catch (err) {
+      removeTyping();
+      appendBlocked({
+        direction: 'output',
+        violations: [],
+        message: `Network error: ${err.message}. Is the Project 73 server running?`,
+      });
+    } finally {
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  // ── Clear chat ────────────────────────────────────────────────────────────
+  function clearChat() {
+    history = [];
+    messagesEl.innerHTML = '';
+    // Re-add welcome
+    const w = document.createElement('div');
+    w.className = 'welcome';
+    w.id = 'welcome';
+    w.innerHTML = `
+      <div class="welcome-icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
+                fill="none" stroke="#14B8A6" stroke-width="1.5"/>
+          <path d="M9 12.5L11 14.5L15.5 10" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>How can I help you?</h2>
+      <p>Every message is scanned by Project 73 Security guardrails before it reaches the AI — and before the response reaches you.</p>
+      <div class="suggestion-grid">
+        <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
+        <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>
+        <button class="suggestion-btn" onclick="suggest(this)">How does JWT authentication work?</button>
+        <button class="suggestion-btn" onclick="suggest(this)">What are OWASP top 10 risks?</button>
+      </div>`;
+    messagesEl.appendChild(w);
+  }
+
+  // Initial focus
+  inputEl.focus();
+</script>
+</body>
+</html>

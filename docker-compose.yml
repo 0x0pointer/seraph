@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-changeme-super-secret-key-at-least-32-chars}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/talix_shield.db
+      - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
+      - DEBUG=${DEBUG:-false}
+    command: >
+      sh -c "python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:
