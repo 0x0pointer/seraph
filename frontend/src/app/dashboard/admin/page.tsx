@@ -454,10 +454,19 @@ function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, on
   const [open, setOpen] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const currentPlan = user.plan ?? "free";
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropUp(window.innerHeight - rect.bottom < 300);
+    }
+    setOpen(!open);
+  };
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)}
+      <button ref={btnRef} onClick={handleToggle}
         className="text-xs px-2.5 py-1 rounded border transition-colors"
         style={{ borderColor: "rgba(255,255,255,0.08)", color: "#64748b" }}>
         Actions ▾
@@ -465,7 +474,7 @@ function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, on
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setShowRoles(false); setShowPlans(false); }} />
-          <div className="absolute right-0 mt-1 w-52 rounded border z-20 overflow-hidden py-1"
+          <div className={`absolute right-0 w-52 rounded border z-20 overflow-hidden py-1 ${dropUp ? "bottom-full mb-1" : "mt-1"}`}
             style={{ background: "#0A0F1F", borderColor: "rgba(255,255,255,0.08)" }}>
             <button onClick={() => { setShowRoles(!showRoles); setShowPlans(false); }} disabled={roleLoading}
               className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40">
