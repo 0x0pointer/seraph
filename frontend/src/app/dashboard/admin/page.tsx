@@ -443,6 +443,7 @@ const ALL_ROLES: { value: string; label: string }[] = [
 
 const ALL_PLANS = [
   { value: "free",       label: "Free",       color: "#94a3b8" },
+  { value: "starter",    label: "Starter",    color: "#38bdf8" },
   { value: "pro",        label: "Pro",        color: "#14B8A6" },
   { value: "enterprise", label: "Enterprise", color: "#a78bfa" },
 ];

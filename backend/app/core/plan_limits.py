@@ -3,8 +3,9 @@ Plan definitions and enforcement helpers.
 
 Plans (applied at org level when user is in an org, else at user level):
   free       — 1,000 scans/month, core scanners only, 7-day retention, 1 connection, 1 user
-  pro        — 100,000 scans/month, all scanners, 90-day retention, unlimited connections, 10 users
-  enterprise — unlimited everything, unlimited users
+  starter    — 25,000 scans/month, all scanners, 30-day retention, 5 connections, 3 users
+  pro        — 250,000 scans/month, all scanners, 90-day retention, unlimited connections, 15 users
+  enterprise — unlimited everything, unlimited users, 1-year retention
 """
 from datetime import datetime
 
@@ -25,18 +26,26 @@ PLAN_LIMITS: dict[str, dict] = {
         "output_scanners": FREE_OUTPUT_SCANNERS,
         "user_limit": 1,
     },
+    "starter": {
+        "scan_limit": 25_000,
+        "connection_limit": 5,
+        "audit_days": 30,
+        "input_scanners": None,
+        "output_scanners": None,
+        "user_limit": 3,
+    },
     "pro": {
-        "scan_limit": 100_000,
+        "scan_limit": 250_000,
         "connection_limit": None,
         "audit_days": 90,
         "input_scanners": None,
         "output_scanners": None,
-        "user_limit": 10,
+        "user_limit": 15,
     },
     "enterprise": {
         "scan_limit": None,
         "connection_limit": None,
-        "audit_days": None,
+        "audit_days": 365,
         "input_scanners": None,
         "output_scanners": None,
         "user_limit": None,

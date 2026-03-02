@@ -757,8 +757,8 @@ async def get_billing_stats(
     )).all()
     plan_counts = {row[0] or "free": row[1] for row in plan_rows}
 
-    # MRR estimate (Pro=$129/mo, Enterprise=$0 placeholder)
-    PLAN_PRICES = {"free": 0, "pro": 129, "enterprise": 0}
+    # MRR estimate
+    PLAN_PRICES = {"free": 0, "starter": 29, "pro": 99, "enterprise": 0}
     mrr = sum(PLAN_PRICES.get(plan, 0) * count for plan, count in plan_counts.items())
 
     # Invoice totals by status

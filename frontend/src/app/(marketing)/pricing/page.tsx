@@ -8,12 +8,12 @@ const tiers = [
     name: "Free",
     price: "$0",
     sub: "forever",
-    desc: "Evaluate, prototype, and prove it out — no card required.",
+    desc: "Evaluate and prototype — no credit card required.",
     highlight: false,
     features: [
       { text: "1,000 scans / month", note: null },
       { text: "1 user", note: "Single-seat only" },
-      { text: "Core security scanners", note: "Prompt Injection, PII, Toxicity" },
+      { text: "Core security scanners", note: "Prompt Injection, PII, Toxicity + 2 more" },
       { text: "7-day audit log retention", note: null },
       { text: "1 API connection", note: null },
       { text: "REST API access", note: null },
@@ -23,21 +23,39 @@ const tiers = [
     href: "/register",
   },
   {
+    name: "Starter",
+    price: "$29",
+    sub: "per month",
+    desc: "For small apps and indie developers shipping AI features.",
+    highlight: false,
+    features: [
+      { text: "25,000 scans / month", note: null },
+      { text: "Up to 3 users", note: null },
+      { text: "All 39 scanners", note: "Input & output, fully configurable" },
+      { text: "30-day audit log retention", note: null },
+      { text: "5 API connections", note: null },
+      { text: "REST API access", note: null },
+      { text: "Email support", note: null },
+    ],
+    cta: "Get started",
+    href: "/register",
+  },
+  {
     name: "Pro",
-    price: "$129",
+    price: "$99",
     sub: "per month",
     desc: "Full guardrail coverage for teams shipping AI to production.",
     highlight: true,
     badge: "Most popular",
     features: [
-      { text: "100,000 scans / month", note: null },
-      { text: "Up to 10 users", note: "Org-level plan shared across your team" },
-      { text: "All 40+ scanners", note: "Input & output, fully configurable" },
+      { text: "250,000 scans / month", note: null },
+      { text: "Up to 15 users", note: "Org-level plan with role-based access" },
+      { text: "All 39 scanners", note: "Custom thresholds & configurations" },
       { text: "90-day audit log retention", note: null },
       { text: "Unlimited API connections", note: null },
       { text: "Analytics & abuse detection", note: null },
-      { text: "Organizations & teams", note: "With role-based access control" },
-      { text: "Custom scanner thresholds", note: null },
+      { text: "Organizations & teams", note: null },
+      { text: "99.5% uptime SLA", note: null },
       { text: "Priority support", note: null },
     ],
     cta: "Start free trial",
@@ -51,14 +69,14 @@ const tiers = [
     highlight: false,
     features: [
       { text: "Unlimited scans", note: null },
-      { text: "Unlimited users", note: "Org-level plan, no seat cap" },
-      { text: "All 40+ scanners + custom builds", note: null },
-      { text: "Unlimited audit retention", note: null },
+      { text: "Unlimited users", note: "No seat cap" },
+      { text: "All 39 scanners + custom builds", note: null },
+      { text: "1-year audit log retention", note: null },
       { text: "Unlimited API connections", note: null },
       { text: "SSO / SAML", note: null },
       { text: "On-premise deployment", note: null },
       { text: "Dedicated support engineer", note: null },
-      { text: "SLA guarantee", note: null },
+      { text: "99.9% uptime SLA", note: null },
       { text: "Security review & pen-test support", note: null },
     ],
     cta: "Talk to sales",
@@ -116,15 +134,19 @@ const faqs = [
   },
   {
     q: "Which scanners are included in the Free tier?",
-    a: "The Free tier includes the core security scanners: Prompt Injection, PII Detection, and Toxicity. All 40+ scanners are available on Pro and Enterprise.",
+    a: "The Free tier includes 5 core security scanners: Prompt Injection, Anonymize (PII), Toxicity, Ban Topics, and Ban Substrings. All 39 scanners are available on Starter, Pro, and Enterprise.",
   },
   {
     q: "Is there a free trial for Pro?",
     a: "Yes — the Pro trial gives you full access for 14 days with no credit card required. You'll be prompted to add a payment method at the end of the trial.",
   },
   {
+    q: "What is the difference between Starter and Pro?",
+    a: "Starter is designed for small apps and solo developers — 25,000 scans, 3 users, 5 connections. Pro is for growing teams with 250,000 scans, 15 users, unlimited connections, analytics, org management, and a 99.5% SLA.",
+  },
+  {
     q: "What is on-premise deployment?",
-    a: "Enterprise customers can run the entire Project 73 Security stack inside their own infrastructure. We provide Docker images, Helm charts, and a dedicated engineer for the initial rollout.",
+    a: "Enterprise customers can run the entire Project 73 stack inside their own infrastructure. We provide Docker images, Helm charts, and a dedicated engineer for the initial rollout.",
   },
 ];
 
@@ -147,7 +169,7 @@ export default function PricingPage() {
         </div>
 
         {/* Tier cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-20">
           {tiers.map((tier) => (
             <div
               key={tier.name}
