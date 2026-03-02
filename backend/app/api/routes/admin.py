@@ -223,8 +223,8 @@ async def create_user(
 ):
     if len(data.username.strip()) < 2:
         raise HTTPException(status_code=422, detail="Username must be at least 2 characters")
-    if len(data.password) < 6:
-        raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
+    if len(data.password) < 12:
+        raise HTTPException(status_code=422, detail="Password must be at least 12 characters")
     if data.role not in ("admin", "support", "org_admin", "viewer"):
         raise HTTPException(status_code=422, detail="Role must be one of: admin, support, org_admin, viewer")
 

@@ -49,8 +49,14 @@ class Settings(BaseSettings):
 settings = Settings()
 
 if settings.secret_key in _WEAK_SECRETS or len(settings.secret_key) < 32:
-    warnings.warn(
-        "SECRET_KEY is weak or using the default placeholder. "
-        "Set a strong random value in your .env (e.g. openssl rand -hex 32).",
-        stacklevel=1,
-    )
+    if settings.debug:
+        warnings.warn(
+            "SECRET_KEY is weak or using the default placeholder. "
+            "Set a strong random value in your .env (e.g. openssl rand -hex 32).",
+            stacklevel=1,
+        )
+    else:
+        raise RuntimeError(
+            "Refusing to start: SECRET_KEY is weak or using the default placeholder. "
+            "Generate one with: openssl rand -hex 32"
+        )

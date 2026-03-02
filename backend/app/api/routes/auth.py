@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.limiter import limiter
 from app.core.security import create_access_token, decode_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import ApiTokenResponse, LoginRequest, RegisterRequest, TokenResponse, UserRead
@@ -169,10 +170,18 @@ async def get_current_user(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, session: AsyncSession = Depends(get_session)):
+@limiter.limit("10/minute")
+async def login(request: Request, data: LoginRequest, session: AsyncSession = Depends(get_session)):
     result = await session.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):
+        from app.services.event_service import log_event
+        await log_event(session, event_type="auth.login_failed",
+            actor_id=None, actor_username=data.username,
+            target_type="user", target_id=None, target_name=data.username,
+            details={"reason": "invalid_credentials"},
+            ip_address=request.client.host if request.client else None)
+        await session.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
@@ -181,7 +190,8 @@ async def login(data: LoginRequest, session: AsyncSession = Depends(get_session)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, request: Request, session: AsyncSession = Depends(get_session)):
+@limiter.limit("5/hour")
+async def register(request: Request, data: RegisterRequest, session: AsyncSession = Depends(get_session)):
     # Verify Cloudflare Turnstile
     import httpx
     from app.core.config import settings as app_settings
@@ -446,7 +456,9 @@ class ForgotUsernameRequest(BaseModel):
 
 
 @router.post("/forgot-password", status_code=202)
+@limiter.limit("5/hour")
 async def forgot_password(
+    request: Request,
     data: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
@@ -503,7 +515,9 @@ async def reset_password(
 
 
 @router.post("/forgot-username", status_code=202)
+@limiter.limit("5/hour")
 async def forgot_username(
+    request: Request,
     data: ForgotUsernameRequest,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),

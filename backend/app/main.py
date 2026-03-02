@@ -3,8 +3,11 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.database import create_tables
 from app.api.routes import auth, guardrails, scan, audit, analytics, public, connections, admin, org, teams, support, notifications, announcements, billing
 import app.models.system_event  # noqa: F401 — ensure table is registered before create_all
@@ -27,6 +30,9 @@ app = FastAPI(
     description="Production-ready LLM guardrails platform",
     version="1.0.0",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +57,7 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
