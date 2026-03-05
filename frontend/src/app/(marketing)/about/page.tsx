@@ -1,23 +1,13 @@
 const team = [
   {
-    name: "Alex Rivera",
-    role: "CEO & Co-founder",
-    bio: "Former ML Engineer at Stripe. Eight years building production AI systems at scale.",
-    initials: "AR",
-  },
-  {
-    name: "Jordan Kim",
-    role: "CTO & Co-founder",
-    bio: "Open source contributor and PhD in NLP from CMU. Obsessed with making AI systems reliable.",
-    initials: "JK",
-  },
-  {
-    name: "Morgan Patel",
-    role: "Head of Product",
-    bio: "Previously led developer tooling at Cloudflare. Focused on making complex infra feel simple.",
-    initials: "MP",
+    name: "Jorge Carvalho",
+    role: "CEO & Founder",
+    tags: ["AppSec", "AI Security", "AI Red Teaming"],
+    bio: "Application security and AI security engineer with hands-on experience in AI red teaming. Built Project 73 to solve the gap between AI deployment speed and real-world safety requirements.",
+    initials: "JC",
   },
 ];
+
 
 export default function AboutPage() {
   return (
@@ -40,18 +30,31 @@ export default function AboutPage() {
         {/* Team */}
         <div className="mb-24">
           <p className="text-xs font-mono tracking-widest uppercase mb-10" style={{ color: "#14B8A6" }}>Team</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px" style={{ background: "rgba(255,255,255,0.04)" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {team.map((member) => (
-              <div key={member.name} className="p-8" style={{ background: "#0A0F1F" }}>
-                <div
-                  className="w-10 h-10 rounded flex items-center justify-center text-xs font-bold mb-5"
-                  style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}
-                >
-                  {member.initials}
+              <div key={member.name} className="rounded-lg border border-white/5 p-8 relative overflow-hidden" style={{ background: "#0d1426" }}>
+                <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, #14B8A6 0%, transparent 60%)" }} />
+                <div className="flex items-start gap-5">
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
+                    style={{ background: "rgba(20,184,166,0.12)", color: "#14B8A6" }}
+                  >
+                    {member.initials}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-white font-semibold text-lg mb-0.5">{member.name}</h3>
+                    <p className="text-sm mb-3" style={{ color: "#14B8A6" }}>{member.role}</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {member.tags.map((tag) => (
+                        <span key={tag} className="text-xs font-mono px-2 py-0.5 rounded"
+                          style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8" }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-sm text-slate-500 leading-relaxed">{member.bio}</p>
+                  </div>
                 </div>
-                <h3 className="text-white font-semibold mb-1">{member.name}</h3>
-                <p className="text-xs mb-3" style={{ color: "#14B8A6" }}>{member.role}</p>
-                <p className="text-sm text-slate-500 leading-relaxed">{member.bio}</p>
               </div>
             ))}
           </div>

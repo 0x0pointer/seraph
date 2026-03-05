@@ -1,12 +1,16 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import stripe as stripe_lib
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_session
 from app.api.routes.auth import get_current_user
 from app.models.billing import Invoice, PaymentMethod
+from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.billing import (
     AddPaymentMethodRequest,
@@ -14,7 +18,10 @@ from app.schemas.billing import (
     InvoiceRead,
     PaymentMethodRead,
     UpdateInvoiceRequest,
+    _default_period_start,
+    _default_period_end,
 )
+from app.services import stripe_service
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -154,6 +161,14 @@ async def admin_create_invoice(
 ):
     _require_admin(current_user)
 
+    # Validate user exists
+    target_user = (await session.execute(select(User).where(User.id == data.user_id))).scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    period_start = data.period_start or _default_period_start()
+    period_end = data.period_end or _default_period_end()
+
     # Generate invoice number: INV-YYYYMMDD-<user_id>-<count+1>
     result = await session.execute(
         select(Invoice).where(Invoice.user_id == data.user_id)
@@ -169,8 +184,8 @@ async def admin_create_invoice(
         currency=data.currency.upper(),
         status=data.status,
         description=data.description,
-        period_start=data.period_start,
-        period_end=data.period_end,
+        period_start=period_start,
+        period_end=period_end,
         paid_at=paid_at,
     )
     session.add(invoice)
@@ -201,3 +216,262 @@ async def admin_update_invoice(
     await session.commit()
     await session.refresh(invoice)
     return invoice
+
+
+# ── Stripe ────────────────────────────────────────────────────────────────────
+
+
+class CheckoutRequest(BaseModel):
+    plan: str           # "starter" | "pro"
+    entity: str = "user"   # "user" | "org"
+
+
+@router.post("/checkout")
+async def create_checkout(
+    data: CheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if data.plan not in ("starter", "pro"):
+        raise HTTPException(400, "Invalid plan — must be 'starter' or 'pro'")
+    if not settings.stripe_secret_key:
+        raise HTTPException(503, "Stripe is not configured on this server")
+
+    if data.entity == "org" and current_user.org_id:
+        org = (await session.execute(
+            select(Organization).where(Organization.id == current_user.org_id)
+        )).scalar_one_or_none()
+        if not org:
+            raise HTTPException(404, "Organization not found")
+        customer_id = stripe_service.get_or_create_customer(
+            current_user.email or "", org.name, org.stripe_customer_id
+        )
+        org.stripe_customer_id = customer_id
+        session.add(org)
+    else:
+        customer_id = stripe_service.get_or_create_customer(
+            current_user.email or "", current_user.full_name or current_user.username,
+            current_user.stripe_customer_id
+        )
+        current_user.stripe_customer_id = customer_id
+        session.add(current_user)
+
+    await session.commit()
+
+    base = settings.frontend_url
+    url = stripe_service.create_checkout_session(
+        customer_id, data.plan,
+        success_url=f"{base}/dashboard/billing",
+        cancel_url=f"{base}/dashboard/billing",
+    )
+    return {"url": url}
+
+
+@router.get("/portal")
+async def billing_portal(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if not settings.stripe_secret_key:
+        raise HTTPException(503, "Stripe is not configured on this server")
+
+    customer_id = current_user.stripe_customer_id
+    if not customer_id and current_user.org_id:
+        org = (await session.execute(
+            select(Organization).where(Organization.id == current_user.org_id)
+        )).scalar_one_or_none()
+        customer_id = org.stripe_customer_id if org else None
+    if not customer_id:
+        raise HTTPException(400, "No active Stripe subscription found")
+
+    url = stripe_service.create_portal_session(
+        customer_id, f"{settings.frontend_url}/dashboard/billing"
+    )
+    return {"url": url}
+
+
+@router.post("/webhook", include_in_schema=False)
+async def stripe_webhook(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe_service.construct_webhook_event(payload, sig)
+    except Exception:
+        raise HTTPException(400, "Invalid webhook signature")
+
+    etype = event["type"]
+    data = event["data"]["object"]
+
+    if etype == "checkout.session.completed":
+        customer_id = data["customer"]
+        sub_id = data["subscription"]
+        plan = data.get("metadata", {}).get("plan", "pro")
+        user = (await session.execute(
+            select(User).where(User.stripe_customer_id == customer_id)
+        )).scalar_one_or_none()
+        if user:
+            user.plan = plan
+            user.stripe_subscription_id = sub_id
+            user.subscription_status = "active"
+            session.add(user)
+        else:
+            org = (await session.execute(
+                select(Organization).where(Organization.stripe_customer_id == customer_id)
+            )).scalar_one_or_none()
+            if org:
+                org.plan = plan
+                org.stripe_subscription_id = sub_id
+                org.subscription_status = "active"
+                session.add(org)
+
+    elif etype == "invoice.paid":
+        await _upsert_stripe_invoice(session, data, "paid")
+
+    elif etype == "invoice.payment_failed":
+        await _upsert_stripe_invoice(session, data, "failed")
+        await _set_subscription_status(session, data["customer"], "past_due")
+
+    elif etype == "customer.subscription.deleted":
+        await _set_subscription_status(session, data["customer"], "canceled")
+        await _downgrade_to_free(session, data["customer"])
+
+    elif etype == "customer.subscription.updated":
+        status = data.get("status", "active")
+        await _set_subscription_status(session, data["customer"], status)
+
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/cancel")
+async def cancel_subscription(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if not settings.stripe_secret_key:
+        raise HTTPException(503, "Stripe is not configured on this server")
+
+    sub_id = current_user.stripe_subscription_id
+    if not sub_id and current_user.org_id:
+        org = (await session.execute(
+            select(Organization).where(Organization.id == current_user.org_id)
+        )).scalar_one_or_none()
+        sub_id = org.stripe_subscription_id if org else None
+    if not sub_id:
+        raise HTTPException(400, "No active subscription found")
+
+    stripe_lib.Subscription.modify(sub_id, cancel_at_period_end=True)
+    return {"detail": "Subscription will cancel at end of billing period"}
+
+
+# ── Stripe webhook helpers ────────────────────────────────────────────────────
+
+async def _upsert_stripe_invoice(session, data: dict, status: str) -> None:
+    """Create or update a local invoice record from a Stripe invoice event."""
+    stripe_inv_id = data.get("id")
+    if not stripe_inv_id:
+        return
+
+    customer_id = data.get("customer")
+    sub_id = data.get("subscription")
+    amount_paid = (data.get("amount_paid") or data.get("amount_due") or 0) / 100.0
+    hosted_url = data.get("hosted_invoice_url")
+    period_start_ts = data.get("period_start")
+    period_end_ts = data.get("period_end")
+
+    from datetime import datetime, timezone as tz
+    period_start = datetime.fromtimestamp(period_start_ts, tz=tz.utc) if period_start_ts else _default_period_start()
+    period_end = datetime.fromtimestamp(period_end_ts, tz=tz.utc) if period_end_ts else _default_period_end()
+
+    # Look up the user or org owning this customer_id
+    user = (await session.execute(
+        select(User).where(User.stripe_customer_id == customer_id)
+    )).scalar_one_or_none()
+    user_id = user.id if user else None
+
+    if not user_id:
+        # Org-level customer — find any user in that org
+        org = (await session.execute(
+            select(Organization).where(Organization.stripe_customer_id == customer_id)
+        )).scalar_one_or_none()
+        if org:
+            owner = (await session.execute(
+                select(User).where(User.id == org.owner_id)
+            )).scalar_one_or_none()
+            user_id = owner.id if owner else None
+
+    if not user_id:
+        return
+
+    # Check if invoice already exists
+    existing = (await session.execute(
+        select(Invoice).where(Invoice.stripe_invoice_id == stripe_inv_id)
+    )).scalar_one_or_none()
+
+    if existing:
+        existing.status = status
+        if status == "paid" and not existing.paid_at:
+            existing.paid_at = datetime.now(tz.utc)
+        existing.hosted_invoice_url = hosted_url
+        session.add(existing)
+    else:
+        count = (await session.execute(
+            select(Invoice).where(Invoice.user_id == user_id)
+        )).scalars().all()
+        inv_num = f"INV-{datetime.now(tz.utc).strftime('%Y%m%d')}-{user_id}-{len(count) + 1:03d}"
+        invoice = Invoice(
+            user_id=user_id,
+            invoice_number=inv_num,
+            amount=amount_paid,
+            currency="USD",
+            status=status,
+            description="Subscription payment",
+            period_start=period_start,
+            period_end=period_end,
+            paid_at=datetime.now(tz.utc) if status == "paid" else None,
+            stripe_invoice_id=stripe_inv_id,
+            stripe_subscription_id=sub_id,
+            hosted_invoice_url=hosted_url,
+        )
+        session.add(invoice)
+
+
+async def _set_subscription_status(session, customer_id: str, status: str) -> None:
+    user = (await session.execute(
+        select(User).where(User.stripe_customer_id == customer_id)
+    )).scalar_one_or_none()
+    if user:
+        user.subscription_status = status
+        session.add(user)
+        return
+
+    org = (await session.execute(
+        select(Organization).where(Organization.stripe_customer_id == customer_id)
+    )).scalar_one_or_none()
+    if org:
+        org.subscription_status = status
+        session.add(org)
+
+
+async def _downgrade_to_free(session, customer_id: str) -> None:
+    user = (await session.execute(
+        select(User).where(User.stripe_customer_id == customer_id)
+    )).scalar_one_or_none()
+    if user:
+        user.plan = "free"
+        user.stripe_subscription_id = None
+        user.subscription_status = "inactive"
+        session.add(user)
+        return
+
+    org = (await session.execute(
+        select(Organization).where(Organization.stripe_customer_id == customer_id)
+    )).scalar_one_or_none()
+    if org:
+        org.plan = "free"
+        org.stripe_subscription_id = None
+        org.subscription_status = "inactive"
+        session.add(org)

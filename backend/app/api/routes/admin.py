@@ -234,6 +234,13 @@ async def create_user(
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
 
+    if data.email:
+        email_taken = (
+            await session.execute(select(User).where(User.email == data.email.lower().strip()))
+        ).scalar_one_or_none()
+        if email_taken:
+            raise HTTPException(status_code=409, detail="Email already in use")
+
     user = User(
         username=data.username.strip(),
         full_name=data.full_name.strip() if data.full_name else None,
@@ -242,7 +249,10 @@ async def create_user(
         role=data.role,
     )
     session.add(user)
-    await session.flush()  # get user.id before commit
+    try:
+        await session.flush()  # get user.id before commit
+    except Exception:
+        raise HTTPException(status_code=409, detail="Username or email already in use")
     await log_event(session, event_type="user.created",
         actor_id=current_user.id, actor_username=current_user.username,
         target_type="user", target_id=user.id, target_name=user.username,
@@ -305,8 +315,8 @@ async def change_user_plan(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
-    if data.plan not in ("free", "pro", "enterprise"):
-        raise HTTPException(status_code=422, detail="Plan must be one of: free, pro, enterprise")
+    if data.plan not in ("free", "starter", "pro", "enterprise"):
+        raise HTTPException(status_code=422, detail="Plan must be one of: free, starter, pro, enterprise")
 
     user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
@@ -1022,8 +1032,8 @@ async def admin_change_org_plan(
 ):
     """Admin: change an organization's plan."""
     from app.core.plan_limits import get_limits
-    if data.plan not in ("free", "pro", "enterprise"):
-        raise HTTPException(status_code=422, detail="Plan must be 'free', 'pro', or 'enterprise'")
+    if data.plan not in ("free", "starter", "pro", "enterprise"):
+        raise HTTPException(status_code=422, detail="Plan must be one of: free, starter, pro, enterprise")
 
     org = (await session.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
     if not org:

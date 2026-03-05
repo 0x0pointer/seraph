@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 52" fill="none">
+
+  <!-- PROJECT — fixed width 195px, light tracking, slate color -->
+  <text
+    x="2"
+    y="38"
+    textLength="195"
+    lengthAdjust="spacing"
+    font-family="ui-monospace, 'SF Mono', 'Cascadia Code', 'Courier New', monospace"
+    font-size="28"
+    font-weight="400"
+    fill="#cbd5e1"
+  >PROJECT</text>
+
+  <!-- 12px gap → block starts at 209 -->
+  <!-- Teal filled block -->
+  <rect x="209" y="1" width="148" height="50" rx="8" fill="#14B8A6"/>
+  <!-- Subtle inner border -->
+  <rect x="209" y="1" width="148" height="50" rx="8" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+
+  <!-- 73 inside block -->
+  <text
+    x="283"
+    y="38"
+    font-family="ui-monospace, 'SF Mono', 'Cascadia Code', 'Courier New', monospace"
+    font-size="30"
+    font-weight="700"
+    fill="#0A0F1F"
+    text-anchor="middle"
+    letter-spacing="2"
+  >73</text>
+
+</svg>

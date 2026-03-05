@@ -21,6 +21,17 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      // Token expired or invalid — clear session and redirect to login
+      const { default: Cookies } = await import("js-cookie");
+      Cookies.remove("token");
+      Cookies.remove("admin_token");
+      Cookies.remove("impersonating_user");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      throw new Error("Session expired");
+    }
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(error.detail || "Request failed");
   }

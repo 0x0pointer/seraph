@@ -388,6 +388,8 @@ async def get_plan(
         "member_count": member_count,
         "allowed_input_scanners": sorted(limits["input_scanners"]) if limits["input_scanners"] else None,
         "allowed_output_scanners": sorted(limits["output_scanners"]) if limits["output_scanners"] else None,
+        "subscription_status": getattr(current_user, "subscription_status", "inactive"),
+        "has_stripe": bool(getattr(current_user, "stripe_customer_id", None)),
     }
 
 

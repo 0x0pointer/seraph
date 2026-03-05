@@ -16,3 +16,7 @@ class Organization(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     owner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Stripe billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String(20), nullable=False, default="inactive")

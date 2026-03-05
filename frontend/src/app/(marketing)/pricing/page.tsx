@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Cookies from "js-cookie";
+
+const PAID_PLANS = ["starter", "pro"] as const;
+type PaidPlan = typeof PAID_PLANS[number];
 
 const tiers = [
   {
     name: "Free",
+    plan: null,
     price: "$0",
     sub: "forever",
     desc: "Evaluate and prototype — no credit card required.",
@@ -24,6 +29,7 @@ const tiers = [
   },
   {
     name: "Starter",
+    plan: "starter" as PaidPlan,
     price: "$29",
     sub: "per month",
     desc: "For small apps and indie developers shipping AI features.",
@@ -42,6 +48,7 @@ const tiers = [
   },
   {
     name: "Pro",
+    plan: "pro" as PaidPlan,
     price: "$99",
     sub: "per month",
     desc: "Full guardrail coverage for teams shipping AI to production.",
@@ -63,6 +70,7 @@ const tiers = [
   },
   {
     name: "Enterprise",
+    plan: null,
     price: "Custom",
     sub: "contact us",
     desc: "Unlimited scale, dedicated engineering, and SLA guarantees.",
@@ -150,8 +158,45 @@ const faqs = [
   },
 ];
 
+async function startCheckout(plan: PaidPlan): Promise<void> {
+  const token = Cookies.get("token");
+  const res = await fetch("/api/billing/checkout", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ plan, entity: "user" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to start checkout" }));
+    throw new Error(err.detail || "Failed to start checkout");
+  }
+  const data = await res.json();
+  if (data.url) window.location.href = data.url;
+}
+
 export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlan | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  async function handleUpgrade(plan: PaidPlan) {
+    const token = Cookies.get("token");
+    if (!token) {
+      window.location.href = `/register?plan=${plan}`;
+      return;
+    }
+    setCheckoutError("");
+    setLoadingPlan(plan);
+    try {
+      await startCheckout(plan);
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : "Failed to start checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
 
   return (
     <div style={{ background: "#0A0F1F" }} className="min-h-screen">
@@ -167,6 +212,13 @@ export default function PricingPage() {
             No seat fees. No per-scanner charges. Pick a plan, point your API calls at Project 73 Security, and every prompt and response is protected.
           </p>
         </div>
+
+        {checkoutError && (
+          <div className="mb-8 px-4 py-3 rounded text-sm"
+            style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171" }}>
+            {checkoutError}
+          </div>
+        )}
 
         {/* Tier cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-20">
@@ -217,17 +269,37 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <a
-                  href={tier.href}
-                  className="block text-center py-2.5 px-4 rounded text-sm font-medium transition-opacity hover:opacity-90"
-                  style={
-                    tier.highlight
-                      ? { background: "#14B8A6", color: "#0A0F1F" }
-                      : { border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }
-                  }
-                >
-                  {tier.cta}
-                </a>
+                {/* CTA */}
+                {tier.plan ? (
+                  <button
+                    onClick={() => handleUpgrade(tier.plan!)}
+                    disabled={loadingPlan === tier.plan}
+                    className="block w-full text-center py-2.5 px-4 rounded text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={
+                      tier.highlight
+                        ? { background: "#14B8A6", color: "#0A0F1F" }
+                        : { border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }
+                    }
+                  >
+                    {loadingPlan === tier.plan ? "Redirecting…" : tier.cta}
+                  </button>
+                ) : tier.href.startsWith("mailto") ? (
+                  <a
+                    href={tier.href}
+                    className="block text-center py-2.5 px-4 rounded text-sm font-medium transition-opacity hover:opacity-90"
+                    style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }}
+                  >
+                    {tier.cta}
+                  </a>
+                ) : (
+                  <Link
+                    href={tier.href}
+                    className="block text-center py-2.5 px-4 rounded text-sm font-medium transition-opacity hover:opacity-90"
+                    style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }}
+                  >
+                    {tier.cta}
+                  </Link>
+                )}
               </div>
             </div>
           ))}

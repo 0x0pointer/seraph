@@ -1346,6 +1346,7 @@ function BillingAdminTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [newInv, setNewInv] = useState({ user_id: "", amount: "", currency: "USD", description: "", status: "open" });
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   const { data: billing } = useSWR<BillingStats>(
     "/admin/billing/stats",
@@ -1370,6 +1371,7 @@ function BillingAdminTab() {
   async function handleCreate() {
     if (!newInv.user_id || !newInv.amount) return;
     setCreating(true);
+    setCreateError("");
     try {
       await api.post("/billing/admin/invoices", {
         user_id: parseInt(newInv.user_id),
@@ -1381,6 +1383,8 @@ function BillingAdminTab() {
       await mutateInvoices();
       setShowCreate(false);
       setNewInv({ user_id: "", amount: "", currency: "USD", description: "", status: "open" });
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create invoice");
     } finally { setCreating(false); }
   }
 
@@ -1458,10 +1462,13 @@ function BillingAdminTab() {
                 className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
                 {creating ? "Creating…" : "Create"}
               </button>
-              <button onClick={() => setShowCreate(false)} className="text-sm px-4 py-2 rounded text-slate-500 hover:text-white transition-colors">
+              <button onClick={() => { setShowCreate(false); setCreateError(""); }} className="text-sm px-4 py-2 rounded text-slate-500 hover:text-white transition-colors">
                 Cancel
               </button>
             </div>
+            {createError && (
+              <p className="text-xs text-red-400 font-mono">{createError}</p>
+            )}
           </div>
         )}
 

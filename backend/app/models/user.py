@@ -27,3 +27,7 @@ class User(Base):
     plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False)
     month_scan_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     month_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Stripe billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String(20), nullable=False, default="inactive")

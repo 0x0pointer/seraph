@@ -179,6 +179,16 @@ async def _run_migrations():
         "ALTER TABLE api_connections ADD COLUMN use_custom_guardrails BOOLEAN DEFAULT 0",
         # connection_guardrails table — per-guardrail threshold override
         "ALTER TABLE connection_guardrails ADD COLUMN threshold_override FLOAT",
+        # Stripe billing columns
+        "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'inactive'",
+        "ALTER TABLE organizations ADD COLUMN stripe_customer_id VARCHAR(255)",
+        "ALTER TABLE organizations ADD COLUMN stripe_subscription_id VARCHAR(255)",
+        "ALTER TABLE organizations ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'inactive'",
+        "ALTER TABLE invoices ADD COLUMN stripe_invoice_id VARCHAR(255)",
+        "ALTER TABLE invoices ADD COLUMN stripe_subscription_id VARCHAR(255)",
+        "ALTER TABLE invoices ADD COLUMN hosted_invoice_url TEXT",
     ]
     async with async_session_maker() as session:
         for stmt in migrations:

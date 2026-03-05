@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@project73.ai"
     smtp_tls: bool = True   # use STARTTLS; set False for plain / SSL-on-connect
 
+    # Seed admin password — required in production (debug=False)
+    admin_password: str = ""
+
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_starter: str = ""
+    stripe_price_pro: str = ""
+
 
 settings = Settings()
 

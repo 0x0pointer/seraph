@@ -1,6 +1,9 @@
 """
-Seed script — creates default admin user and sample guardrail configs.
+Seed script — creates the admin user and guardrail configs.
 Run: python seed.py
+
+The admin password is read from the ADMIN_PASSWORD env var (or .env file).
+In production (DEBUG=false) the script refuses to run without it.
 """
 import asyncio
 import sys
@@ -8,6 +11,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from app.core.config import settings
 from app.core.database import async_session_maker, create_tables
 from app.core.guardrail_catalog import GUARDRAIL_CATALOG
 from app.core.security import hash_password
@@ -20,6 +24,16 @@ SEED_GUARDRAILS = GUARDRAIL_CATALOG
 
 
 async def seed():
+    # Resolve admin password
+    admin_password = settings.admin_password
+    if not admin_password:
+        if settings.debug:
+            admin_password = "admin"
+            print("WARNING: ADMIN_PASSWORD not set — using insecure default 'admin'. Set ADMIN_PASSWORD in .env for production.")
+        else:
+            print("ERROR: ADMIN_PASSWORD is not set. Add it to your .env file and re-run.")
+            sys.exit(1)
+
     print("Creating tables...")
     await create_tables()
 
@@ -32,51 +46,18 @@ async def seed():
                 username="admin",
                 full_name="Administrator",
                 email="admin@project73.ai",
-                hashed_password=hash_password("admin"),
+                hashed_password=hash_password(admin_password),
                 role="admin",
             )
             session.add(admin)
             await session.commit()
-            print("Created admin user (username: admin, password: admin)")
+            print("Created admin user (username: admin)")
         else:
-            # Backfill full_name/email if missing
             if not existing_admin.full_name:
                 existing_admin.full_name = "Administrator"
                 existing_admin.email = "admin@project73.ai"
                 await session.commit()
             print("Admin user already exists, skipping.")
-
-        # Create normal user account
-        result = await session.execute(select(User).where(User.username == "user"))
-        existing_user = result.scalar_one_or_none()
-        if not existing_user:
-            normal_user = User(
-                username="user",
-                full_name="Demo User",
-                email="user@project73.ai",
-                hashed_password=hash_password("user123"),
-                role="viewer",
-            )
-            session.add(normal_user)
-            await session.commit()
-            print("Created normal user (username: user, password: user123)")
-        else:
-            print("Normal user already exists, skipping.")
-
-        # Keep viewer account for backward compatibility
-        result = await session.execute(select(User).where(User.username == "viewer"))
-        existing_viewer = result.scalar_one_or_none()
-        if not existing_viewer:
-            viewer = User(
-                username="viewer",
-                full_name="Viewer Account",
-                email="viewer@project73.ai",
-                hashed_password=hash_password("viewer123"),
-                role="viewer",
-            )
-            session.add(viewer)
-            await session.commit()
-            print("Created viewer user (username: viewer, password: viewer123)")
 
         # Create guardrail configs — insert any missing (scanner_type, direction) pairs
         result = await session.execute(select(GuardrailConfig))

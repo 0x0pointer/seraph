@@ -11,3 +11,4 @@ python-multipart==0.0.9
 httpx==0.27.0
 slowapi==0.1.9
 llm-guard==0.3.16
+stripe>=8.0.0

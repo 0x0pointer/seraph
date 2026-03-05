@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import Cookies from "js-cookie";
 import { api } from "@/lib/api";
 import { format } from "date-fns";
 
@@ -21,6 +22,8 @@ interface PlanInfo {
   member_count: number | null;
   allowed_input_scanners: string[] | null;
   allowed_output_scanners: string[] | null;
+  subscription_status?: string;
+  has_stripe?: boolean;
 }
 
 interface PaymentMethod {
@@ -45,12 +48,15 @@ interface Invoice {
   period_end: string;
   paid_at: string | null;
   created_at: string;
+  stripe_invoice_id: string | null;
+  hosted_invoice_url: string | null;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PLAN_META: Record<string, { label: string; color: string; bg: string }> = {
   free:       { label: "Free",       color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+  starter:    { label: "Starter",    color: "#38bdf8", bg: "rgba(56,189,248,0.1)"  },
   pro:        { label: "Pro",        color: "#14B8A6", bg: "rgba(20,184,166,0.1)"  },
   enterprise: { label: "Enterprise", color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
 };
@@ -823,13 +829,28 @@ function InvoicesSection({ plan }: { plan: string }) {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button
-                        onClick={() => printInvoice(inv, plan)}
-                        className="text-xs font-medium px-2.5 py-1 rounded transition-colors"
-                        style={{ background: "rgba(20,184,166,0.08)", color: "#14B8A6", border: "1px solid rgba(20,184,166,0.15)" }}
-                      >
-                        ↓ PDF
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {inv.hosted_invoice_url && (
+                          <a
+                            href={inv.hosted_invoice_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium px-2.5 py-1 rounded transition-colors"
+                            style={{ background: "rgba(56,189,248,0.08)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.15)" }}
+                          >
+                            View in Stripe ↗
+                          </a>
+                        )}
+                        {!inv.stripe_invoice_id && (
+                          <button
+                            onClick={() => printInvoice(inv, plan)}
+                            className="text-xs font-medium px-2.5 py-1 rounded transition-colors"
+                            style={{ background: "rgba(20,184,166,0.08)", color: "#14B8A6", border: "1px solid rgba(20,184,166,0.15)" }}
+                          >
+                            ↓ PDF
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -842,21 +863,129 @@ function InvoicesSection({ plan }: { plan: string }) {
   );
 }
 
+// ── Stripe redirect helper ────────────────────────────────────────────────────
+
+async function redirectToStripe(endpoint: string, body?: object) {
+  const token = Cookies.get("token");
+  const res = await fetch(`/api${endpoint}`, {
+    method: body !== undefined ? "POST" : "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Request failed");
+  if (data.url) window.location.href = data.url;
+}
+
+// ── Subscription status banner ────────────────────────────────────────────────
+
+function SubscriptionBanner({ status }: { status: string }) {
+  if (status === "active") {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded text-xs"
+        style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}>
+        <span className="w-1.5 h-1.5 rounded-full bg-teal-400 inline-block" />
+        Subscription active
+      </div>
+    );
+  }
+  if (status === "past_due") {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded text-xs"
+        style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+        Payment failed — please update your card in the billing portal
+      </div>
+    );
+  }
+  if (status === "canceled") {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded text-xs"
+        style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171" }}>
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+        Subscription canceled — active until end of billing period
+      </div>
+    );
+  }
+  return null;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
-  const { data: plan, isLoading } = useSWR<PlanInfo>(
+  const { data: plan, isLoading, mutate: mutatePlan } = useSWR<PlanInfo>(
     "/auth/plan",
     () => api.get<PlanInfo>("/auth/plan"),
     { revalidateOnFocus: false },
   );
 
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [stripeError, setStripeError] = useState("");
+
+  async function handleCheckout(planKey: string) {
+    setStripeError("");
+    setCheckoutLoading(planKey);
+    try {
+      await redirectToStripe("/billing/checkout", { plan: planKey, entity: plan?.is_org_plan ? "org" : "user" });
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : "Failed to start checkout");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  }
+
+  async function handlePortal() {
+    setStripeError("");
+    setPortalLoading(true);
+    try {
+      await redirectToStripe("/billing/portal");
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : "Failed to open billing portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!confirm("Cancel your subscription? It will remain active until the end of the billing period.")) return;
+    setStripeError("");
+    setCancelLoading(true);
+    try {
+      await api.post("/billing/cancel", {});
+      await mutatePlan();
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : "Failed to cancel subscription");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
   const meta = PLAN_META[plan?.plan ?? "free"] ?? PLAN_META.free;
   const isFree = !plan || plan.plan === "free";
   const isPro = plan?.plan === "pro";
+  const isStarter = plan?.plan === "starter";
+  const subStatus = plan?.subscription_status ?? "inactive";
+  const hasStripe = plan?.has_stripe ?? false;
 
   return (
     <div className="max-w-5xl space-y-6">
+
+      {/* Subscription status banner */}
+      {!isLoading && subStatus && subStatus !== "inactive" && (
+        <SubscriptionBanner status={subStatus} />
+      )}
+
+      {stripeError && (
+        <div className="px-4 py-2.5 rounded text-xs"
+          style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171" }}>
+          {stripeError}
+        </div>
+      )}
 
       {/* Current plan card */}
       <div className="rounded border border-white/5 p-6 relative overflow-hidden" style={{ background: "#0d1426" }}>
@@ -885,20 +1014,24 @@ export default function BillingPage() {
               </>
             )}
           </div>
-          {isFree && (
-            <Link href="/pricing"
-              className="shrink-0 text-xs font-medium px-4 py-2 rounded transition-opacity hover:opacity-90"
-              style={{ background: "#14B8A6", color: "#0A0F1F" }}>
-              Upgrade plan
-            </Link>
-          )}
-          {isPro && (
-            <a href="mailto:sales@talixshield.com"
-              className="shrink-0 text-xs font-medium px-4 py-2 rounded border text-slate-400 hover:text-white hover:border-white/20 transition-colors"
-              style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-              Talk to sales →
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {hasStripe && (
+              <button
+                onClick={handlePortal}
+                disabled={portalLoading}
+                className="text-xs font-medium px-4 py-2 rounded border transition-colors disabled:opacity-50"
+                style={{ borderColor: "rgba(255,255,255,0.1)", color: "#94a3b8" }}>
+                {portalLoading ? "Loading…" : "Manage subscription"}
+              </button>
+            )}
+            {isPro && (
+              <a href="mailto:sales@talixshield.com"
+                className="text-xs font-medium px-4 py-2 rounded border text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+                style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                Talk to sales →
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Scan usage */}
@@ -972,45 +1105,113 @@ export default function BillingPage() {
       {/* Invoice history */}
       <InvoicesSection plan={plan?.plan ?? "free"} />
 
-      {/* Upgrade / downgrade info */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
-        <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-4">Change plan</p>
-        <div className="space-y-4">
-          {isFree && (
-            <div>
-              <p className="text-sm font-medium text-white mb-1">Upgrade to Pro</p>
-              <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                Get 100,000 scans/month, all 40+ scanners, 90-day audit retention, and unlimited API connections for $49/month.
-              </p>
-              <Link href="/pricing" className="text-xs font-medium transition-colors hover:opacity-80"
-                style={{ color: "#14B8A6" }}>
-                View pricing →
-              </Link>
+      {/* Plan cards / upgrade */}
+      {(isFree || isStarter) && (
+        <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+          <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-4">Upgrade your plan</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Starter card */}
+            <div className="rounded border p-5 space-y-3 relative"
+              style={{
+                background: isStarter ? "rgba(56,189,248,0.04)" : "#0A0F1F",
+                borderColor: isStarter ? "rgba(56,189,248,0.3)" : "rgba(255,255,255,0.06)",
+              }}>
+              {isStarter && (
+                <span className="absolute top-3 right-3 text-xs font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8" }}>
+                  current
+                </span>
+              )}
+              <div>
+                <p className="text-sm font-semibold text-white mb-0.5">Starter</p>
+                <p className="text-2xl font-bold" style={{ color: "#38bdf8" }}>$29
+                  <span className="text-xs font-normal text-slate-500">/mo</span>
+                </p>
+              </div>
+              <ul className="text-xs text-slate-400 space-y-1">
+                <li>✓ 10,000 scans / month</li>
+                <li>✓ Core scanners</li>
+                <li>✓ 30-day audit retention</li>
+                <li>✓ 3 API connections</li>
+              </ul>
+              {!isStarter && (
+                <button
+                  onClick={() => handleCheckout("starter")}
+                  disabled={checkoutLoading === "starter"}
+                  className="w-full text-xs font-medium py-2 rounded transition-opacity disabled:opacity-50"
+                  style={{ background: "#38bdf8", color: "#0A0F1F" }}>
+                  {checkoutLoading === "starter" ? "Redirecting…" : "Upgrade to Starter →"}
+                </button>
+              )}
             </div>
-          )}
-          {isPro && (
-            <div>
-              <p className="text-sm font-medium text-white mb-1">Upgrade to Enterprise</p>
-              <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                Unlimited scans, on-premise deployment, SSO/SAML, custom scanner development, and a dedicated support engineer.
-              </p>
-              <a href="mailto:sales@talixshield.com" className="text-xs font-medium transition-colors hover:opacity-80"
-                style={{ color: "#14B8A6" }}>
+
+            {/* Pro card */}
+            <div className="rounded border p-5 space-y-3 relative"
+              style={{
+                background: isPro ? "rgba(20,184,166,0.04)" : "#0A0F1F",
+                borderColor: isPro ? "rgba(20,184,166,0.3)" : "rgba(255,255,255,0.06)",
+              }}>
+              {isPro && (
+                <span className="absolute top-3 right-3 text-xs font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(20,184,166,0.15)", color: "#14B8A6" }}>
+                  current
+                </span>
+              )}
+              <div>
+                <p className="text-sm font-semibold text-white mb-0.5">Pro</p>
+                <p className="text-2xl font-bold" style={{ color: "#14B8A6" }}>$99
+                  <span className="text-xs font-normal text-slate-500">/mo</span>
+                </p>
+              </div>
+              <ul className="text-xs text-slate-400 space-y-1">
+                <li>✓ 100,000 scans / month</li>
+                <li>✓ All 40+ scanners</li>
+                <li>✓ 90-day audit retention</li>
+                <li>✓ Unlimited API connections</li>
+              </ul>
+              {!isPro && (
+                <button
+                  onClick={() => handleCheckout("pro")}
+                  disabled={checkoutLoading === "pro"}
+                  className="w-full text-xs font-medium py-2 rounded transition-opacity disabled:opacity-50"
+                  style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                  {checkoutLoading === "pro" ? "Redirecting…" : "Upgrade to Pro →"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Enterprise CTA */}
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Need unlimited scans, on-premise deployment, SSO/SAML, or a dedicated engineer?{" "}
+              <a href="mailto:sales@talixshield.com" className="text-slate-400 hover:text-white transition-colors">
                 Contact sales →
               </a>
-            </div>
-          )}
-          <div className="border-t border-white/5 pt-4">
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Need to downgrade or cancel? Email{" "}
-              <a href="mailto:support@talixshield.com" className="text-slate-400 hover:text-white transition-colors">
-                support@talixshield.com
-              </a>
-              {" "}and we&apos;ll handle it within one business day. Downgrades take effect at the end of your current billing cycle.
             </p>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Cancel subscription */}
+      {hasStripe && subStatus === "active" && (
+        <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+          <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-3">Manage subscription</p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-slate-600 leading-relaxed max-w-md">
+              Cancel your subscription at any time. Access continues until the end of the current billing period, then reverts to Free.
+            </p>
+            <button
+              onClick={handleCancel}
+              disabled={cancelLoading}
+              className="shrink-0 text-xs font-medium px-4 py-2 rounded border transition-colors disabled:opacity-50"
+              style={{ borderColor: "rgba(248,113,113,0.25)", color: "#f87171" }}>
+              {cancelLoading ? "Canceling…" : "Cancel subscription"}
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
