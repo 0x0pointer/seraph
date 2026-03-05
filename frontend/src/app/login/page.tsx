@@ -103,7 +103,7 @@ function LoginForm({ onForgotPassword, onForgotUsername }: { onForgotPassword: (
             style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
             onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
-            placeholder="admin"
+            placeholder="username"
           />
         </div>
         <div>
