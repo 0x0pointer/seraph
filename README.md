@@ -12,7 +12,7 @@ Project 73 wraps the llm-guard scanner library with a FastAPI backend, SQLite-pe
 
 | Area | Details |
 |------|---------|
-| **40 scanners** | 16 input + 24 output scanners via llm-guard |
+| **39 scanners** | 16 input + 23 output scanners via llm-guard |
 | **REST API** | FastAPI backend with JWT auth + connection API keys |
 | **Per-connection guardrails** | Choose exactly which scanners run per API key |
 | **Dynamic config** | Enable/disable and tune scanners live — no redeployment |
@@ -20,6 +20,7 @@ Project 73 wraps the llm-guard scanner library with a FastAPI backend, SQLite-pe
 | **Analytics** | Violation trends, top scanners, risk scores, spend tracking |
 | **Multi-tenant** | Organisations, teams, roles (`admin`, `org_admin`, `viewer`) |
 | **Admin panel** | Super-admin UI — manage users, orgs, platform settings |
+| **Stripe billing** | Checkout, billing portal, webhooks — Free / Starter / Pro / Enterprise |
 | **Chatbot demo** | Embedded Flask chatbot showing guardrails in action |
 | **Marketing site** | Public-facing landing page, docs, pricing, terms, privacy |
 
@@ -63,7 +64,7 @@ Project 73 wraps the llm-guard scanner library with a FastAPI backend, SQLite-pe
 
 ## Tech Stack
 
-**Backend:** Python 3.11+, FastAPI, SQLAlchemy 2 (async), aiosqlite, Pydantic v2, python-jose, passlib[bcrypt]
+**Backend:** Python 3.11+, FastAPI, SQLAlchemy 2 (async), aiosqlite, Pydantic v2, python-jose, passlib[bcrypt], stripe
 
 **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, Recharts, SWR, js-cookie
 
@@ -117,7 +118,7 @@ docker-compose up --build
 - API + Swagger: http://localhost:8000/docs
 - Chatbot: http://localhost:3001
 
-Default credentials: `admin` / `LoL#123456`
+Default admin username: `admin` — password set via `ADMIN_PASSWORD` env var (required in production).
 
 ---
 
@@ -198,6 +199,19 @@ SMTP_USER=you@gmail.com
 SMTP_PASSWORD=app-password
 SMTP_FROM=noreply@project73.ai
 SMTP_TLS=true
+
+# Admin seed password (required in production — used by seed.py to create the admin account)
+ADMIN_PASSWORD=your-strong-password
+
+# JWT expiry in minutes (default: 1440 = 24h)
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Stripe billing (leave blank to disable billing features)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
 ```
 
 Create `chatbot/.env`:
@@ -233,6 +247,10 @@ All endpoints are prefixed with `/api`. Swagger UI available at `http://localhos
 | `GET` | `/api/audit` | JWT | Audit log |
 | `GET` | `/api/analytics/summary` | JWT | Scan statistics |
 | `GET` | `/api/public/platform-info` | — | Company name, chatbot status |
+| `POST` | `/api/billing/checkout` | JWT | Start Stripe Checkout session |
+| `GET` | `/api/billing/portal` | JWT | Open Stripe Billing Portal |
+| `POST` | `/api/billing/cancel` | JWT | Cancel subscription at period end |
+| `POST` | `/api/billing/webhook` | Stripe sig | Stripe event webhook (unauthenticated) |
 
 ### Scan Example
 
@@ -325,7 +343,7 @@ Response:
 
 ## Security
 
-- JWT tokens expire in 60 minutes (configurable)
+- JWT tokens expire in 1440 minutes / 24 h by default (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`)
 - Password minimum 12 characters (enforced at API + schema level)
 - Password reset tokens are SHA-256 hashed before storage
 - Request body capped at 1 MB
