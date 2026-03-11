@@ -19,8 +19,10 @@ Parallel execution:
 """
 import asyncio
 import concurrent.futures
+import hashlib
 import importlib
 import logging
+from collections import OrderedDict
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,11 +45,40 @@ _META_PARAMS = {"custom_blocked_phrases", "_description"}
 _cache: dict[str, list[tuple[Any, str, list[str], int, dict]]] = {}
 _cache_valid: set[str] = set()  # directions whose cache is valid
 
+# ---------------------------------------------------------------------------
+# LRU result cache — avoids re-running ML inference on identical inputs.
+# Only used for global-mode scans (no per-connection overrides), keyed on
+# (direction, sorted scanner IDs, text).  Max 1 000 entries.
+# ---------------------------------------------------------------------------
+_RESULT_CACHE_SIZE = 1000
+_result_cache: OrderedDict = OrderedDict()  # key -> (is_valid, text, results, violations)
+
+
+def _result_cache_key(direction: str, entries: list, text: str) -> str:
+    ids = ",".join(str(e[3]) for e in entries)
+    raw = f"{direction}:{ids}:{text}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _result_cache_get(key: str):
+    if key in _result_cache:
+        _result_cache.move_to_end(key)
+        return _result_cache[key]
+    return None
+
+
+def _result_cache_put(key: str, value) -> None:
+    _result_cache[key] = value
+    _result_cache.move_to_end(key)
+    if len(_result_cache) > _RESULT_CACHE_SIZE:
+        _result_cache.popitem(last=False)
+
 
 def invalidate_cache() -> None:
     global _cache_valid
     _cache_valid = set()
     _cache.clear()
+    _result_cache.clear()
 
 
 def _import_scanner(scanner_type: str, direction: str, params: dict) -> Any:
@@ -229,13 +260,13 @@ async def run_input_scan(
     If threshold_overrides is given, those scanners are re-instantiated with the overridden threshold.
     Returns (is_valid, sanitized_text, scanner_results, violation_scanners)
     """
+    use_cache = allowed_guardrail_ids is None and not threshold_overrides
+
     if allowed_guardrail_ids is not None:
-        # Per-connection mode: load the exact selected scanners (active OR inactive globally)
         entries = await _load_scanners_by_ids(session, "input", allowed_guardrail_ids)
         if allowed_types is not None:
             entries = [e for e in entries if e[1] in allowed_types]
     else:
-        # Global mode: load only globally-active scanners (cached)
         entries = await _load_scanners(session, "input")
         if allowed_types is not None:
             entries = [e for e in entries if e[1] in allowed_types]
@@ -243,6 +274,13 @@ async def run_input_scan(
         entries = _apply_threshold_overrides(entries, threshold_overrides, "input")
     if not entries:
         return True, text, {}, []
+
+    # Check LRU cache (global mode only, no per-connection overrides)
+    cache_key = _result_cache_key("input", entries, text) if use_cache else None
+    if cache_key:
+        cached = _result_cache_get(cache_key)
+        if cached is not None:
+            return cached
 
     loop = asyncio.get_event_loop()
     tasks = [
@@ -268,7 +306,10 @@ async def run_input_scan(
     if phrase_hit:
         overall_valid = False
 
-    return overall_valid, text, results_score, violation_scanners
+    result = (overall_valid, text, results_score, violation_scanners)
+    if cache_key:
+        _result_cache_put(cache_key, result)
+    return result
 
 
 async def run_output_scan(
@@ -286,13 +327,13 @@ async def run_output_scan(
     If threshold_overrides is given, those scanners are re-instantiated with the overridden threshold.
     Returns (is_valid, sanitized_text, scanner_results, violation_scanners)
     """
+    use_cache = allowed_guardrail_ids is None and not threshold_overrides
+
     if allowed_guardrail_ids is not None:
-        # Per-connection mode: load the exact selected scanners (active OR inactive globally)
         entries = await _load_scanners_by_ids(session, "output", allowed_guardrail_ids)
         if allowed_types is not None:
             entries = [e for e in entries if e[1] in allowed_types]
     else:
-        # Global mode: load only globally-active scanners (cached)
         entries = await _load_scanners(session, "output")
         if allowed_types is not None:
             entries = [e for e in entries if e[1] in allowed_types]
@@ -300,6 +341,13 @@ async def run_output_scan(
         entries = _apply_threshold_overrides(entries, threshold_overrides, "output")
     if not entries:
         return True, output, {}, []
+
+    # Check LRU cache — key includes prompt so context is preserved
+    cache_key = _result_cache_key("output", entries, f"{prompt}\x00{output}") if use_cache else None
+    if cache_key:
+        cached = _result_cache_get(cache_key)
+        if cached is not None:
+            return cached
 
     loop = asyncio.get_event_loop()
     tasks = [
@@ -325,7 +373,10 @@ async def run_output_scan(
     if phrase_hit:
         overall_valid = False
 
-    return overall_valid, output, results_score, violation_scanners
+    result = (overall_valid, output, results_score, violation_scanners)
+    if cache_key:
+        _result_cache_put(cache_key, result)
+    return result
 
 
 async def run_guard_scan(
@@ -343,27 +394,38 @@ async def run_guard_scan(
     merged_results: dict[str, float] = {}
     merged_violations: list[str] = []
 
-    # Pass 1 — user messages through input scanners
-    if user_text.strip():
-        _, _, r1, v1 = await run_input_scan(
+    # Passes 1 & 2 run concurrently — they are independent of each other
+    run_p1 = bool(user_text.strip())
+    run_p2 = bool(assistant_text.strip())
+
+    coros = []
+    if run_p1:
+        coros.append(run_input_scan(
             session, user_text,
             allowed_types=allowed_input_types,
             allowed_guardrail_ids=allowed_guardrail_ids,
             threshold_overrides=threshold_overrides,
-        )
+        ))
+    if run_p2:
+        coros.append(run_output_scan(
+            session, user_text or "", assistant_text,
+            allowed_types=allowed_output_types,
+            allowed_guardrail_ids=allowed_guardrail_ids,
+            threshold_overrides=threshold_overrides,
+        ))
+
+    gathered = await asyncio.gather(*coros)
+    idx = 0
+
+    if run_p1:
+        _, _, r1, v1 = gathered[idx]; idx += 1
         merged_results.update(r1)
         for v in v1:
             if v not in merged_violations:
                 merged_violations.append(v)
 
-    # Pass 2 — assistant messages through output scanners
-    if assistant_text.strip():
-        _, _, r2, v2 = await run_output_scan(
-            session, user_text or "", assistant_text,
-            allowed_types=allowed_output_types,
-            allowed_guardrail_ids=allowed_guardrail_ids,
-            threshold_overrides=threshold_overrides,
-        )
+    if run_p2:
+        _, _, r2, v2 = gathered[idx]
         for k, v in r2.items():
             key = f"{k} (output)" if k in merged_results else k
             merged_results[key] = v
@@ -373,6 +435,7 @@ async def run_guard_scan(
                 merged_violations.append(namespaced)
 
     # Pass 3 — full conversation through PromptInjection only (indirect injection)
+    # Runs after passes 1/2 complete so indirect score can be compared against direct score
     if full_convo.strip():
         _, _, r3, v3 = await run_input_scan(
             session, full_convo,
@@ -390,3 +453,21 @@ async def run_guard_scan(
                 merged_violations.append(key)
 
     return len(merged_violations) > 0, merged_results, merged_violations
+
+
+async def warmup(session: AsyncSession) -> None:
+    """
+    Pre-load all active scanner models by running a short dummy scan through each direction.
+    Call this at server startup so the first real request does not pay the cold-start penalty.
+    """
+    dummy = "warmup check"
+    try:
+        await run_input_scan(session, dummy)
+        logger.info("Scanner warm-up: input scanners ready.")
+    except Exception as e:
+        logger.warning("Scanner warm-up (input) failed: %s", e)
+    try:
+        await run_output_scan(session, dummy, dummy)
+        logger.info("Scanner warm-up: output scanners ready.")
+    except Exception as e:
+        logger.warning("Scanner warm-up (output) failed: %s", e)

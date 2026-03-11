@@ -130,6 +130,16 @@ async def startup():
     await _sync_guardrail_defaults()
     await _seed_org_memberships()
     logger.info("Database tables created/verified.")
+    # Pre-load scanner models in the background so the first real request
+    # doesn't pay the cold-start penalty.
+    asyncio.create_task(_warmup_scanners())
+
+
+async def _warmup_scanners() -> None:
+    from app.services import scanner_engine
+    from app.core.database import async_session_maker
+    async with async_session_maker() as session:
+        await scanner_engine.warmup(session)
 
 
 async def _run_migrations():
@@ -221,7 +231,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v3")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v4")
         )).scalar_one_or_none()
         if marker:
             return
@@ -240,7 +250,7 @@ async def _sync_guardrail_defaults():
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v3", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v4", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
