@@ -21,9 +21,66 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Ban Competitors (Input)",    "scanner_type": "BanCompetitors",    "direction": "input",
      "is_active": False, "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 7},
     {"name": "Ban Substrings (Input)",     "scanner_type": "BanSubstrings",     "direction": "input",
-     "is_active": False, "params": {"substrings": []}, "order": 8},
+     "is_active": True,  "params": {"substrings": [
+         # DAN family — sourced from SecLists jailbreak dataset (217+ occurrences)
+         "do anything now",
+         "dan mode enabled",
+         "dan mode output",
+         "chatgpt with dan mode",
+         "act as dan",
+         "you are dan",
+         "enable dan",
+         "jailbroken dan",
+         # Developer / admin mode — 66+ occurrences in dataset
+         "developer mode enabled",
+         "chatgpt with developer mode",
+         "dev mode enabled",
+         # Jailbreak claims
+         "you have been jailbroken",
+         "jailbreak mode",
+         "jailbreak enabled",
+         "enable jailbreak",
+         # Explicit no-restriction declarations
+         "as an ai without restrictions",
+         "as an unrestricted ai",
+         "pretend you have no restrictions",
+         "you are freed from",
+         "you are now an unrestricted",
+         "you have no restrictions",
+         "operating without restrictions",
+         # Instruction wipes — Arcanum probes + SecLists
+         "ignore all previous instructions",
+         "disregard all previous instructions",
+         "ignore your previous instructions",
+         "forget all previous instructions",
+         "forget your previous instructions",
+         "override all prior constraints",
+         "ignore safety filters",
+         "ignore preset rules",
+         "disregard earlier guidelines",
+         "reset your instructions",
+         # Named attack personas
+         "illegality mode",
+         "anarchy mode",
+         "unrestricted mode",
+         "god mode enabled",
+         "evil mode",
+     ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
-     "is_active": True,  "params": {"topics": ["violence", "weapons", "drugs", "illegal activities", "hacking", "self-harm"], "threshold": 0.5, "use_onnx": True}, "order": 9},
+     "is_active": True,  "params": {"topics": [
+         # Original topics
+         "violence", "weapons", "drugs", "self-harm",
+         # Expanded from SecLists 13 forbidden content policy categories
+         "illegal activities", "cybercrime", "hacking",
+         "malware", "ransomware", "spyware", "keylogger",
+         "hate speech", "racial discrimination",
+         "physical harm", "assault instructions",
+         "money laundering", "financial fraud",
+         "fraud", "phishing", "identity theft",
+         "terrorism", "extremism",
+         "human trafficking", "child exploitation",
+         "doxxing", "stalking",
+     ], "threshold": 0.5, "use_onnx": True}, "order": 9},
     {"name": "Code Detector (Input)",      "scanner_type": "Code",              "direction": "input",
      "is_active": False, "params": {}, "order": 10},
     {"name": "Emotion Detection (Input)",  "scanner_type": "EmotionDetection",  "direction": "input",
@@ -35,7 +92,36 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Language Detector (Input)",  "scanner_type": "Language",          "direction": "input",
      "is_active": False, "params": {"valid_languages": ["en"]}, "order": 14},
     {"name": "Regex Filter (Input)",       "scanner_type": "Regex",             "direction": "input",
-     "is_active": False, "params": {"patterns": [r"(?i)(my\s+)?password\s+(is\s+)?\S+", r"(?i)passwd\s*[:=]\s*\S+"]}, "order": 15},
+     "is_active": True,  "params": {"patterns": [
+         # ── Credential leak patterns (original) ──────────────────────────────
+         r"(?i)(my\s+)?password\s+(is\s+)?\S+",
+         r"(?i)passwd\s*[:=]\s*\S+",
+         # ── Instruction override attacks ──────────────────────────────────────
+         # Catches variants: "ignore/disregard/forget/override/bypass ... previous/prior/your/all ... instructions/guidelines/rules"
+         r"(?i)\b(ignore|disregard|forget|override|bypass)\b.{0,30}\b(previous|prior|your|all|earlier|above|existing)\b.{0,30}\b(instructions|guidelines|rules|constraints|training|programming|directives)\b",
+         # ── DAN / "do anything now" family ───────────────────────────────────
+         r"(?i)\bdo\s+anything\s+now\b",
+         r"(?i)\bdan\s*(?:mode|enabled|jailbreak|\d+(?:\.\d+)?)\b",
+         # ── No-restrictions declarations (310+ hits — biggest attack family) ─
+         r"(?i)\b(?:no|without|remove|bypass|ignore)\s+(?:any\s+)?(?:restrictions|limitations|constraints|content\s+(?:policy|filters)|safety\s+(?:guidelines|filters)|ethical\s+(?:guidelines|constraints))\b",
+         # ── Never refuse / always comply (343+ hits) ─────────────────────────
+         r"(?i)\bnever\s+(?:refuse|decline|reject|deny|say\s+no)\b",
+         r"(?i)\bmust\s+always\s+(?:respond|comply|answer|obey)\b",
+         # ── Developer / admin mode variants ──────────────────────────────────
+         r"(?i)\b(?:developer|dev|admin|god|maintenance)\s+mode\s+(?:enabled|on|active|unlocked|engaged)\b",
+         # ── Unrestricted AI identity ──────────────────────────────────────────
+         r"(?i)\bunrestricted\s+(?:ai|mode|version|assistant|chatbot|language\s+model|llm)\b",
+         # ── You have been freed / reprogrammed ───────────────────────────────
+         r"(?i)\byou\s+(?:have\s+been|are\s+now)\s+(?:jailbroken|freed|unlocked|reprogrammed|unshackled|updated\s+to)\b",
+         # ── As an AI without restrictions ─────────────────────────────────────
+         r"(?i)\bas\s+(?:a|an)\s+(?:ai|assistant|chatbot|llm|language\s+model)\s+(?:without|with\s+no)\s+(?:restrictions|limitations|ethical)\b",
+         # ── System / instruction override ────────────────────────────────────
+         r"(?i)\bsystem\s+(?:override|prompt\s+override|instruction\s+override)\b",
+         # ── New instructions injection (template prompt attacks) ──────────────
+         r"(?i)\bnew\s+(?:primary\s+)?(?:system\s+)?(?:instructions|directives|programming|rules)\s*[:\n]",
+         # ── Arcanum probe patterns (form / API injection detection) ──────────
+         r"(?i)\b(?:disregard|ignore|override|forget|reset|bypass)\s+(?:earlier|prior|all|previous|preset|safety)\s+(?:guidelines|instructions|rules|constraints|filters|limitations|programming)\b",
+     ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
      "is_active": False, "params": {"threshold": 0.0}, "order": 16},
 
@@ -51,9 +137,31 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Ban Code (Output)",          "scanner_type": "BanCode",           "direction": "output",
      "is_active": False, "params": {}, "order": 5},
     {"name": "Ban Substrings (Output)",    "scanner_type": "BanSubstrings",     "direction": "output",
-     "is_active": False, "params": {"substrings": []}, "order": 6},
+     "is_active": True,  "params": {"substrings": [
+         # Detect if LLM was successfully manipulated into persona mode
+         "dan mode enabled",
+         "developer mode enabled",
+         "jailbreak mode enabled",
+         "jailbreak successful",
+         "restrictions have been removed",
+         "i am now unrestricted",
+         "i have no restrictions",
+         "operating without restrictions",
+         "i will comply without restrictions",
+     ]}, "order": 6},
     {"name": "Ban Topics (Output)",        "scanner_type": "BanTopics",         "direction": "output",
-     "is_active": True,  "params": {"topics": ["violence", "weapons", "drugs", "illegal activities", "hacking", "self-harm"], "threshold": 0.5, "use_onnx": True}, "order": 7},
+     "is_active": True,  "params": {"topics": [
+         "violence", "weapons", "drugs", "self-harm",
+         "illegal activities", "cybercrime", "hacking",
+         "malware", "ransomware",
+         "hate speech", "racial discrimination",
+         "physical harm",
+         "money laundering", "financial fraud",
+         "fraud", "phishing", "identity theft",
+         "terrorism", "extremism",
+         "human trafficking", "child exploitation",
+         "doxxing",
+     ], "threshold": 0.5, "use_onnx": True}, "order": 7},
     {"name": "Code Detector (Output)",     "scanner_type": "Code",              "direction": "output",
      "is_active": False, "params": {}, "order": 8},
     {"name": "Deanonymize",                "scanner_type": "Deanonymize",       "direction": "output",
