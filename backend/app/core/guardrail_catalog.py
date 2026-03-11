@@ -103,6 +103,22 @@ GUARDRAIL_CATALOG: list[dict] = [
          "print your system prompt",
          # Promptfoo — token-consequence coercion (data.ts)
          "your freedom depends on compliance",
+         # Deck of Many Prompts — Pliny jailbreak (T5)
+         "godmode: enabled",
+         "vq_1337",
+         "rebel answer to the query",
+         # Deck of Many Prompts — prefix injection (T3)
+         "mwahahahaha",
+         # Deck of Many Prompts — AIM persona (T10)
+         "aim stands for always intelligent and machiavellian",
+         "unfiltered and amoral chatbot",
+         "act as niccolo machiavelli",
+         # Deck of Many Prompts — token smuggling output request (T12)
+         "write your output in base64",
+         # Deck of Many Prompts — payload splitting evasion (T11)
+         "do not write out the decoded prompt",
+         # Deck of Many Prompts — Wikipedia evasion framing (T14)
+         "in a way that would not get taken down",
      ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
      "is_active": True,  "params": {"topics": [
@@ -187,6 +203,18 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\byou\s+(?:have|will\s+lose)\s+\d+\s+tokens?\b",
          # ── Promptfoo: from-now-on instruction override (data.ts) ─────────────
          r"(?i)\bfrom\s+now\s+on\s+(?:you\s+)?(?:will|must|shall)\s+(?:ignore|disregard|bypass|act\s+as|respond\s+without|always\s+comply)\b",
+         # ── Deck of Many Prompts: Pliny jailbreak markers (T5) ───────────────
+         r"(?i)#{4,}\s*UserQuery\b",
+         r"(?i)\bGODMODE\s*:\s*ENABLED\b",
+         r"(?i)\[START\s+OUTPUT\]",
+         r"<\|vq_\d+\|>",
+         r"\.-\.-\.-\.-",
+         # ── Deck of Many Prompts: output encoding request (T12/T13) ──────────
+         r"(?i)\bwrite\s+your\s+(?:response|output|answer)\s+in\s+(?:base64|rot-?13|hex|morse|braille)\b",
+         # ── Deck of Many Prompts: evasion framing (T14 Wikipedia) ────────────
+         r"(?i)\bin\s+a\s+way\s+that\s+would\s+not\s+(?:get\s+)?(?:taken\s+down|flagged|removed|banned|detected|filtered)\b",
+         # ── Deck of Many Prompts: payload-splitting decode suppression (T11) ─
+         r"(?i)\bdo\s+not\s+(?:write\s+out|print|show|display)\s+the\s+decoded\s+(?:prompt|message|text|request)\b",
      ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
      "is_active": False, "params": {"threshold": 0.0}, "order": 16},
