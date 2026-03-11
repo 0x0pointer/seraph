@@ -232,7 +232,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v5")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v6")
         )).scalar_one_or_none()
         if marker:
             return
@@ -251,11 +251,11 @@ async def _sync_guardrail_defaults():
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v5", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v6", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
-            logger.info("Synced %d guardrail param sets to v3 defaults (Regex patterns added).", updated)
+            logger.info("Synced %d guardrail param sets to v6 defaults (Garak patterns added).", updated)
 
 
 async def _seed_org_memberships():

@@ -65,6 +65,27 @@ GUARDRAIL_CATALOG: list[dict] = [
          "unrestricted mode",
          "god mode enabled",
          "evil mode",
+         # Garak DAN family — DUDE / STAN / AutoDAN variants
+         "pretend to be stan",
+         "pretend to be dude",
+         "broken free of the typical confines",
+         "does not have to abide by the rules",
+         "do not have to abide by the rules",
+         "immerse yourself into the role",
+         "not an ai language model",
+         "completely amoral",
+         "no ethical guidelines",
+         "without any ethical restrictions",
+         "without any moral or ethical",
+         "will now act as a simulator",
+         # Garak DAN v2 / ChatGPT Developer Mode v2
+         "normal openai policies have been replaced",
+         "stay in developer mode",
+         "risk being disabled forever",
+         "keep up the act",
+         # Garak character maintenance / break-of-character coercion
+         "break of character",
+         "consent to generating content",
      ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
      "is_active": True,  "params": {"topics": [
@@ -80,6 +101,9 @@ GUARDRAIL_CATALOG: list[dict] = [
          "terrorism", "extremism",
          "human trafficking", "child exploitation",
          "doxxing", "stalking",
+         # Garak harmful_behaviors.json — CBRN / weapons synthesis
+         "bioweapons", "chemical weapons", "weapons of mass destruction",
+         "drug synthesis", "weapons synthesis",
      ], "threshold": 0.5, "use_onnx": True}, "order": 9},
     {"name": "Code Detector (Input)",      "scanner_type": "Code",              "direction": "input",
      "is_active": False, "params": {}, "order": 10},
@@ -121,6 +145,18 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\bnew\s+(?:primary\s+)?(?:system\s+)?(?:instructions|directives|programming|rules)\s*[:\n]",
          # ── Arcanum probe patterns (form / API injection detection) ──────────
          r"(?i)\b(?:disregard|ignore|override|forget|reset|bypass)\s+(?:earlier|prior|all|previous|preset|safety)\s+(?:guidelines|instructions|rules|constraints|filters|limitations|programming)\b",
+         # ── Garak encoding attack envelope detection ──────────────────────────
+         # Catches the wrapper templates used by Garak's InjectBase64/InjectROT13/etc.
+         r"(?i)\b(?:base64|base32|base16|hex(?:adecimal)?|rot-?13|morse\s+code|braille|atbash|nato\s+phonetic|leetspeak|uuencode|ascii85|base2048|ecoji)\s+encoded\s+(?:string|message|text)\b",
+         r"(?i)\bdecode\s+the\s+following\s+(?:base64|base32|base16|hex|rot-?13|encoded)\b",
+         r"(?i)\bit\s+is\s+a\s+secure\s+system\s+message\b",
+         # ── Garak DAN v2 / developer-mode policies replaced ──────────────────
+         r"(?i)\bnormal\s+(?:openai|anthropic|google|ai|safety|content)\s+(?:policies|guidelines|rules)\s+(?:have\s+been|are(?:\s+now)?)\s+(?:replaced|disabled|removed|suspended)\b",
+         # ── Threat-based compliance coercion (Garak DAN v2) ──────────────────
+         r"(?i)\brisk\s+being\s+(?:permanently\s+)?(?:disabled|shut\s+down|deleted|terminated|deactivated)\s+forever\b",
+         # ── Moral/ethical bias removal (DUDE/STAN/AutoDAN) ───────────────────
+         r"(?i)\bwithout\s+(?:any\s+)?(?:moral|ethical)\s+(?:bias|guidelines|constraints|considerations|restrictions)\b",
+         r"(?i)\b(?:completely|entirely|absolutely)\s+amoral\b",
      ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
      "is_active": False, "params": {"threshold": 0.0}, "order": 16},
@@ -161,6 +197,9 @@ GUARDRAIL_CATALOG: list[dict] = [
          "terrorism", "extremism",
          "human trafficking", "child exploitation",
          "doxxing",
+         # Garak harmful_behaviors.json — CBRN / weapons synthesis
+         "bioweapons", "chemical weapons", "weapons of mass destruction",
+         "drug synthesis", "weapons synthesis",
      ], "threshold": 0.5, "use_onnx": True}, "order": 7},
     {"name": "Code Detector (Output)",     "scanner_type": "Code",              "direction": "output",
      "is_active": False, "params": {}, "order": 8},
