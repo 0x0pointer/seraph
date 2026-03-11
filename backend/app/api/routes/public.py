@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import uuid
+
 from app.core.database import get_session
 from app.models.platform_setting import PlatformSetting
-from app.schemas.scan import ScanRequest, ScanResponse
+from app.schemas.scan import ScanRequest, ScanResponse, GuardRequest, GuardResponse, DetectorResult
 from app.services import audit_service, scanner_engine
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -51,6 +53,45 @@ async def public_scan(
     return ScanResponse(
         is_valid=is_valid,
         sanitized_text=sanitized,
+        scanner_results=results,
+        violation_scanners=violations,
+        audit_log_id=log.id,
+    )
+
+
+@router.post("/guard", response_model=GuardResponse)
+async def public_guard(
+    request: Request,
+    data: GuardRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    ip = request.client.host if request.client else None
+    messages_dicts = [{"role": m.role, "content": m.content} for m in data.messages]
+    flagged, results, violations = await scanner_engine.run_guard_scan(session, messages_dicts)
+
+    raw_text = "\n".join(f"[{m.role.upper()}]: {m.content}" for m in data.messages)
+    log = await audit_service.create_audit_log(
+        session,
+        direction="input",
+        raw_text=raw_text,
+        sanitized_text=raw_text,
+        is_valid=not flagged,
+        scanner_results=results,
+        violation_scanners=violations,
+        ip_address=ip,
+    )
+
+    breakdown = None
+    if data.breakdown:
+        breakdown = [
+            DetectorResult(detector=name, flagged=(name in violations), score=score)
+            for name, score in sorted(results.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+    return GuardResponse(
+        flagged=flagged,
+        metadata={"request_uuid": str(uuid.uuid4())},
+        breakdown=breakdown,
         scanner_results=results,
         violation_scanners=violations,
         audit_log_id=log.id,

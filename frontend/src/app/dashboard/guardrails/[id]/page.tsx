@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { api } from "@/lib/api";
@@ -448,8 +448,8 @@ function CustomBlockedPhrases({
 
 const DIRECTION_LABEL: Record<string, string> = { input: "Input scanner", output: "Output scanner" };
 
-export default function EditGuardrailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function EditGuardrailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const { data: guardrails, mutate } = useSWR<Guardrail[]>("/guardrails", () => api.get<Guardrail[]>("/guardrails"));
   const guardrail = guardrails?.find((g) => g.id === parseInt(id));

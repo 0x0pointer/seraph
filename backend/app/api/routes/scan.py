@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,7 +8,7 @@ from app.api.routes.auth import get_current_user
 from app.core.database import get_session
 from app.core.plan_limits import get_effective_plan, get_limits, is_same_month
 from app.models.user import User
-from app.schemas.scan import ScanRequest, ScanResponse
+from app.schemas.scan import ScanRequest, ScanResponse, GuardRequest, GuardResponse, DetectorResult
 from app.models.connection_guardrail import ConnectionGuardrail
 from app.services import audit_service, scanner_engine
 
@@ -261,6 +262,81 @@ async def scan_output(
     return ScanResponse(
         is_valid=is_valid,
         sanitized_text=sanitized,
+        scanner_results=results,
+        violation_scanners=violations,
+        audit_log_id=log.id,
+    )
+
+
+@router.post("/guard", response_model=GuardResponse)
+async def scan_guard(
+    request: Request,
+    data: GuardRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    ip   = request.client.host if request.client else None
+    conn = getattr(request.state, "api_connection", None)
+    now  = datetime.now(timezone.utc)
+
+    if conn is not None:
+        _enforce_spend_limit(conn)
+
+    effective_plan = await _enforce_plan_and_count(current_user, session, now)
+    limits = get_limits(effective_plan)
+    allowed_input  = None if current_user.role == "admin" else limits["input_scanners"]
+    allowed_output = None if current_user.role == "admin" else limits["output_scanners"]
+    allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
+
+    messages_dicts = [{"role": m.role, "content": m.content} for m in data.messages]
+    flagged, results, violations = await scanner_engine.run_guard_scan(
+        session, messages_dicts,
+        allowed_input_types=allowed_input,
+        allowed_output_types=allowed_output,
+        allowed_guardrail_ids=allowed_ids,
+        threshold_overrides=threshold_overrides,
+    )
+
+    total_chars = sum(len(m.content) for m in data.messages)
+    input_tok = total_chars // 4
+    audit_input = audit_output = audit_cost = None
+    if conn is not None:
+        audit_input, audit_output, audit_cost = await _update_connection_metrics(
+            session, conn, not flagged, input_tok, 0
+        )
+
+    raw_text = "\n".join(f"[{m.role.upper()}]: {m.content}" for m in data.messages)
+    log = await audit_service.create_audit_log(
+        session,
+        direction="input",
+        raw_text=raw_text,
+        sanitized_text=raw_text,
+        is_valid=not flagged,
+        scanner_results=results,
+        violation_scanners=violations,
+        ip_address=ip,
+        user_id=current_user.id,
+        org_id=current_user.org_id,
+        team_id=current_user.team_id,
+        connection_id=conn.id if conn else None,
+        connection_name=conn.name if conn else None,
+        connection_environment=conn.environment if conn else None,
+        input_tokens=audit_input,
+        output_tokens=audit_output,
+        token_cost=audit_cost,
+    )
+
+    breakdown = None
+    if data.breakdown:
+        breakdown = [
+            DetectorResult(detector=name, flagged=(name in violations), score=score)
+            for name, score in sorted(results.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+    return GuardResponse(
+        flagged=flagged,
+        metadata={"request_uuid": str(uuid.uuid4())},
+        breakdown=breakdown,
         scanner_results=results,
         violation_scanners=violations,
         audit_log_id=log.id,

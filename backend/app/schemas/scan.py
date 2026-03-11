@@ -20,3 +20,28 @@ class ScanResponse(BaseModel):
     scanner_results: dict[str, float]
     violation_scanners: list[str]
     audit_log_id: int
+
+
+class Message(BaseModel):
+    role: str   # system | user | assistant | tool
+    content: str
+
+
+class GuardRequest(BaseModel):
+    messages: list[Message]
+    breakdown: bool = False
+
+
+class DetectorResult(BaseModel):
+    detector: str
+    flagged: bool
+    score: float = 0.0
+
+
+class GuardResponse(BaseModel):
+    flagged: bool
+    metadata: dict                      # {"request_uuid": str}
+    breakdown: list[DetectorResult] | None = None
+    scanner_results: dict[str, float]
+    violation_scanners: list[str]
+    audit_log_id: int | None = None

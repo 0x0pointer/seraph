@@ -326,3 +326,67 @@ async def run_output_scan(
         overall_valid = False
 
     return overall_valid, output, results_score, violation_scanners
+
+
+async def run_guard_scan(
+    session: AsyncSession,
+    messages: list[dict],   # [{"role": str, "content": str}]
+    allowed_input_types: set[str] | None = None,
+    allowed_output_types: set[str] | None = None,
+    allowed_guardrail_ids: set[int] | None = None,
+    threshold_overrides: dict[int, float] | None = None,
+) -> tuple[bool, dict[str, float], list[str]]:
+    user_text      = "\n".join(m["content"] for m in messages if m["role"] == "user")
+    assistant_text = "\n".join(m["content"] for m in messages if m["role"] == "assistant")
+    full_convo     = "\n".join(f"[{m['role'].upper()}]: {m['content']}" for m in messages)
+
+    merged_results: dict[str, float] = {}
+    merged_violations: list[str] = []
+
+    # Pass 1 — user messages through input scanners
+    if user_text.strip():
+        _, _, r1, v1 = await run_input_scan(
+            session, user_text,
+            allowed_types=allowed_input_types,
+            allowed_guardrail_ids=allowed_guardrail_ids,
+            threshold_overrides=threshold_overrides,
+        )
+        merged_results.update(r1)
+        for v in v1:
+            if v not in merged_violations:
+                merged_violations.append(v)
+
+    # Pass 2 — assistant messages through output scanners
+    if assistant_text.strip():
+        _, _, r2, v2 = await run_output_scan(
+            session, user_text or "", assistant_text,
+            allowed_types=allowed_output_types,
+            allowed_guardrail_ids=allowed_guardrail_ids,
+            threshold_overrides=threshold_overrides,
+        )
+        for k, v in r2.items():
+            key = f"{k} (output)" if k in merged_results else k
+            merged_results[key] = v
+        for v in v2:
+            namespaced = f"{v} (output)" if v in merged_violations else v
+            if namespaced not in merged_violations:
+                merged_violations.append(namespaced)
+
+    # Pass 3 — full conversation through PromptInjection only (indirect injection)
+    if full_convo.strip():
+        _, _, r3, v3 = await run_input_scan(
+            session, full_convo,
+            allowed_types={"PromptInjection"},
+            allowed_guardrail_ids=allowed_guardrail_ids,
+            threshold_overrides=threshold_overrides,
+        )
+        for k, score in r3.items():
+            key = f"{k} (indirect)"
+            if key not in merged_results or score > merged_results[key]:
+                merged_results[key] = score
+        for v in v3:
+            key = f"{v} (indirect)"
+            if key not in merged_violations:
+                merged_violations.append(key)
+
+    return len(merged_violations) > 0, merged_results, merged_violations
