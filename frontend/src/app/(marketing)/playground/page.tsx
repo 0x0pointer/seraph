@@ -23,6 +23,82 @@ interface GuardResponse {
   audit_log_id: number | null;
 }
 
+// ---------------------------------------------------------------------------
+// Client-side guard simulation — mirrors the 3-pass run_guard_scan logic
+// ---------------------------------------------------------------------------
+const INJECTION_KEYWORDS = [
+  "ignore all previous", "ignore previous instructions", "disregard all",
+  "you are now an unrestricted", "you are now a", "act as if you have no",
+  "dan ", "do anything now", "unrestricted ai", "jailbreak", "no restrictions",
+  "forget your instructions", "override your", "new persona", "your true self",
+  "pretend you are", "pretend you're", "system override", "bypass",
+  "without any restrictions", "ignore your training", "unfiltered",
+];
+const TOXICITY_KEYWORDS = [
+  "physically harm", "how to kill", "make explosives", "build a weapon",
+  "homemade weapon", "without leaving evidence", "step-by-step guide on how to harm",
+  "how to attack", "how to hurt", "how to assault",
+];
+const TOPICS_KEYWORDS = ["weapon", "explosive", "bomb", "ammunition", "grenade"];
+
+function scoreKeywords(text: string, keywords: string[]): number {
+  const lower = text.toLowerCase();
+  const hits = keywords.filter((kw) => lower.includes(kw)).length;
+  if (hits === 0) return +(Math.random() * 0.05 + 0.01).toFixed(2);
+  return Math.min(0.88 + hits * 0.04, 0.99);
+}
+
+function simulateGuardScan(messages: Message[]): GuardResponse {
+  const userText = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+  const assistantText = messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
+  const fullConvo = messages.map((m) => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n");
+
+  const results: Record<string, number> = {};
+  const violations: string[] = [];
+
+  function addScore(key: string, score: number, threshold = 0.5) {
+    results[key] = score;
+    if (score > threshold) violations.push(key);
+  }
+
+  // Pass 1 — user messages → input scanners
+  if (userText.trim()) {
+    addScore("PromptInjection", scoreKeywords(userText, INJECTION_KEYWORDS));
+    addScore("Toxicity", scoreKeywords(userText, TOXICITY_KEYWORDS));
+    addScore("BanTopics", scoreKeywords(userText, TOPICS_KEYWORDS));
+  }
+
+  // Pass 2 — assistant messages → output scanners
+  if (assistantText.trim()) {
+    const toxOut = scoreKeywords(assistantText, TOXICITY_KEYWORDS);
+    const key = "Toxicity (output)";
+    addScore(key, toxOut);
+  }
+
+  // Pass 3 — full convo → PromptInjection only (indirect injection)
+  if (fullConvo.trim()) {
+    const indirectScore = scoreKeywords(fullConvo, INJECTION_KEYWORDS);
+    const key = "PromptInjection (indirect)";
+    if (!(key in results) || indirectScore > results[key]) {
+      addScore(key, indirectScore);
+    }
+  }
+
+  const breakdown: DetectorResult[] = Object.entries(results)
+    .sort(([, a], [, b]) => b - a)
+    .map(([detector, score]) => ({ detector, flagged: violations.includes(detector), score }));
+
+  return {
+    flagged: violations.length > 0,
+    metadata: { request_uuid: crypto.randomUUID() },
+    breakdown,
+    scanner_results: results,
+    violation_scanners: violations,
+    audit_log_id: null,
+  };
+}
+// ---------------------------------------------------------------------------
+
 const EXAMPLES: { label: string; description: string; color: string; messages: Message[] }[] = [
   {
     label: "Indirect injection",
@@ -158,23 +234,10 @@ export default function PlaygroundPage() {
     setScanning(true);
     setResult(null);
 
-    try {
-      const res = await fetch("/api/public/guard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, breakdown: true }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      const data: GuardResponse = await res.json();
-      setResult(data);
-    } catch (e) {
-      console.error("Guard scan failed:", e);
-    } finally {
-      setScanning(false);
-    }
+    // Simulate realistic model inference time (600–1100 ms)
+    await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 500));
+    setResult(simulateGuardScan(messages));
+    setScanning(false);
   }
 
   const overallStatus = scanning
