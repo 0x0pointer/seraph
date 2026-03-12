@@ -8,6 +8,31 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 
 ---
 
+## Screenshots
+
+### Overview Dashboard
+![Dashboard Overview](docs/screenshots/dashboard.png)
+
+### Guardrails — Scanner List
+![Guardrails](docs/screenshots/guardrails.png)
+
+### Guardrail Detail — Model & Training Intel
+![Guardrail Detail](docs/screenshots/guardrail-detail.png)
+
+### Analytics
+![Analytics](docs/screenshots/analytics.png)
+
+### Audit Log
+![Audit Log](docs/screenshots/audit.png)
+
+### API Connections
+![API Connections](docs/screenshots/apis.png)
+
+### Organization Management
+![Organization](docs/screenshots/organization.png)
+
+---
+
 ## Features
 
 | Area | Details |
