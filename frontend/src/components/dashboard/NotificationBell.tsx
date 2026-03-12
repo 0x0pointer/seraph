@@ -29,7 +29,7 @@ function timeAgo(iso: string) {
 }
 
 const TYPE_STYLE: Record<string, { icon: string; color: string; bg: string; label: string }> = {
-  ticket_new:      { icon: "✦", color: "#14B8A6", bg: "rgba(20,184,166,0.12)",  label: "New ticket" },
+  ticket_new:      { icon: "✦", color: "#515594", bg: "rgba(81,85,148,0.12)",  label: "New ticket" },
   ticket_response: { icon: "↩", color: "#a78bfa", bg: "rgba(167,139,250,0.12)", label: "Reply" },
   ticket_followup: { icon: "↪", color: "#fbbf24", bg: "rgba(251,191,36,0.12)",  label: "Follow-up" },
   announcement:    { icon: "!",  color: "#f97316", bg: "rgba(249,115,22,0.12)",  label: "Announcement" },
@@ -133,7 +133,7 @@ export default function NotificationBell() {
       {open && (
         <div
           className="absolute right-0 top-10 w-84 rounded-lg border border-white/5 overflow-hidden shadow-2xl z-50"
-          style={{ background: "#0d1426", width: "340px" }}
+          style={{ background: "var(--card)", width: "340px" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
@@ -157,7 +157,7 @@ export default function NotificationBell() {
             {!notifications ? (
               <div className="p-4 space-y-2">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-12 rounded animate-pulse" style={{ background: "#0A0F1F" }} />
+                  <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />
                 ))}
               </div>
             ) : totalItems === 0 ? (
@@ -168,7 +168,7 @@ export default function NotificationBell() {
               groups.map((group) => (
                 <div key={group.label}>
                   {/* Section header */}
-                  <div className="px-4 py-2 border-b border-white/5" style={{ background: "#0A0F1F" }}>
+                  <div className="px-4 py-2 border-b border-white/5" style={{ background: "var(--bg)" }}>
                     <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "#334155" }}>
                       {group.label}
                     </p>
@@ -206,7 +206,7 @@ export default function NotificationBell() {
                               </p>
                             </div>
                             {!n.is_read && (
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#14B8A6" }} />
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#515594" }} />
                             )}
                           </div>
                           {n.body && (

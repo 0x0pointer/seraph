@@ -69,8 +69,8 @@ function ResetPasswordForm() {
       {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-between w-2/5 border-r border-white/5 p-12" style={{ background: "#0d1426" }}>
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-sm" style={{ background: "#14B8A6" }} />
-          <span className="text-white font-semibold text-sm tracking-tight">Talix Shield</span>
+          <span className="w-5 h-5 rounded-sm" style={{ background: "#515594" }} />
+          <span className="text-white font-semibold text-sm tracking-tight">SKF Guard</span>
         </Link>
         <div>
           <p className="text-2xl font-bold text-white tracking-tight leading-snug mb-4">
@@ -80,7 +80,7 @@ function ResetPasswordForm() {
             One API. Full audit trail. Real-time monitoring.
           </p>
         </div>
-        <p className="text-xs text-slate-700">© 2024 Talix Shield</p>
+        <p className="text-xs text-slate-700">© 2024 SKF Guard</p>
       </div>
 
       {/* Right panel */}
@@ -97,13 +97,13 @@ function ResetPasswordForm() {
                 <p className="text-sm text-slate-500">You can now sign in with your new password.</p>
               </div>
               <div className="rounded border-l-2 px-4 py-4"
-                style={{ background: "rgba(20,184,166,0.05)", borderColor: "#14B8A6" }}>
+                style={{ background: "rgba(81,85,148,0.05)", borderColor: "#515594" }}>
                 <p className="text-xs text-slate-400">Your password has been changed successfully.</p>
               </div>
               <Link
                 href="/login"
                 className="block w-full py-2.5 rounded text-sm font-medium text-center transition-opacity"
-                style={{ background: "#14B8A6", color: "#0A0F1F" }}
+                style={{ background: "#515594", color: "#fff" }}
               >
                 Sign in
               </Link>
@@ -129,7 +129,7 @@ function ResetPasswordForm() {
                     disabled={!token}
                     className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors disabled:opacity-40"
                     style={inputStyle}
-                    onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+                    onFocus={(e) => (e.target.style.borderColor = "#515594")}
                     onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
                     placeholder="Min. 6 characters"
                   />
@@ -146,7 +146,7 @@ function ResetPasswordForm() {
                     disabled={!token}
                     className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors disabled:opacity-40"
                     style={inputStyle}
-                    onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+                    onFocus={(e) => (e.target.style.borderColor = "#515594")}
                     onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
                     placeholder="••••••••"
                   />
@@ -163,7 +163,7 @@ function ResetPasswordForm() {
                   type="submit"
                   disabled={loading || !token}
                   className="w-full py-2.5 rounded text-sm font-medium transition-opacity disabled:opacity-50"
-                  style={{ background: "#14B8A6", color: "#0A0F1F" }}
+                  style={{ background: "#515594", color: "#fff" }}
                 >
                   {loading ? "Updating…" : "Set new password"}
                 </button>

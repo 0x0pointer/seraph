@@ -38,12 +38,12 @@ interface OrgInvite {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const inputStyle = { background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" };
+const inputStyle = { background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text)" };
 
 const ROLE_STYLES: Record<string, { background: string; color: string }> = {
   admin:     { background: "rgba(248,113,113,0.1)",  color: "#f87171" },
   org_admin: { background: "rgba(251,191,36,0.1)",   color: "#fbbf24" },
-  viewer:    { background: "rgba(20,184,166,0.08)",  color: "#14B8A6" },
+  viewer:    { background: "rgba(81,85,148,0.08)",  color: "#515594" },
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -86,14 +86,14 @@ function InviteLink({ token }: { token: string }) {
   return (
     <div className="flex items-center gap-2 mt-1">
       <code className="text-xs font-mono px-2 py-1 rounded truncate max-w-xs"
-        style={{ background: "#0A0F1F", color: "#94a3b8" }}>
+        style={{ background: "var(--bg)", color: "var(--text-muted)" }}>
         {link.slice(0, 60)}{link.length > 60 ? "…" : ""}
       </code>
       <button onClick={copy}
         className="text-xs px-2 py-1 rounded border transition-colors shrink-0"
         style={copied
-          ? { borderColor: "rgba(20,184,166,0.4)", color: "#14B8A6" }
-          : { borderColor: "rgba(255,255,255,0.08)", color: "#64748b" }}>
+          ? { borderColor: "rgba(81,85,148,0.4)", color: "#515594" }
+          : { borderColor: "var(--border-input)", color: "var(--text-dim)" }}>
         {copied ? "✓ Copied" : "Copy"}
       </button>
     </div>
@@ -174,7 +174,7 @@ function TeamsSection({
         {canManage && !creating && (
           <button onClick={() => setCreating(true)}
             className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+            style={{ background: "#515594", color: "#0A0F1F" }}>
             + New team
           </button>
         )}
@@ -183,7 +183,7 @@ function TeamsSection({
       {creating && (
         <form onSubmit={handleCreate}
           className="rounded border p-4 flex items-end gap-3"
-          style={{ background: "#0d1426", borderColor: "rgba(20,184,166,0.2)" }}>
+          style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.2)" }}>
           <div className="flex-1">
             <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Team name</label>
             <input
@@ -194,7 +194,7 @@ function TeamsSection({
           </div>
           <button type="submit" disabled={busy}
             className="px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+            style={{ background: "#515594", color: "#0A0F1F" }}>
             {busy ? "Creating…" : "Create"}
           </button>
           <button type="button" onClick={() => setCreating(false)}
@@ -205,15 +205,15 @@ function TeamsSection({
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {!teams ? (
-        <div className="h-20 rounded animate-pulse" style={{ background: "#0d1426" }} />
+        <div className="h-20 rounded animate-pulse" style={{ background: "var(--card)" }} />
       ) : teams.length === 0 ? (
-        <div className="rounded border border-white/5 p-8 text-center" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 p-8 text-center" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-600 font-mono">
             No teams yet. Create a team to group members and share connections.
           </p>
         </div>
       ) : (
-        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           {teams.map((team) => (
             <div key={team.id} className="border-b border-white/5 last:border-0">
               {/* Team row */}
@@ -348,7 +348,7 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   }
 
   return (
-    <div className="rounded border border-white/5 p-5 space-y-4" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/5 p-5 space-y-4" style={{ background: "var(--card)" }}>
       <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">Invite New Member</p>
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-48">
@@ -372,13 +372,13 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
         </div>
         <button type="submit" disabled={saving}
           className="px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
-          style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+          style={{ background: "#515594", color: "#0A0F1F" }}>
           {saving ? "Sending…" : "Generate invite"}
         </button>
       </form>
       {error && <p className="text-xs text-red-400">{error}</p>}
       {result && (
-        <div className="rounded border border-white/5 p-3 space-y-1" style={{ background: "#0A0F1F" }}>
+        <div className="rounded border border-white/5 p-3 space-y-1" style={{ background: "var(--bg)" }}>
           <p className="text-xs text-slate-400">
             Invite link for <span className="text-white font-mono">{result.email}</span> ({ROLE_LABEL[result.role] ?? result.role}):
           </p>
@@ -474,15 +474,15 @@ export default function OrganizationPage() {
   }
 
   if (!me) {
-    return <div className="h-48 rounded animate-pulse" style={{ background: "#0d1426" }} />;
+    return <div className="h-48 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   }
 
   if (!hasOrg) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
         <div className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ background: "rgba(20,184,166,0.08)" }}>
-          <svg className="w-7 h-7" style={{ color: "#14B8A6" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          style={{ background: "rgba(81,85,148,0.08)" }}>
+          <svg className="w-7 h-7" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
@@ -499,15 +499,15 @@ export default function OrganizationPage() {
     <div className="space-y-6 max-w-4xl">
 
       {/* ── Org header ─────────────────────────────────────────────── */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
         {orgLoading ? (
-          <div className="h-10 rounded animate-pulse" style={{ background: "#111827" }} />
+          <div className="h-10 rounded animate-pulse" style={{ background: "var(--card2)" }} />
         ) : (
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold"
-                  style={{ background: "rgba(20,184,166,0.12)", color: "#14B8A6" }}>
+                  style={{ background: "rgba(81,85,148,0.12)", color: "#515594" }}>
                   {org?.name?.[0]?.toUpperCase() ?? "O"}
                 </div>
                 {editingName ? (
@@ -521,7 +521,7 @@ export default function OrganizationPage() {
                     />
                     <button type="submit" disabled={savingName}
                       className="text-xs px-3 py-1.5 rounded font-medium disabled:opacity-50"
-                      style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                      style={{ background: "#515594", color: "#0A0F1F" }}>
                       {savingName ? "…" : "Save"}
                     </button>
                     <button type="button" onClick={() => setEditingName(false)}
@@ -554,8 +554,8 @@ export default function OrganizationPage() {
                   <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
                     style={
                       (org.plan ?? "free") === "enterprise" ? { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }
-                      : (org.plan ?? "free") === "pro"       ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }
-                      :                                        { background: "rgba(148,163,184,0.08)", color: "#94a3b8" }
+                      : (org.plan ?? "free") === "pro"       ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
+                      :                                        { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" }
                     }>
                     {org.plan ?? "free"}
                   </span>
@@ -566,7 +566,7 @@ export default function OrganizationPage() {
                         onChange={(e) => handlePlanChange(e.target.value)}
                         disabled={changingPlan}
                         className="text-xs rounded px-2 py-1 outline-none appearance-none pr-5 disabled:opacity-40"
-                        style={{ background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", fontSize: "11px" }}
+                        style={{ background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text-dim)", fontSize: "11px" }}
                       >
                         <option value="free">Free</option>
                         <option value="pro">Pro</option>
@@ -596,7 +596,7 @@ export default function OrganizationPage() {
             User limit reached ({org.member_count} / {org.user_limit}). Upgrade your plan to invite more members.
           </div>
         )}
-        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/5">
@@ -610,7 +610,7 @@ export default function OrganizationPage() {
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={canManage ? 5 : 4} className="px-4 py-3">
-                      <div className="h-4 rounded animate-pulse" style={{ background: "#111827" }} />
+                      <div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                     </td>
                   </tr>
                 ))
@@ -696,7 +696,7 @@ export default function OrganizationPage() {
               <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">
                 Pending Invites ({invites.length})
               </p>
-              <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+              <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
                 {invites.map((inv) => (
                   <div key={inv.id} className="border-b border-white/5 last:border-0">
                     <div className="flex items-center justify-between px-4 py-3">

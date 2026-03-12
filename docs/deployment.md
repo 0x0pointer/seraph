@@ -1,4 +1,4 @@
-# Project 73 — Deployment Guide
+# SKF Guard — Deployment Guide
 
 ## Local Development
 
@@ -65,8 +65,8 @@ pip install flask python-dotenv openai requests
 # Create chatbot/.env
 cat > .env << EOF
 OPENAI_API_KEY=sk-...
-TALIX_API_URL=http://localhost:8000
-TALIX_CONNECTION_KEY=<your connection API key from dashboard>
+SKF_GUARD_API_URL=http://localhost:8000
+SKF_GUARD_CONNECTION_KEY=<your connection API key from dashboard>
 OPENAI_MODEL=gpt-4o-mini
 PORT=3001
 EOF
@@ -87,7 +87,7 @@ Create `backend/.env`:
 SECRET_KEY=your-random-64-char-hex-string
 
 # Database (default: SQLite)
-DATABASE_URL=sqlite+aiosqlite:///./project73.db
+DATABASE_URL=sqlite+aiosqlite:///./skfguard.db
 
 # CORS — list of allowed frontend origins
 CORS_ORIGINS=["http://localhost:3000"]
@@ -107,7 +107,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=you@gmail.com
 SMTP_PASSWORD=your-app-password
-SMTP_FROM=noreply@project73.ai
+SMTP_FROM=noreply@skfguard.ai
 SMTP_TLS=true
 ```
 
@@ -124,8 +124,8 @@ sudo apt update && sudo apt install -y python3-venv python3-pip nodejs npm nginx
 ### 2. Clone and configure
 
 ```bash
-git clone https://github.com/JorgeCarvalhoPT/Project-73.git project73
-cd project73
+git clone https://github.com/JorgeCarvalhoPT/Project-73.git skfguard
+cd skfguard
 
 # Create backend/.env with production values
 nano backend/.env
@@ -154,32 +154,32 @@ npm run build
 
 ### 5. Systemd services
 
-`/etc/systemd/system/project73-backend.service`:
+`/etc/systemd/system/skfguard-backend.service`:
 ```ini
 [Unit]
-Description=Project 73 Backend
+Description=SKF Guard Backend
 After=network.target
 
 [Service]
 User=kuna
-WorkingDirectory=/home/kuna/project73/backend
-EnvironmentFile=/home/kuna/project73/backend/.env
-ExecStart=/home/kuna/project73/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/home/kuna/skfguard/backend
+EnvironmentFile=/home/kuna/skfguard/backend/.env
+ExecStart=/home/kuna/skfguard/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-`/etc/systemd/system/project73-frontend.service`:
+`/etc/systemd/system/skfguard-frontend.service`:
 ```ini
 [Unit]
-Description=Project 73 Frontend
+Description=SKF Guard Frontend
 After=network.target
 
 [Service]
 User=kuna
-WorkingDirectory=/home/kuna/project73/frontend
+WorkingDirectory=/home/kuna/skfguard/frontend
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node node_modules/.bin/next start --port 3000
 Restart=always
@@ -190,12 +190,12 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now project73-backend project73-frontend
+sudo systemctl enable --now skfguard-backend skfguard-frontend
 ```
 
 ### 6. Nginx
 
-`/etc/nginx/sites-available/project73`:
+`/etc/nginx/sites-available/skfguard`:
 ```nginx
 server {
     listen 80;
@@ -218,7 +218,7 @@ server {
 ```
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/project73 /etc/nginx/sites-enabled/project73
+sudo ln -sf /etc/nginx/sites-available/skfguard /etc/nginx/sites-enabled/skfguard
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo systemctl restart nginx
 ```
@@ -235,7 +235,7 @@ sudo dpkg -i cloudflared.deb
 cloudflared tunnel login
 
 # Create tunnel
-cloudflared tunnel create project73
+cloudflared tunnel create skfguard
 
 # Config at /etc/cloudflared/config.yml
 sudo mkdir -p /etc/cloudflared
@@ -244,16 +244,16 @@ tunnel: <TUNNEL-ID>
 credentials-file: /etc/cloudflared/<TUNNEL-ID>.json
 
 ingress:
-  - hostname: project73.ai
+  - hostname: skfguard.ai
     service: http://localhost:80
-  - hostname: www.project73.ai
+  - hostname: www.skfguard.ai
     service: http://localhost:80
   - service: http_status:404
 EOF
 
 # Route DNS
-cloudflared tunnel route dns project73 project73.ai
-cloudflared tunnel route dns project73 www.project73.ai
+cloudflared tunnel route dns skfguard skfguard.ai
+cloudflared tunnel route dns skfguard www.skfguard.ai
 
 # Start as service
 sudo cloudflared service install

@@ -17,10 +17,10 @@ const config: Config = {
           300: "#232d47",
           400: "#2e3b56",
         },
-        teal: {
-          DEFAULT: "#14B8A6",
-          light: "#2DD4BF",
-          dark: "#0d9488",
+        purple: {
+          DEFAULT: "#515594",
+          light: "#6b6fab",
+          dark: "#41447a",
         },
       },
       fontFamily: {

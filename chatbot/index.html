@@ -1,27 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project 73</title>
+  <title>SKF Guard</title>
+  <script>
+    // Apply saved theme before paint to prevent flash
+    try {
+      var t = localStorage.getItem('chatTheme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch(e) {}
+  </script>
   <style>
-    /* ── Reset & base ───────────────────────────────────────────────── */
+    /* ── Reset ──────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg:        #0A0F1F;
-      --card:      #0d1426;
-      --card2:     #111827;
-      --border:    #1e2d45;
-      --teal:      #14B8A6;
-      --teal-dim:  #0f9488;
-      --teal-glow: rgba(20, 184, 166, 0.15);
-      --muted:     #94a3b8;
-      --text:      #e2e8f0;
-      --red:       #ef4444;
-      --amber:     #f59e0b;
-      --user-bg:   #14B8A6;
-      --user-text: #0A0F1F;
+    /* ── Dark theme (default) ───────────────────────────────────────── */
+    :root,
+    [data-theme="dark"] {
+      --bg:          #0A0F1F;
+      --card:        #0d1426;
+      --card2:       #111827;
+      --border:      #1e2d45;
+      --border-soft: rgba(255,255,255,0.06);
+      --purple:      #515594;
+      --purple-dim:  #41447a;
+      --purple-glow: rgba(81,85,148,0.15);
+      --muted:       #94a3b8;
+      --text:        #e2e8f0;
+      --red:         #ef4444;
+      --amber:       #f59e0b;
+      --user-bg:     #515594;
+      --user-text:   #fff;
+      --toggle-bg:   #1e2d45;
+    }
+
+    /* ── Light theme ────────────────────────────────────────────────── */
+    [data-theme="light"] {
+      --bg:          #ffffff;
+      --card:        #f9fafb;
+      --card2:       #f3f4f6;
+      --border:      #e5e7eb;
+      --border-soft: #e5e7eb;
+      --purple:      #515594;
+      --purple-dim:  #41447a;
+      --purple-glow: rgba(81,85,148,0.08);
+      --muted:       #6b7280;
+      --text:        #1a1a1a;
+      --red:         #dc2626;
+      --amber:       #d97706;
+      --user-bg:     #515594;
+      --user-text:   #fff;
+      --toggle-bg:   #e5e7eb;
     }
 
     html, body {
@@ -31,6 +61,7 @@
       font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
       font-size: 15px;
       line-height: 1.6;
+      transition: background 0.2s, color 0.2s;
     }
 
     /* ── Layout ─────────────────────────────────────────────────────── */
@@ -51,24 +82,26 @@
       border-bottom: 1px solid var(--border);
       background: var(--card);
       flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
     }
 
     .logo-icon {
       width: 36px;
       height: 36px;
-      background: var(--teal);
+      background: var(--purple);
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-
     .logo-icon svg { display: block; }
 
     .header-title { flex: 1; }
-    .header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
     .header-title p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
 
     .shield-badge {
       display: flex;
@@ -76,19 +109,32 @@
       gap: 6px;
       padding: 5px 12px;
       border-radius: 20px;
-      background: var(--teal-glow);
-      border: 1px solid rgba(20,184,166,0.3);
+      background: var(--purple-glow);
+      border: 1px solid rgba(81,85,148,0.3);
       font-size: 12px;
-      color: var(--teal);
+      color: var(--purple);
       font-weight: 500;
     }
-
     .shield-badge .dot {
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: var(--teal);
+      background: var(--purple);
       animation: pulse 2s ease-in-out infinite;
     }
+
+    /* ── Theme toggle button ────────────────────────────────────────── */
+    .theme-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--toggle-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .theme-btn:hover { color: var(--text); border-color: var(--purple); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -103,6 +149,8 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      background: var(--bg);
+      transition: background 0.2s;
     }
 
     .messages::-webkit-scrollbar { width: 4px; }
@@ -110,29 +158,19 @@
     .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
     /* ── Individual message ─────────────────────────────────────────── */
-    .msg-row {
-      display: flex;
-      gap: 10px;
-      max-width: 100%;
-    }
-
+    .msg-row { display: flex; gap: 10px; max-width: 100%; }
     .msg-row.user { flex-direction: row-reverse; }
 
     .avatar {
-      width: 32px;
-      height: 32px;
+      width: 32px; height: 32px;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 13px; font-weight: 700;
       margin-top: 2px;
     }
-
-    .avatar.user-av  { background: var(--teal); color: var(--user-text); }
-    .avatar.bot-av   { background: var(--card2); border: 1px solid var(--border); color: var(--muted); }
+    .avatar.user-av { background: var(--purple); color: var(--user-text); }
+    .avatar.bot-av  { background: var(--card2); border: 1px solid var(--border); color: var(--muted); }
     .avatar.bot-av svg { display: block; }
 
     .bubble-wrap { max-width: 75%; display: flex; flex-direction: column; gap: 4px; }
@@ -146,91 +184,57 @@
       word-break: break-word;
       white-space: pre-wrap;
     }
-
     .bubble.user-b {
-      background: var(--teal);
+      background: var(--user-bg);
       color: var(--user-text);
       border-bottom-right-radius: 4px;
       font-weight: 500;
     }
-
     .bubble.bot-b {
       background: var(--card2);
       border: 1px solid var(--border);
       color: var(--text);
       border-bottom-left-radius: 4px;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
     }
-
-    /* Blocked message */
     .bubble.blocked-b {
-      background: rgba(239, 68, 68, 0.08);
-      border: 1px solid rgba(239, 68, 68, 0.35);
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.35);
       color: #fca5a5;
       border-bottom-left-radius: 4px;
     }
-
     .bubble.blocked-b .block-header {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 7px;
+      font-weight: 600; font-size: 13px; margin-bottom: 6px;
       color: var(--red);
     }
 
-    .violation-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 6px;
-    }
-
+    .violation-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
     .pill {
-      padding: 2px 9px;
-      border-radius: 12px;
-      font-size: 11.5px;
-      font-weight: 500;
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #fca5a5;
+      padding: 2px 9px; border-radius: 12px; font-size: 11.5px; font-weight: 500;
+      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
     }
 
-    /* Scan tags shown under a message */
     .scan-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      color: var(--muted);
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(148, 163, 184, 0.06);
-      border: 1px solid var(--border);
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--muted);
+      padding: 2px 8px; border-radius: 10px;
+      background: rgba(148,163,184,0.06); border: 1px solid var(--border);
     }
+    .scan-tag.ok { color: var(--purple); border-color: rgba(81,85,148,0.25); background: var(--purple-glow); }
 
-    .scan-tag.ok { color: var(--teal); border-color: rgba(20,184,166,0.25); background: var(--teal-glow); }
-
-    /* Typing indicator */
     .typing-indicator {
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      display: flex; align-items: center; gap: 5px;
       padding: 12px 15px;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      border-bottom-left-radius: 4px;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 16px; border-bottom-left-radius: 4px;
       width: fit-content;
     }
-
     .typing-indicator span {
       width: 7px; height: 7px;
-      background: var(--muted);
-      border-radius: 50%;
+      background: var(--muted); border-radius: 50%;
       animation: bounce 1.4s ease-in-out infinite;
     }
-
     .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
     .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
@@ -239,57 +243,31 @@
       40%            { transform: translateY(-6px); opacity: 1; }
     }
 
-    /* Welcome state */
+    /* ── Welcome ────────────────────────────────────────────────────── */
     .welcome {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 32px 24px;
-      gap: 12px;
-      color: var(--muted);
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 32px 24px; gap: 12px; color: var(--muted);
     }
-
     .welcome-icon {
-      width: 64px; height: 64px;
-      border-radius: 20px;
-      background: var(--teal-glow);
-      border: 1px solid rgba(20,184,166,0.3);
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 8px;
+      width: 64px; height: 64px; border-radius: 20px;
+      background: var(--purple-glow); border: 1px solid rgba(81,85,148,0.3);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
     }
-
     .welcome h2 { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; }
     .welcome p  { font-size: 14px; max-width: 340px; }
 
     .suggestion-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 8px;
-      width: 100%;
-      max-width: 400px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin-top: 8px; width: 100%; max-width: 400px;
     }
-
     .suggestion-btn {
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: var(--text);
-      cursor: pointer;
-      text-align: left;
-      transition: border-color 0.2s, background 0.2s;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; color: var(--text); cursor: pointer;
+      text-align: left; transition: border-color 0.2s, background 0.2s, color 0.2s;
     }
-
-    .suggestion-btn:hover {
-      border-color: var(--teal);
-      background: var(--teal-glow);
-      color: var(--teal);
-    }
+    .suggestion-btn:hover { border-color: var(--purple); background: var(--purple-glow); color: var(--purple); }
 
     /* ── Input area ─────────────────────────────────────────────────── */
     .input-area {
@@ -297,109 +275,62 @@
       border-top: 1px solid var(--border);
       background: var(--card);
       flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
     }
-
     .input-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 10px;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 10px 10px 10px 16px;
+      display: flex; align-items: flex-end; gap: 10px;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 10px 10px 10px 16px;
       transition: border-color 0.2s;
     }
-
-    .input-row:focus-within {
-      border-color: var(--teal);
-      box-shadow: 0 0 0 3px var(--teal-glow);
-    }
+    .input-row:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-glow); }
 
     #user-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--text);
-      font-size: 14.5px;
-      line-height: 1.5;
-      resize: none;
-      max-height: 140px;
-      min-height: 24px;
-      font-family: inherit;
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 14.5px; line-height: 1.5;
+      resize: none; max-height: 140px; min-height: 24px; font-family: inherit;
     }
-
     #user-input::placeholder { color: var(--muted); }
 
     .send-btn {
-      width: 38px; height: 38px;
-      border-radius: 10px;
-      background: var(--teal);
-      border: none;
-      cursor: pointer;
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--purple); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.2s, transform 0.1s;
+      flex-shrink: 0; transition: background 0.2s, transform 0.1s;
     }
-
-    .send-btn:hover:not(:disabled)  { background: var(--teal-dim); }
+    .send-btn:hover:not(:disabled)  { background: var(--purple-dim); }
     .send-btn:active:not(:disabled) { transform: scale(0.93); }
     .send-btn:disabled { background: var(--border); cursor: not-allowed; opacity: 0.5; }
 
     .input-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 8px;
-      font-size: 11.5px;
-      color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 8px; font-size: 11.5px; color: var(--muted);
     }
-
-    .input-footer .talix-note {
+    .input-footer .skfguard-note {
       display: flex; align-items: center; gap: 5px;
-      color: var(--teal);
-      opacity: 0.8;
-      font-weight: 500;
+      color: var(--purple); opacity: 0.8; font-weight: 500;
     }
-
     .clear-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 11.5px;
-      padding: 2px 6px;
-      border-radius: 6px;
-      transition: color 0.2s, background 0.2s;
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 11.5px; padding: 2px 6px;
+      border-radius: 6px; transition: color 0.2s, background 0.2s;
     }
-
     .clear-btn:hover { color: var(--text); background: var(--border); }
 
-    /* Offline banner */
+    /* ── Offline states ─────────────────────────────────────────────── */
     .offline-banner {
-      display: none;
-      align-items: center;
-      gap: 10px;
+      display: none; align-items: center; gap: 10px;
       padding: 12px 20px;
-      background: rgba(245, 158, 11, 0.06);
-      border-bottom: 1px solid rgba(245, 158, 11, 0.2);
-      font-size: 13px;
-      color: var(--amber);
+      background: rgba(245,158,11,0.06); border-bottom: 1px solid rgba(245,158,11,0.2);
+      font-size: 13px; color: var(--amber);
     }
     .offline-banner.visible { display: flex; }
     .offline-banner svg { flex-shrink: 0; }
 
-    /* Offline full-screen state */
     .offline-state {
-      display: none;
-      flex: 1;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 32px 24px;
-      gap: 12px;
-      color: var(--muted);
+      display: none; flex: 1; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 32px 24px; gap: 12px; color: var(--muted);
     }
     .offline-state.visible { display: flex; }
     .offline-state h2 { font-size: 18px; font-weight: 700; color: var(--text); }
@@ -412,25 +343,31 @@
   <!-- Header -->
   <header class="header">
     <div class="logo-icon">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
-              fill="#0A0F1F" stroke="#0A0F1F" stroke-width="0.5"/>
+              fill="#0A0F1F" stroke="#fff" stroke-width="0.5"/>
         <path d="M12 4.5L5 8.5V12C5 15.65 8.12 19.15 12 20.25C15.88 19.15 19 15.65 19 12V8.5L12 4.5Z"
-              fill="#14B8A6" opacity="0.9"/>
-        <path d="M9.5 12.5L11 14L15 10" stroke="#0A0F1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              fill="#515594" opacity="0.9"/>
+        <path d="M9.5 12.5L11 14L15 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
     <div class="header-title">
-      <h1>Project 73</h1>
-      <p>Powered by GPT-4o mini · Guarded by Project 73 Security</p>
+      <h1>SKF Guard</h1>
+      <p>Powered by GPT-4o mini · Guarded by SKF Guard</p>
     </div>
-    <div class="shield-badge">
-      <span class="dot"></span>
-      Guardrails Active
+    <div class="header-right">
+      <div class="shield-badge">
+        <span class="dot"></span>
+        Guardrails Active
+      </div>
+      <!-- Theme toggle -->
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" onclick="toggleTheme()">
+        <!-- Icon injected by JS -->
+      </button>
     </div>
   </header>
 
-  <!-- Offline banner (shown when chatbot is disabled) -->
+  <!-- Offline banner -->
   <div class="offline-banner" id="offline-banner">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
@@ -454,12 +391,12 @@
       <div class="welcome-icon">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
-                fill="none" stroke="#14B8A6" stroke-width="1.5"/>
-          <path d="M9 12.5L11 14.5L15.5 10" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                fill="none" stroke="#515594" stroke-width="1.5"/>
+          <path d="M9 12.5L11 14.5L15.5 10" stroke="#515594" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <h2>How can I help you?</h2>
-      <p>Every message is scanned by Project 73 Security guardrails before it reaches the AI — and before the response reaches you.</p>
+      <p>Every message is scanned by SKF Guard guardrails before it reaches the AI — and before the response reaches you.</p>
       <div class="suggestion-grid">
         <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
         <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>
@@ -481,18 +418,18 @@
       ></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M22 2L11 13" stroke="#0A0F1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#0A0F1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 2L11 13" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
     <div class="input-footer">
-      <div class="talix-note">
+      <div class="skfguard-note">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
-                fill="none" stroke="#14B8A6" stroke-width="2"/>
+                fill="none" stroke="#515594" stroke-width="2"/>
         </svg>
-        Protected by Project 73 Security
+        Protected by SKF Guard
       </div>
       <button class="clear-btn" onclick="clearChat()">Clear chat</button>
     </div>
@@ -506,9 +443,38 @@
   const offlineBanner = document.getElementById('offline-banner');
   const inputEl       = document.getElementById('user-input');
   const sendBtn       = document.getElementById('send-btn');
+  const themeBtn      = document.getElementById('theme-btn');
 
-  // Conversation history sent to the backend (role/content pairs)
   let history = [];
+
+  // ── Theme toggle ──────────────────────────────────────────────────────────
+  const SUN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>`;
+  const MOON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>`;
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.innerHTML = theme === 'dark' ? SUN_SVG : MOON_SVG;
+    themeBtn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('chatTheme', next);
+    applyTheme(next);
+  }
+
+  // Apply on load
+  const savedTheme = localStorage.getItem('chatTheme') || 'dark';
+  applyTheme(savedTheme);
 
   // ── Check chatbot status on load ──────────────────────────────────────────
   async function checkStatus() {
@@ -534,10 +500,7 @@
   });
 
   inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
 
   // ── Suggestion buttons ────────────────────────────────────────────────────
@@ -547,19 +510,14 @@
     inputEl.focus();
   }
 
-  // ── Scroll to bottom ──────────────────────────────────────────────────────
-  function scrollBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
-  // ── Escape HTML ───────────────────────────────────────────────────────────
   function esc(str) {
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
   }
 
-  // ── Append a user bubble ──────────────────────────────────────────────────
   function appendUser(text) {
     hideWelcome();
     const row = document.createElement('div');
@@ -573,7 +531,6 @@
     scrollBottom();
   }
 
-  // ── Show typing indicator, return element ────────────────────────────────
   function showTyping() {
     const row = document.createElement('div');
     row.className = 'msg-row';
@@ -585,27 +542,22 @@
                 fill="none" stroke="#94a3b8" stroke-width="1.8"/>
         </svg>
       </div>
-      <div class="typing-indicator">
-        <span></span><span></span><span></span>
-      </div>`;
+      <div class="typing-indicator"><span></span><span></span><span></span></div>`;
     messagesEl.appendChild(row);
     scrollBottom();
     return row;
   }
 
-  // ── Remove typing indicator ───────────────────────────────────────────────
   function removeTyping() {
     const el = document.getElementById('typing-row');
     if (el) el.remove();
   }
 
-  // ── Append AI response bubble ─────────────────────────────────────────────
   function appendBot(text, scanInfo) {
     const row = document.createElement('div');
     row.className = 'msg-row';
     const tag = (scanInfo && scanInfo.violations && scanInfo.violations.length === 0)
-      ? `<span class="scan-tag ok">✓ Clean scan</span>`
-      : '';
+      ? `<span class="scan-tag ok">✓ Clean scan</span>` : '';
     row.innerHTML = `
       <div class="avatar bot-av">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -621,15 +573,11 @@
     scrollBottom();
   }
 
-  // ── Append a blocked/error bubble ────────────────────────────────────────
   function appendBlocked(data) {
     const row = document.createElement('div');
     row.className = 'msg-row';
     const dirLabel = data.direction === 'input' ? 'Input' : 'Output';
-    const pillsHtml = (data.violations || [])
-      .map(v => `<span class="pill">${esc(v)}</span>`)
-      .join('');
-
+    const pillsHtml = (data.violations || []).map(v => `<span class="pill">${esc(v)}</span>`).join('');
     row.innerHTML = `
       <div class="avatar bot-av">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -644,7 +592,7 @@
               <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-width="2"/>
               <path d="M4.93 4.93L19.07 19.07" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            ${esc(dirLabel)} blocked by Project 73 Security
+            ${esc(dirLabel)} blocked by SKF Guard
           </div>
           ${esc(data.message || 'This content was blocked by guardrails.')}
           ${pillsHtml ? `<div class="violation-pills">${pillsHtml}</div>` : ''}
@@ -654,25 +602,20 @@
     scrollBottom();
   }
 
-  // ── Hide welcome screen ───────────────────────────────────────────────────
   function hideWelcome() {
-    if (welcomeEl && welcomeEl.parentNode) {
-      welcomeEl.remove();
-    }
+    if (welcomeEl && welcomeEl.parentNode) welcomeEl.remove();
   }
 
-  // ── Main send logic ───────────────────────────────────────────────────────
   async function sendMessage() {
     const text = inputEl.value.trim();
     if (!text || sendBtn.disabled) return;
 
-    // Lock UI
     sendBtn.disabled = true;
     inputEl.value = '';
     inputEl.style.height = 'auto';
 
     appendUser(text);
-    const typingRow = showTyping();
+    showTyping();
 
     try {
       const res = await fetch('/chat', {
@@ -685,44 +628,31 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        appendBlocked({
-          direction: 'output',
-          violations: [],
-          message: err.error || `Server error (${res.status})`,
-        });
+        appendBlocked({ direction: 'output', violations: [], message: err.error || `Server error (${res.status})` });
         return;
       }
 
       const data = await res.json();
-
       if (data.blocked) {
         appendBlocked(data);
       } else {
         appendBot(data.response, data.output_scan);
-        // Append to history for multi-turn context
         history.push({ role: 'user', content: text });
         history.push({ role: 'assistant', content: data.response });
-        // Keep history bounded (last 20 exchanges = 40 messages)
         if (history.length > 40) history = history.slice(history.length - 40);
       }
     } catch (err) {
       removeTyping();
-      appendBlocked({
-        direction: 'output',
-        violations: [],
-        message: `Network error: ${err.message}. Is the Project 73 server running?`,
-      });
+      appendBlocked({ direction: 'output', violations: [], message: `Network error: ${err.message}. Is the SKF Guard server running?` });
     } finally {
       sendBtn.disabled = false;
       inputEl.focus();
     }
   }
 
-  // ── Clear chat ────────────────────────────────────────────────────────────
   function clearChat() {
     history = [];
     messagesEl.innerHTML = '';
-    // Re-add welcome
     const w = document.createElement('div');
     w.className = 'welcome';
     w.id = 'welcome';
@@ -730,12 +660,12 @@
       <div class="welcome-icon">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
-                fill="none" stroke="#14B8A6" stroke-width="1.5"/>
-          <path d="M9 12.5L11 14.5L15.5 10" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                fill="none" stroke="#515594" stroke-width="1.5"/>
+          <path d="M9 12.5L11 14.5L15.5 10" stroke="#515594" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <h2>How can I help you?</h2>
-      <p>Every message is scanned by Project 73 Security guardrails before it reaches the AI — and before the response reaches you.</p>
+      <p>Every message is scanned by SKF Guard guardrails before it reaches the AI — and before the response reaches you.</p>
       <div class="suggestion-grid">
         <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
         <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>
@@ -745,7 +675,6 @@
     messagesEl.appendChild(w);
   }
 
-  // Initial focus
   inputEl.focus();
 </script>
 </body>

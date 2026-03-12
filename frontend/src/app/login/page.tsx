@@ -7,7 +7,7 @@ import Cookies from "js-cookie";
 type Mode = "login" | "forgot-password" | "forgot-username";
 
 const inputStyle: React.CSSProperties = {
-  background: "#0d1426",
+  background: "var(--card)",
   border: "1px solid rgba(255,255,255,0.08)",
 };
 
@@ -15,12 +15,12 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("login");
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#0A0F1F" }}>
+    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
       {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-2/5 border-r border-white/5 p-12" style={{ background: "#0d1426" }}>
+      <div className="hidden lg:flex flex-col justify-between w-2/5 border-r border-white/5 p-12" style={{ background: "var(--card)" }}>
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-sm" style={{ background: "#14B8A6" }} />
-          <span className="text-white font-semibold text-sm tracking-tight">Project 73</span>
+          <span className="w-5 h-5 rounded-sm" style={{ background: "#515594" }} />
+          <span className="text-white font-semibold text-sm tracking-tight">SKF Guard</span>
         </Link>
         <div>
           <p className="text-2xl font-bold text-white tracking-tight leading-snug mb-4">
@@ -30,7 +30,7 @@ export default function LoginPage() {
             One API. Full audit trail. Real-time monitoring.
           </p>
         </div>
-        <p className="text-xs text-slate-700">© 2026 Project 73 Security</p>
+        <p className="text-xs text-slate-700">© 2026 SKF Guard</p>
       </div>
 
       {/* Right panel */}
@@ -84,7 +84,7 @@ function LoginForm({ onForgotPassword, onForgotUsername }: { onForgotPassword: (
         <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Welcome back</h1>
         <p className="text-sm text-slate-500">
           No account?{" "}
-          <Link href="/register" className="transition-colors hover:text-white" style={{ color: "#14B8A6" }}>
+          <Link href="/register" className="transition-colors hover:text-white" style={{ color: "#515594" }}>
             Create one
           </Link>
         </p>
@@ -101,7 +101,7 @@ function LoginForm({ onForgotPassword, onForgotUsername }: { onForgotPassword: (
             autoFocus
             className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
             style={inputStyle}
-            onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+            onFocus={(e) => (e.target.style.borderColor = "#515594")}
             onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
             placeholder="username"
           />
@@ -115,7 +115,7 @@ function LoginForm({ onForgotPassword, onForgotUsername }: { onForgotPassword: (
             required
             className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
             style={inputStyle}
-            onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+            onFocus={(e) => (e.target.style.borderColor = "#515594")}
             onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
             placeholder="••••••••"
           />
@@ -131,7 +131,7 @@ function LoginForm({ onForgotPassword, onForgotUsername }: { onForgotPassword: (
           type="submit"
           disabled={loading}
           className="w-full py-2.5 rounded text-sm font-medium transition-opacity disabled:opacity-50"
-          style={{ background: "#14B8A6", color: "#0A0F1F" }}
+          style={{ background: "#515594", color: "#fff" }}
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>
@@ -197,14 +197,14 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       {done ? (
         <div className="space-y-4">
           <div className="rounded border-l-2 px-4 py-4 space-y-1"
-            style={{ background: "rgba(20,184,166,0.05)", borderColor: "#14B8A6" }}>
+            style={{ background: "rgba(81,85,148,0.08)", borderColor: "#515594" }}>
             <p className="text-sm font-medium text-white">Check your inbox</p>
             <p className="text-xs text-slate-400 leading-relaxed">
               If <span className="font-mono text-slate-300">{email}</span> is registered, a password reset link
               has been sent. It expires in 1 hour.
             </p>
           </div>
-          <button onClick={onBack} className="text-xs font-mono" style={{ color: "#14B8A6" }}>
+          <button onClick={onBack} className="text-xs font-mono" style={{ color: "#515594" }}>
             ← Back to sign in
           </button>
         </div>
@@ -219,8 +219,8 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
               required
               autoFocus
               className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+              style={{ background: "var(--card)", border: "1px solid rgba(255,255,255,0.08)" }}
+              onFocus={(e) => (e.target.style.borderColor = "#515594")}
               onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               placeholder="you@company.com"
             />
@@ -236,7 +236,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded text-sm font-medium transition-opacity disabled:opacity-50"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}
+            style={{ background: "#515594", color: "#fff" }}
           >
             {loading ? "Sending…" : "Send reset link"}
           </button>
@@ -293,14 +293,14 @@ function ForgotUsernameForm({ onBack }: { onBack: () => void }) {
       {done ? (
         <div className="space-y-4">
           <div className="rounded border-l-2 px-4 py-4 space-y-1"
-            style={{ background: "rgba(20,184,166,0.05)", borderColor: "#14B8A6" }}>
+            style={{ background: "rgba(81,85,148,0.08)", borderColor: "#515594" }}>
             <p className="text-sm font-medium text-white">Check your inbox</p>
             <p className="text-xs text-slate-400 leading-relaxed">
               If <span className="font-mono text-slate-300">{email}</span> is registered, your username
               has been sent to that address.
             </p>
           </div>
-          <button onClick={onBack} className="text-xs font-mono" style={{ color: "#14B8A6" }}>
+          <button onClick={onBack} className="text-xs font-mono" style={{ color: "#515594" }}>
             ← Back to sign in
           </button>
         </div>
@@ -315,8 +315,8 @@ function ForgotUsernameForm({ onBack }: { onBack: () => void }) {
               required
               autoFocus
               className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "#14B8A6")}
+              style={{ background: "var(--card)", border: "1px solid rgba(255,255,255,0.08)" }}
+              onFocus={(e) => (e.target.style.borderColor = "#515594")}
               onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               placeholder="you@company.com"
             />
@@ -332,7 +332,7 @@ function ForgotUsernameForm({ onBack }: { onBack: () => void }) {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded text-sm font-medium transition-opacity disabled:opacity-50"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}
+            style={{ background: "#515594", color: "#fff" }}
           >
             {loading ? "Sending…" : "Send my username"}
           </button>

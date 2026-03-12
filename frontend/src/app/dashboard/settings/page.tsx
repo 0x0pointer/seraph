@@ -8,9 +8,9 @@ interface UserInfo { id: number; username: string; full_name: string | null; ema
 interface ApiTokenInfo { api_token: string; created: boolean; }
 
 const inputStyle = {
-  background: "#0A0F1F",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#e2e8f0",
+  background: "var(--bg)",
+  border: "1px solid var(--border-input)",
+  color: "var(--text)",
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ export default function SettingsPage() {
       key: "curl",
       lang: "bash",
       label: "cURL",
-      code: `curl -X POST https://api.talix.io/scan/prompt \\
+      code: `curl -X POST http://localhost:8000/api/scan/prompt \\
   -H "Authorization: Bearer ${token || "YOUR_API_TOKEN"}" \\
   -H "Content-Type: application/json" \\
   -d '{"text": "user prompt here"}'`,
@@ -136,7 +136,7 @@ export default function SettingsPage() {
       code: `import httpx
 
 response = httpx.post(
-    "https://api.talix.io/scan/prompt",
+    "http://localhost:8000/api/scan/prompt",
     headers={"Authorization": "Bearer ${token || "YOUR_API_TOKEN"}"},
     json={"text": "user prompt here"},
 )
@@ -146,7 +146,7 @@ print(response.json())`,
       key: "ts",
       lang: "typescript",
       label: "TypeScript",
-      code: `const res = await fetch("https://api.talix.io/scan/prompt", {
+      code: `const res = await fetch("http://localhost:8000/api/scan/prompt", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -162,7 +162,7 @@ const data = await res.json();`,
     <div className="max-w-2xl space-y-6">
 
       {/* Account */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
         <div className="flex items-center justify-between mb-5">
           <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Account</p>
           {user && !editingProfile && (
@@ -176,7 +176,7 @@ const data = await res.json();`,
         </div>
 
         {!user ? (
-          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-8 rounded animate-pulse" style={{ background: "#111827" }} />)}</div>
+          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />)}</div>
         ) : editingProfile ? (
           <form onSubmit={handleSaveProfile} className="space-y-4">
             {[
@@ -198,8 +198,8 @@ const data = await res.json();`,
             ))}
             {/* Read-only fields */}
             {[
-              { label: "Role", value: user.role, color: "#14B8A6" },
-              { label: "User ID", value: `#${user.id}`, color: "#e2e8f0" },
+              { label: "Role", value: user.role, color: "#515594" },
+              { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <span className="text-xs text-slate-500">{label}</span>
@@ -210,7 +210,7 @@ const data = await res.json();`,
               <p className="text-xs px-3 py-2.5 rounded border font-mono"
                 style={profileErr
                   ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
-                  : { color: "#14B8A6", background: "rgba(20,184,166,0.05)", borderColor: "rgba(20,184,166,0.15)" }}>
+                  : { color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
                 {profileMsg}
               </p>
             )}
@@ -219,7 +219,7 @@ const data = await res.json();`,
                 type="submit"
                 disabled={profileSaving}
                 className="text-xs font-medium px-4 py-2 rounded disabled:opacity-50"
-                style={{ background: "#14B8A6", color: "#0A0F1F" }}
+                style={{ background: "#515594", color: "#0A0F1F" }}
               >
                 {profileSaving ? "Saving…" : "Save changes"}
               </button>
@@ -232,17 +232,17 @@ const data = await res.json();`,
           <div className="space-y-3">
             {profileMsg && !profileErr && (
               <p className="text-xs px-3 py-2.5 rounded border font-mono mb-2"
-                style={{ color: "#14B8A6", background: "rgba(20,184,166,0.05)", borderColor: "rgba(20,184,166,0.15)" }}>
+                style={{ color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
                 {profileMsg}
               </p>
             )}
             {[
-              { label: "Username", value: user.username, color: "#e2e8f0" },
-              { label: "Full name", value: user.full_name ?? "—", color: "#e2e8f0" },
-              { label: "Email", value: user.email ?? "—", color: "#e2e8f0" },
-              { label: "Role", value: user.role, color: "#14B8A6" },
+              { label: "Username", value: user.username, color: "var(--text)" },
+              { label: "Full name", value: user.full_name ?? "—", color: "var(--text)" },
+              { label: "Email", value: user.email ?? "—", color: "var(--text)" },
+              { label: "Role", value: user.role, color: "#515594" },
               { label: "Plan", value: user.plan ?? "free", color: "#a78bfa" },
-              { label: "User ID", value: `#${user.id}`, color: "#e2e8f0" },
+              { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <span className="text-xs text-slate-500">{label}</span>
@@ -254,7 +254,7 @@ const data = await res.json();`,
       </div>
 
       {/* Change password */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
         <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-5">Change Password</p>
         <form onSubmit={handleChangePassword} className="space-y-4">
           {[
@@ -272,36 +272,36 @@ const data = await res.json();`,
             <p className="text-xs px-3 py-2.5 rounded border font-mono"
               style={msgErr
                 ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
-                : { color: "#14B8A6", background: "rgba(20,184,166,0.05)", borderColor: "rgba(20,184,166,0.15)" }}>
+                : { color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
               {msg}
             </p>
           )}
-          <button type="submit" className="text-xs font-medium px-4 py-2 rounded" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+          <button type="submit" className="text-xs font-medium px-4 py-2 rounded" style={{ background: "#515594", color: "#0A0F1F" }}>
             Update password
           </button>
         </form>
       </div>
 
       {/* API Token */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">API Token</p>
           <span
             className="text-xs font-mono px-2 py-0.5 rounded"
-            style={{ background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}
+            style={{ background: "rgba(81,85,148,0.08)", color: "#515594" }}
           >
             ts_live_…
           </span>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed mb-5">
           Use this token to authenticate requests from your application. Pass it as a{" "}
-          <code className="text-teal-400 font-mono">Bearer</code> token in the{" "}
-          <code className="text-teal-400 font-mono">Authorization</code> header.
+          <code className="text-[#515594] font-mono">Bearer</code> token in the{" "}
+          <code className="text-[#515594] font-mono">Authorization</code> header.
           It never expires — regenerate if compromised.
         </p>
 
         {/* Token display */}
-        <div className="rounded border border-white/5 overflow-hidden mb-4" style={{ background: "#0A0F1F" }}>
+        <div className="rounded border border-white/5 overflow-hidden mb-4" style={{ background: "var(--bg)" }}>
           <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
             <span className="text-xs text-slate-600 font-mono">Authorization: Bearer</span>
             <div className="flex items-center gap-4">
@@ -316,7 +316,7 @@ const data = await res.json();`,
                 onClick={handleCopyToken}
                 disabled={!token}
                 className="text-xs font-mono transition-colors disabled:opacity-30"
-                style={{ color: copied ? "#14B8A6" : "#475569" }}
+                style={{ color: copied ? "#515594" : "#475569" }}
               >
                 {copied ? "copied!" : "copy"}
               </button>
@@ -328,7 +328,7 @@ const data = await res.json();`,
             ) : (
               <code
                 className="text-xs font-mono break-all select-all"
-                style={{ color: revealed ? "#14B8A6" : "#334155" }}
+                style={{ color: revealed ? "#515594" : "#334155" }}
               >
                 {display || "—"}
               </code>
@@ -369,7 +369,7 @@ const data = await res.json();`,
 
         {/* Usage snippets */}
         <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-4">Usage examples</p>
-        <div className="flex gap-1 p-1 rounded w-fit mb-4" style={{ background: "#0A0F1F" }}>
+        <div className="flex gap-1 p-1 rounded w-fit mb-4" style={{ background: "var(--bg)" }}>
           {snippets.map((s) => (
             <button
               key={s.key}
@@ -377,8 +377,8 @@ const data = await res.json();`,
               className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
               style={
                 snippetTab === s.key
-                  ? { background: "#14B8A6", color: "#0A0F1F" }
-                  : { color: "#64748b" }
+                  ? { background: "#515594", color: "#0A0F1F" }
+                  : { color: "var(--text-dim)" }
               }
             >
               {s.label}
@@ -386,13 +386,13 @@ const data = await res.json();`,
           ))}
         </div>
         {snippets.filter((s) => s.key === snippetTab).map((s) => (
-          <div key={s.key} className="rounded border border-white/5 overflow-hidden" style={{ background: "#0A0F1F" }}>
+          <div key={s.key} className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--bg)" }}>
             <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
               <span className="text-xs text-slate-600 font-mono">{s.lang}</span>
               <button
                 onClick={() => handleCopySnippet(s.key, s.code)}
                 className="text-xs font-mono transition-colors"
-                style={{ color: copiedSnippet === s.key ? "#14B8A6" : "#475569" }}
+                style={{ color: copiedSnippet === s.key ? "#515594" : "#475569" }}
               >
                 {copiedSnippet === s.key ? "copied!" : "copy"}
               </button>
@@ -409,7 +409,7 @@ const data = await res.json();`,
         {/* Security note */}
         <div
           className="mt-5 rounded border-l-2 px-4 py-3 text-xs text-slate-500 leading-relaxed"
-          style={{ background: "#0A0F1F", borderColor: "rgba(251,146,60,0.4)" }}
+          style={{ background: "var(--bg)", borderColor: "rgba(251,146,60,0.4)" }}
         >
           <strong className="text-slate-300">Keep this token secret.</strong> Never expose it in
           client-side code, commit it to a repository, or share it in logs. Store it in an environment

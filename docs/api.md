@@ -1,6 +1,6 @@
-# Project 73 — REST API Reference
+# SKF Guard — REST API Reference
 
-Base URL: `https://project73.ai/api`
+Base URL: `https://skfguard.io/api`
 
 All protected endpoints require a JWT Bearer token (obtained from `/auth/login`) or a static API key (from `/auth/api-token`):
 
@@ -316,7 +316,7 @@ Returns public platform info — no authentication required.
 
 **Response:**
 ```json
-{ "company_name": "Project 73", "chatbot_enabled": true }
+{ "company_name": "SKF Guard", "chatbot_enabled": true }
 ```
 
 ---

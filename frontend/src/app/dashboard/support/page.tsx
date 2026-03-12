@@ -25,17 +25,17 @@ const categories = [
   { value: "integration", label: "API / Integration Help" },
 ];
 const priorities = [
-  { value: "low", label: "Low", color: "#64748b" },
+  { value: "low", label: "Low", color: "var(--text-dim)" },
   { value: "medium", label: "Medium", color: "#f59e0b" },
   { value: "high", label: "High", color: "#f97316" },
   { value: "urgent", label: "Urgent", color: "#f87171" },
 ];
 
 const statusColors: Record<string, { bg: string; color: string; label: string }> = {
-  open:        { bg: "rgba(20,184,166,0.1)",  color: "#14B8A6", label: "Open" },
+  open:        { bg: "rgba(81,85,148,0.1)",  color: "#515594", label: "Open" },
   in_progress: { bg: "rgba(251,191,36,0.1)",  color: "#fbbf24", label: "In Progress" },
-  resolved:    { bg: "rgba(148,163,184,0.1)", color: "#94a3b8", label: "Resolved" },
-  closed:      { bg: "rgba(71,85,105,0.15)",  color: "#64748b", label: "Closed" },
+  resolved:    { bg: "rgba(148,163,184,0.1)", color: "var(--text-muted)", label: "Resolved" },
+  closed:      { bg: "rgba(71,85,105,0.15)",  color: "var(--text-dim)", label: "Closed" },
 };
 
 function priorityColor(p: string) {
@@ -46,7 +46,7 @@ function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-const inputStyle = { background: "#0d1426", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", borderRadius: "6px" } as const;
+const inputStyle = { background: "var(--card)", border: "1px solid var(--border-input)", color: "var(--text)", borderRadius: "6px" } as const;
 const labelCls = "block text-xs font-medium text-slate-400 mb-1.5";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
   }
 
   const statCards = [
-    { label: "Total", value: stats?.total ?? "—", color: "#94a3b8" },
-    { label: "Open", value: stats?.open ?? "—", color: "#14B8A6" },
+    { label: "Total", value: stats?.total ?? "—", color: "var(--text-muted)" },
+    { label: "Open", value: stats?.open ?? "—", color: "#515594" },
     { label: "In Progress", value: stats?.in_progress ?? "—", color: "#fbbf24" },
-    { label: "Resolved", value: stats?.resolved ?? "—", color: "#94a3b8" },
+    { label: "Resolved", value: stats?.resolved ?? "—", color: "var(--text-muted)" },
   ];
 
   return (
@@ -144,7 +144,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-lg px-5 py-4 border border-white/5" style={{ background: "#0d1426" }}>
+          <div key={s.label} className="rounded-lg px-5 py-4 border border-white/5" style={{ background: "var(--card)" }}>
             <p className="text-2xl font-bold tracking-tight" style={{ color: s.color }}>{String(s.value)}</p>
             <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
           </div>
@@ -155,7 +155,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
       <div className="flex gap-4 h-[620px]">
 
         {/* Ticket list */}
-        <div className="w-80 shrink-0 flex flex-col rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+        <div className="w-80 shrink-0 flex flex-col rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           {/* Filters */}
           <div className="px-3 py-3 border-b border-white/5 space-y-2">
             <input
@@ -183,7 +183,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
           <div className="flex-1 overflow-y-auto">
             {!tickets ? (
               <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 rounded animate-pulse" style={{ background: "#0A0F1F" }} />
+                <div key={i} className="h-16 rounded animate-pulse" style={{ background: "var(--bg)" }} />
               ))}</div>
             ) : tickets.length === 0 ? (
               <p className="text-xs text-slate-600 text-center mt-8">No tickets found.</p>
@@ -192,7 +192,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                 key={t.id}
                 onClick={() => loadTicket(t.id)}
                 className="w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors"
-                style={selected?.id === t.id ? { background: "rgba(20,184,166,0.06)" } : {}}
+                style={selected?.id === t.id ? { background: "rgba(81,85,148,0.06)" } : {}}
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <span className="text-xs font-medium text-white truncate">{t.subject}</span>
@@ -209,7 +209,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
         </div>
 
         {/* Ticket detail */}
-        <div className="flex-1 flex flex-col rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+        <div className="flex-1 flex flex-col rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           {!selected ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-sm text-slate-600">Select a ticket to view details</p>
@@ -230,7 +230,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                     </div>
                     <h2 className="text-sm font-semibold text-white">{selected.subject}</h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {selected.name} · <a href={`mailto:${selected.email}`} className="hover:text-white" style={{ color: "#14B8A6" }}>{selected.email}</a>
+                      {selected.name} · <a href={`mailto:${selected.email}`} className="hover:text-white" style={{ color: "#515594" }}>{selected.email}</a>
                       {" "}· #{selected.id} · {fmt(selected.created_at)}
                     </p>
                   </div>
@@ -260,7 +260,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
               {/* Thread */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 {/* Original message */}
-                <div className="rounded-lg p-4 border border-white/5" style={{ background: "#0A0F1F" }}>
+                <div className="rounded-lg p-4 border border-white/5" style={{ background: "var(--bg)" }}>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-medium text-white">{selected.name}</p>
                     <p className="text-xs text-slate-600">{fmt(selected.created_at)}</p>
@@ -270,13 +270,13 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
 
                 {/* Responses */}
                 {selected.responses.map((r) => (
-                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-teal-900/30" : "border-white/5"}`}
-                    style={{ background: r.is_staff ? "rgba(20,184,166,0.04)" : "#0A0F1F" }}>
+                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#515594]/30" : "border-white/5"}`}
+                    style={{ background: r.is_staff ? "rgba(81,85,148,0.04)" : "var(--card)" }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-white">{r.responder_name}</p>
                         {r.is_staff && (
-                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>
+                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
                             staff
                           </span>
                         )}
@@ -311,7 +311,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                     onClick={sendReply}
                     disabled={sending || !reply.trim()}
                     className="text-xs px-4 py-1.5 rounded font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#14B8A6", color: "#0A0F1F" }}
+                    style={{ background: "#515594", color: "var(--card)" }}
                   >
                     {sending ? "Sending…" : "Send reply"}
                   </button>
@@ -398,11 +398,11 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
         <div className="lg:col-span-2">
 
           {/* Tabs */}
-          <div className="flex gap-1 p-1 rounded mb-5 w-fit" style={{ background: "#0A0F1F" }}>
+          <div className="flex gap-1 p-1 rounded mb-5 w-fit" style={{ background: "var(--bg)" }}>
             {([["submit", "Submit a request"], ["my", `My tickets${myTickets?.length ? ` (${myTickets.length})` : ""}`]] as const).map(([t, l]) => (
               <button key={t} onClick={() => { setTab(t); setSelectedTicket(null); }}
                 className="px-4 py-1.5 rounded text-xs font-medium transition-colors"
-                style={tab === t ? { background: "#0d1426", color: "#e2e8f0" } : { color: "#64748b" }}>
+                style={tab === t ? { background: "var(--card)", color: "var(--text)" } : { color: "var(--text-dim)" }}>
                 {l}
               </button>
             ))}
@@ -410,7 +410,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
           {/* Submit tab */}
           {tab === "submit" && (
-            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
               <div className="px-6 py-4 border-b border-white/5">
                 <p className="text-sm font-medium text-white">Submit a support request</p>
                 <p className="text-xs text-slate-500 mt-0.5">We typically respond within 1–2 business days.</p>
@@ -418,8 +418,8 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
               {submitted ? (
                 <div className="px-6 py-14 text-center">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(20,184,166,0.12)" }}>
-                    <svg className="w-6 h-6" style={{ color: "#14B8A6" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(81,85,148,0.12)" }}>
+                    <svg className="w-6 h-6" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -429,7 +429,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                     <button onClick={reset} className="text-xs px-4 py-2 rounded border border-white/10 text-slate-400 hover:text-white transition-colors">
                       Submit another
                     </button>
-                    <button onClick={() => setTab("my")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                    <button onClick={() => setTab("my")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#515594", color: "var(--card)" }}>
                       View my tickets
                     </button>
                   </div>
@@ -480,7 +480,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                   </div>
                   <button type="submit" disabled={submitting}
                     className="px-5 py-2.5 rounded text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                    style={{ background: "#515594", color: "var(--card)" }}>
                     {submitting ? "Sending…" : "Submit request"}
                   </button>
                 </form>
@@ -490,23 +490,23 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
           {/* My tickets tab */}
           {tab === "my" && !selectedTicket && (
-            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
               <div className="px-6 py-4 border-b border-white/5">
                 <p className="text-sm font-medium text-white">My tickets</p>
               </div>
               {!myTickets ? (
-                <div className="p-6 space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-12 rounded animate-pulse" style={{ background: "#0A0F1F" }} />)}</div>
+                <div className="p-6 space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
               ) : myTickets.length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <p className="text-sm text-slate-600 mb-3">No tickets yet.</p>
-                  <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                  <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#515594", color: "var(--card)" }}>
                     Submit a request
                   </button>
                 </div>
               ) : (
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{ background: "#0A0F1F" }}>
+                    <tr style={{ background: "var(--bg)" }}>
                       {["Subject", "Category", "Priority", "Status", "Replies", "Created"].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium border-b border-white/5">{h}</th>
                       ))}
@@ -534,7 +534,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
           {/* Ticket detail (user) */}
           {tab === "my" && selectedTicket && (
-            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+            <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
               <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
                 <button onClick={() => setSelectedTicket(null)} className="text-slate-500 hover:text-white transition-colors">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -550,16 +550,16 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                 </div>
               </div>
               <div className="px-6 py-4 space-y-4 max-h-96 overflow-y-auto">
-                <div className="rounded-lg p-4 border border-white/5" style={{ background: "#0A0F1F" }}>
+                <div className="rounded-lg p-4 border border-white/5" style={{ background: "var(--bg)" }}>
                   <p className="text-xs font-medium text-white mb-1">{selectedTicket.name} <span className="text-slate-600 font-normal">(you)</span></p>
                   <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedTicket.description}</p>
                 </div>
                 {selectedTicket.responses.map((r) => (
-                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-teal-900/30" : "border-white/5"}`}
-                    style={{ background: r.is_staff ? "rgba(20,184,166,0.04)" : "#0A0F1F" }}>
+                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#515594]/30" : "border-white/5"}`}
+                    style={{ background: r.is_staff ? "rgba(81,85,148,0.04)" : "var(--card)" }}>
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-xs font-medium text-white">{r.responder_name}</p>
-                      {r.is_staff && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>staff</span>}
+                      {r.is_staff && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>staff</span>}
                       <span className="text-xs text-slate-600 ml-auto">{fmt(r.created_at)}</span>
                     </div>
                     <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{r.message}</p>
@@ -573,7 +573,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                     className="w-full px-3 py-2 text-sm outline-none placeholder:text-slate-600 resize-none rounded mb-3" style={inputStyle} />
                   <button onClick={sendFollowUp} disabled={sendingFollowUp || !followUp.trim()}
                     className="text-xs px-4 py-1.5 rounded font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                    style={{ background: "#515594", color: "var(--card)" }}>
                     {sendingFollowUp ? "Sending…" : "Send follow-up"}
                   </button>
                 </div>
@@ -584,21 +584,21 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
         {/* Contact cards */}
         <div className="space-y-4">
-          <div className="rounded-lg border border-white/5 p-5" style={{ background: "#0d1426" }}>
+          <div className="rounded-lg border border-white/5 p-5" style={{ background: "var(--card)" }}>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(20,184,166,0.1)" }}>
-                <svg className="w-4 h-4" style={{ color: "#14B8A6" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(81,85,148,0.1)" }}>
+                <svg className="w-4 h-4" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
                 <p className="text-sm font-medium text-white mb-0.5">Email support</p>
                 <p className="text-xs text-slate-500 mb-2">For non-urgent issues and billing questions.</p>
-                <a href="mailto:support@talixshield.com" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#14B8A6" }}>support@talixshield.com</a>
+                <a href="mailto:support@skfguard.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#515594" }}>support@skfguard.io</a>
               </div>
             </div>
           </div>
-          <div className="rounded-lg border border-white/5 p-5" style={{ background: "#0d1426" }}>
+          <div className="rounded-lg border border-white/5 p-5" style={{ background: "var(--card)" }}>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(248,113,113,0.1)" }}>
                 <svg className="w-4 h-4" style={{ color: "#f87171" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -608,11 +608,11 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               <div>
                 <p className="text-sm font-medium text-white mb-0.5">Security disclosures</p>
                 <p className="text-xs text-slate-500 mb-2">Found a vulnerability? Please reach out privately.</p>
-                <a href="mailto:security@talixshield.com" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#f87171" }}>security@talixshield.com</a>
+                <a href="mailto:security@skfguard.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#f87171" }}>security@skfguard.io</a>
               </div>
             </div>
           </div>
-          <div className="rounded-lg border border-white/5 p-5" style={{ background: "#0d1426" }}>
+          <div className="rounded-lg border border-white/5 p-5" style={{ background: "var(--card)" }}>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(148,163,184,0.08)" }}>
                 <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -622,11 +622,11 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               <div>
                 <p className="text-sm font-medium text-white mb-0.5">Documentation</p>
                 <p className="text-xs text-slate-500 mb-2">API reference, scanner guides, integration examples.</p>
-                <a href="/docs" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#94a3b8" }}>/docs →</a>
+                <a href="/docs" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "var(--text-muted)" }}>/docs →</a>
               </div>
             </div>
           </div>
-          <div className="rounded-lg px-4 py-3 border border-white/5" style={{ background: "rgba(20,184,166,0.03)" }}>
+          <div className="rounded-lg px-4 py-3 border border-white/5" style={{ background: "rgba(81,85,148,0.03)" }}>
             <p className="text-xs text-slate-600 leading-relaxed">
               <span className="text-slate-500 font-medium">Response times:</span> Urgent &lt;4h · High &lt;24h · Medium &lt;2 days · Low &lt;5 days
             </p>
@@ -645,7 +645,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 export default function SupportPage() {
   const { data: user } = useSWR<UserInfo>("/auth/me", () => api.get<UserInfo>("/auth/me"), { revalidateOnFocus: false });
 
-  if (!user) return <div className="h-32 rounded animate-pulse" style={{ background: "#0d1426" }} />;
+  if (!user) return <div className="h-32 rounded animate-pulse" style={{ background: "var(--card)" }} />;
 
   const isStaff = user.role === "admin" || user.role === "support";
   return isStaff ? <StaffView currentUser={user} /> : <UserView currentUser={user} />;

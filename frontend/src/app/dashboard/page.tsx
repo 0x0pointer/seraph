@@ -37,7 +37,7 @@ interface AuditItem {
 interface AuditList { items: AuditItem[]; total: number; }
 
 function Sk({ h = "h-24", w }: { h?: string; w?: string }) {
-  return <div className={`${h} ${w ?? "w-full"} rounded animate-pulse`} style={{ background: "#111827" }} />;
+  return <div className={`${h} ${w ?? "w-full"} rounded animate-pulse`} style={{ background: "var(--card2)" }} />;
 }
 
 const ChartTip = ({ active, payload, label }: {
@@ -47,7 +47,7 @@ const ChartTip = ({ active, payload, label }: {
 }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded border border-white/10 px-3 py-2 text-xs" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/10 px-3 py-2 text-xs" style={{ background: "var(--card)" }}>
       <p className="text-slate-500 mb-1 font-mono">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }} className="font-mono">{p.name}: {p.value}</p>
@@ -57,10 +57,10 @@ const ChartTip = ({ active, payload, label }: {
 };
 
 function passRateColor(r: number) {
-  return r >= 95 ? "#14B8A6" : r >= 80 ? "#fbbf24" : "#f87171";
+  return r >= 95 ? "#515594" : r >= 80 ? "#fbbf24" : "#f87171";
 }
 function riskColor(r: number) {
-  return r < 0.3 ? "#14B8A6" : r < 0.6 ? "#fbbf24" : "#f87171";
+  return r < 0.3 ? "#515594" : r < 0.6 ? "#fbbf24" : "#f87171";
 }
 
 export default function DashboardOverview() {
@@ -122,7 +122,7 @@ export default function DashboardOverview() {
             value={filterOrgId}
             onChange={(e) => setFilterOrgId(e.target.value)}
             className="text-sm rounded px-3 py-2 outline-none shrink-0"
-            style={{ background: "#0d1426", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8" }}
+            style={{ background: "var(--card)", border: "1px solid var(--border-input)", color: "var(--text-muted)" }}
           >
             <option value="">All organizations</option>
             {adminOrgs?.map((o) => (
@@ -139,16 +139,16 @@ export default function DashboardOverview() {
         ) : ([
           {
             label: "Total Scans", value: summary.total_scans.toLocaleString(),
-            sub: "all time", color: "#e2e8f0",
+            sub: "all time", color: "var(--text)",
           },
           {
             label: "Scans Today", value: summary.scans_today.toLocaleString(),
-            sub: "since midnight UTC", color: "#14B8A6",
+            sub: "since midnight UTC", color: "#515594",
           },
           {
             label: "Violations Today", value: summary.violations_today.toLocaleString(),
             sub: `${summary.total_violations.toLocaleString()} all time`,
-            color: summary.violations_today > 0 ? "#f87171" : "#14B8A6",
+            color: summary.violations_today > 0 ? "#f87171" : "#515594",
           },
           {
             label: "Pass Rate Today", value: `${summary.pass_rate_today.toFixed(1)}%`,
@@ -166,7 +166,7 @@ export default function DashboardOverview() {
             sub: "across all scanners", color: riskColor(summary.avg_risk_score),
           },
         ].map(({ label, value, sub, color }) => (
-          <div key={label} className="rounded border border-white/5 p-4" style={{ background: "#0d1426" }}>
+          <div key={label} className="rounded border border-white/5 p-4" style={{ background: "var(--card)" }}>
             <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-1">{label}</p>
             <p className="text-2xl font-bold tracking-tight" style={{ color }}>{value}</p>
             <p className="text-xs text-slate-600 mt-1">{sub}</p>
@@ -178,7 +178,7 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* 7-day area chart */}
-        <div className="lg:col-span-2 rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+        <div className="lg:col-span-2 rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">
             Violations — Last 7 Days
           </p>
@@ -191,8 +191,8 @@ export default function DashboardOverview() {
                     <stop offset="95%" stopColor="rgba(255,255,255,0)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="violGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#14B8A6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#515594" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#515594" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" />
@@ -202,7 +202,7 @@ export default function DashboardOverview() {
                 <Tooltip content={<ChartTip />} />
                 <Area type="monotone" dataKey="total" stroke="rgba(255,255,255,0.12)"
                   fill="url(#totalGrad)" name="Total" strokeWidth={1} dot={false} />
-                <Area type="monotone" dataKey="violations" stroke="#14B8A6"
+                <Area type="monotone" dataKey="violations" stroke="#515594"
                   fill="url(#violGrad)" name="Violations" strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -210,12 +210,12 @@ export default function DashboardOverview() {
         </div>
 
         {/* Traffic split */}
-        <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Traffic Split</p>
           {!summary ? <Sk h="h-36" /> : (
             <div className="space-y-4">
               {([
-                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#14B8A6" },
+                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#515594" },
                 { label: "Output", count: summary.output_scans, pct: outputPct, color: "#a78bfa" },
               ] as const).map(({ label, count, pct, color }) => (
                 <div key={label}>
@@ -231,8 +231,8 @@ export default function DashboardOverview() {
               ))}
               <div className="border-t border-white/5 pt-3 space-y-2">
                 {[
-                  { label: "Total today", value: summary.scans_today.toLocaleString(), color: "#e2e8f0" },
-                  { label: "Clean today", value: (summary.scans_today - summary.violations_today).toLocaleString(), color: "#14B8A6" },
+                  { label: "Total today", value: summary.scans_today.toLocaleString(), color: "var(--text)" },
+                  { label: "Clean today", value: (summary.scans_today - summary.violations_today).toLocaleString(), color: "#515594" },
                   { label: "Blocked today", value: summary.violations_today.toLocaleString(), color: summary.violations_today > 0 ? "#f87171" : "#64748b" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex items-center justify-between">
@@ -247,7 +247,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* ── 24h hourly activity ───────────────────────────────────── */}
-      <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Last 24 Hours — Scan Activity</p>
           <div className="flex items-center gap-4 text-xs font-mono text-slate-600">
@@ -276,7 +276,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* ── Recent scans ──────────────────────────────────────────── */}
-      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Recent Scans</p>
           <a href="/dashboard/audit" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
@@ -296,7 +296,7 @@ export default function DashboardOverview() {
               ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-white/5">
                   <td colSpan={6} className="px-5 py-3">
-                    <div className="h-3 rounded animate-pulse" style={{ background: "#111827" }} />
+                    <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                   </td>
                 </tr>
               ))
@@ -312,7 +312,7 @@ export default function DashboardOverview() {
                     <span
                       className="text-xs font-mono px-2 py-0.5 rounded"
                       style={item.is_valid
-                        ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }
+                        ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
                         : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
                       }
                     >

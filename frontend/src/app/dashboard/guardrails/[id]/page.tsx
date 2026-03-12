@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import { SCANNER_INTEL, MODEL_TYPE_META } from "@/lib/scanner-intel";
 
 interface Guardrail {
   id: number; name: string; scanner_type: string; direction: string;
@@ -177,7 +178,7 @@ const SCANNER_PARAMS: Record<string, FieldDef[]> = {
 
 // ── Field components ──────────────────────────────────────────────────────────
 
-const fieldBg = { background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" };
+const fieldBg = { background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text)" };
 
 function SliderField({ field, value, onChange }: { field: FieldDef; value: number; onChange: (v: number) => void }) {
   const pct = ((value - (field.min ?? 0)) / ((field.max ?? 1) - (field.min ?? 0))) * 100;
@@ -185,7 +186,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
   // Show the strictness band guide only for standard 0–1 threshold sliders
   const isThresholdSlider = (field.min ?? 0) === 0 && (field.max ?? 1) === 1;
   const strictLabel = value < 0.35 ? "strict" : value < 0.65 ? "balanced" : "permissive";
-  const strictColor = value < 0.35 ? "#f87171" : value < 0.65 ? "#fbbf24" : "#14B8A6";
+  const strictColor = value < 0.35 ? "#f87171" : value < 0.65 ? "#fbbf24" : "#515594";
 
   return (
     <div>
@@ -195,7 +196,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
           {isThresholdSlider && (
             <span className="text-xs font-mono capitalize" style={{ color: strictColor }}>{strictLabel}</span>
           )}
-          <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#14B8A6" }}>{value.toFixed(2)}</span>
+          <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#515594" }}>{value.toFixed(2)}</span>
         </div>
       </div>
       <input
@@ -205,7 +206,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, #14B8A6 ${pct}%, #1a2236 ${pct}%)`,
+          background: `linear-gradient(to right, #515594 ${pct}%, #1a2236 ${pct}%)`,
           outline: "none",
         }}
       />
@@ -214,12 +215,12 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
           <div className="flex h-1 rounded-full overflow-hidden">
             <div className="flex-[35]" style={{ background: "rgba(248,113,113,0.35)" }} />
             <div className="flex-[30]" style={{ background: "rgba(251,191,36,0.35)" }} />
-            <div className="flex-[35]" style={{ background: "rgba(20,184,166,0.35)" }} />
+            <div className="flex-[35]" style={{ background: "rgba(81,85,148,0.35)" }} />
           </div>
           <div className="flex justify-between mt-0.5">
             <span className="text-xs font-mono" style={{ color: "rgba(248,113,113,0.55)" }}>0 · strict</span>
             <span className="text-xs text-slate-700 font-mono">0.5</span>
-            <span className="text-xs font-mono" style={{ color: "rgba(20,184,166,0.55)" }}>1 · permissive</span>
+            <span className="text-xs font-mono" style={{ color: "rgba(81,85,148,0.55)" }}>1 · permissive</span>
           </div>
         </div>
       ) : (
@@ -257,7 +258,7 @@ function BooleanField({ field, value, onChange }: { field: FieldDef; value: bool
         type="button"
         onClick={() => onChange(!value)}
         className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 mt-0.5"
-        style={{ background: value ? "#14B8A6" : "#1a2236" }}
+        style={{ background: value ? "#515594" : "#1a2236" }}
       >
         <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
           style={{ transform: value ? "translateX(18px)" : "translateX(2px)" }} />
@@ -296,7 +297,7 @@ function TagsField({ field, value, onChange }: { field: FieldDef; value: string[
       >
         {value.map((tag) => (
           <span key={tag} className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded"
-            style={{ background: "rgba(20,184,166,0.12)", color: "#14B8A6" }}>
+            style={{ background: "rgba(81,85,148,0.12)", color: "#515594" }}>
             {tag}
             <button type="button" onClick={() => onChange(value.filter((t) => t !== tag))}
               className="opacity-60 hover:opacity-100 transition-opacity leading-none">
@@ -391,7 +392,7 @@ function CustomBlockedPhrases({
   }
 
   return (
-    <div className="rounded border p-6 space-y-4" style={{ background: "#0d1426", borderColor: "rgba(20,184,166,0.12)" }}>
+    <div className="rounded border p-6 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.12)" }}>
       <div>
         <p className="text-xs text-slate-400 uppercase tracking-widest font-mono mb-1">
           Custom blocked keywords &amp; phrases
@@ -440,6 +441,109 @@ function CustomBlockedPhrases({
           {phrases.length} phrase{phrases.length !== 1 ? "s" : ""} · exact substring match
         </p>
       )}
+    </div>
+  );
+}
+
+// ── Scanner intelligence card ─────────────────────────────────────────────────
+
+const DATASET_COLORS: Record<string, { color: string; bg: string }> = {
+  "SecLists + Arcanum":    { color: "#f87171", bg: "rgba(248,113,113,0.08)" },
+  "SecLists (LLM_Testing)":{ color: "#f87171", bg: "rgba(248,113,113,0.08)" },
+  "Garak (NVIDIA)":        { color: "#34d399", bg: "rgba(52,211,153,0.08)"  },
+  "Promptfoo":             { color: "#60a5fa", bg: "rgba(96,165,250,0.08)"  },
+  "Deck of Many Prompts":  { color: "#fbbf24", bg: "rgba(251,191,36,0.08)"  },
+};
+
+function ScannerIntelCard({ scannerType }: { scannerType: string }) {
+  const intel = SCANNER_INTEL[scannerType];
+  if (!intel) return null;
+
+  const typeMeta = MODEL_TYPE_META[intel.modelType];
+
+  return (
+    <div className="rounded border space-y-0 overflow-hidden" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+        <span className="text-xs font-medium px-2 py-1 rounded"
+          style={{ background: typeMeta.bg, color: typeMeta.color }}>
+          {typeMeta.label}
+        </span>
+        <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">How it works</p>
+      </div>
+
+      <div className="px-6 py-5 space-y-5">
+        {/* How it works */}
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
+          {intel.howItWorks}
+        </p>
+
+        {/* Model */}
+        {intel.model && (
+          <div className="rounded px-4 py-3 space-y-1" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+            <p className="text-xs text-slate-600 uppercase tracking-wider">
+              {intel.modelType === "rule" ? "Library" : "Model"}
+            </p>
+            <p className="text-sm font-mono" style={{ color: "#515594" }}>{intel.model}</p>
+          </div>
+        )}
+
+        {/* Trained on — summary */}
+        {intel.trainedOn && !intel.trainingDatasets && (
+          <div className="space-y-1.5">
+            <p className="text-xs text-slate-600 uppercase tracking-wider font-mono">
+              {intel.modelType === "rule" ? "Rule sources" : "Trained on"}
+            </p>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-dim)" }}>
+              {intel.trainedOn}
+            </p>
+          </div>
+        )}
+
+        {/* Training dataset breakdown */}
+        {intel.trainingDatasets && intel.trainingDatasets.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-600 uppercase tracking-wider font-mono">Training datasets</p>
+              <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
+                {intel.trainingDatasets.reduce((s, d) => s + d.count, 0)} {intel.trainingDatasets[0].unit} total
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {intel.trainingDatasets.map((ds) => {
+                const dsColor = DATASET_COLORS[ds.name] ?? { color: "#94a3b8", bg: "rgba(148,163,184,0.08)" };
+                return (
+                  <div key={ds.name} className="rounded border overflow-hidden"
+                    style={{ borderColor: "var(--border)", background: "var(--bg)" }}>
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dsColor.color }} />
+                        <span className="text-xs font-medium" style={{ color: dsColor.color }}>{ds.name}</span>
+                      </div>
+                      <span className="text-xs font-mono px-2 py-0.5 rounded"
+                        style={{ background: dsColor.bg, color: dsColor.color }}>
+                        {ds.count} {ds.unit}
+                      </span>
+                    </div>
+                    <div className="px-4 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
+                      <p className="text-xs leading-relaxed pt-2.5" style={{ color: "var(--text-dim)" }}>
+                        {ds.contribution}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {intel.trainedOn && (
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-dimmest)" }}>
+                {intel.trainedOn}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -498,11 +602,11 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  if (!guardrails) return <div className="h-64 rounded animate-pulse" style={{ background: "#0d1426" }} />;
+  if (!guardrails) return <div className="h-64 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   if (!guardrail) return (
     <div className="text-center py-20">
       <p className="text-slate-500 text-sm mb-4">Guardrail not found.</p>
-      <button onClick={() => router.push("/dashboard/guardrails")} style={{ color: "#14B8A6" }} className="text-sm">← Back</button>
+      <button onClick={() => router.push("/dashboard/guardrails")} style={{ color: "#515594" }} className="text-sm">← Back</button>
     </div>
   );
 
@@ -517,9 +621,9 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Header card */}
-        <div className="rounded border border-white/5 p-6" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
           <div className="flex items-center gap-2 mb-5">
-            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>
+            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
               {guardrail.scanner_type}
             </span>
             <span className="text-xs text-slate-600">{DIRECTION_LABEL[guardrail.direction] ?? guardrail.direction}</span>
@@ -559,7 +663,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
                 type="button"
                 onClick={() => setIsActive(!isActive)}
                 className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 mt-0.5"
-                style={{ background: isActive ? "#14B8A6" : "#1a2236" }}
+                style={{ background: isActive ? "#515594" : "#1a2236" }}
               >
                 <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
                   style={{ transform: isActive ? "translateX(18px)" : "translateX(2px)" }} />
@@ -578,9 +682,12 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
+        {/* Scanner intelligence card */}
+        <ScannerIntelCard scannerType={guardrail.scanner_type} />
+
         {/* Params card */}
         {fields.length > 0 && (
-          <div className="rounded border border-white/5 p-6 space-y-6" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 p-6 space-y-6" style={{ background: "var(--card)" }}>
             <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Settings</p>
             {fields.map((field) => (
               <ParamField key={field.key} field={field} params={editParams} setParams={setEditParams} />
@@ -589,7 +696,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
         )}
 
         {fields.length === 0 && (
-          <div className="rounded border border-white/5 px-6 py-5" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 px-6 py-5" style={{ background: "var(--card)" }}>
             <p className="text-xs text-slate-600">This scanner has no configurable settings.</p>
           </div>
         )}
@@ -606,12 +713,12 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
               type="submit"
               disabled={saving}
               className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50 transition-opacity"
-              style={{ background: "#14B8A6", color: "#0A0F1F" }}
+              style={{ background: "#515594", color: "#0A0F1F" }}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
             {saved && (
-              <span className="text-xs font-mono" style={{ color: "#14B8A6" }}>✓ Saved</span>
+              <span className="text-xs font-mono" style={{ color: "#515594" }}>✓ Saved</span>
             )}
           </div>
           <button

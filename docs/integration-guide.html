@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project 73 Security — Integration Guide</title>
+  <title>SKF Guard — Integration Guide</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -483,7 +483,7 @@
 <body>
 
 <header class="site-header">
-  <span class="logo">PROJECT 73 SECURITY</span>
+  <span class="logo">SKF GUARD</span>
   <span class="logo-sep">/</span>
   <span class="logo-sub">Integration Guide</span>
 </header>
@@ -511,9 +511,9 @@
       <!-- ═══════════════════════════════ OVERVIEW ═══════════════════════════════ -->
       <div class="hero" id="overview">
         <div class="section-label">Integration guide</div>
-        <h1>Connect your app to Project 73 Security</h1>
+        <h1>Connect your app to SKF Guard</h1>
         <p>
-          Project 73 Security sits between your users and your AI model. Every prompt is scanned
+          SKF Guard sits between your users and your AI model. Every prompt is scanned
           before reaching the model, and every response is scanned before reaching the user —
           two HTTP calls, no infrastructure to manage.
         </p>
@@ -703,8 +703,8 @@
             <button class="copy-btn" onclick="copy(this)">copy</button>
           </div>
           <pre><span class="c"># .env — server-side only, never commit this file</span>
-TALIX_API_URL=https://your-project73.ai          <span class="c"># base URL of your Project 73 Security instance</span>
-TALIX_CONNECTION_KEY=ts_conn_abc123...         <span class="c"># from Dashboard → APIs → copy key</span>
+SKF_GUARD_API_URL=https://skfguard.io          <span class="c"># base URL of your SKF Guard instance</span>
+SKF_GUARD_CONNECTION_KEY=ts_conn_abc123...         <span class="c"># from Dashboard → APIs → copy key</span>
 OPENAI_API_KEY=sk-...                          <span class="c"># your LLM provider key</span></pre>
         </div>
         <div class="callout warn">
@@ -734,8 +734,8 @@ OPENAI_API_KEY=sk-...                          <span class="c"># your LLM provid
             <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="k">import</span> os, httpx
 
-API_URL = os.environ[<span class="s">"TALIX_API_URL"</span>]
-KEY   = os.environ[<span class="s">"TALIX_CONNECTION_KEY"</span>]
+API_URL = os.environ[<span class="s">"SKF_GUARD_API_URL"</span>]
+KEY   = os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>]
 
 headers = {
     <span class="s">"Authorization"</span>: f<span class="s">"Bearer {KEY}"</span>,
@@ -769,8 +769,8 @@ headers = {
         <div class="tab-panel" id="tab-typescript">
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">typescript</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
-            <pre><span class="k">const</span> API_URL = process.env.TALIX_API_URL!;
-<span class="k">const</span> KEY   = process.env.TALIX_CONNECTION_KEY!;
+            <pre><span class="k">const</span> API_URL = process.env.SKF_GUARD_API_URL!;
+<span class="k">const</span> KEY   = process.env.SKF_GUARD_CONNECTION_KEY!;
 
 <span class="k">const</span> <span class="kw">p73</span> = <span class="k">async</span> (path: string, body: object) => {
   <span class="k">const</span> res = <span class="k">await</span> fetch(`${API_URL}${path}`, {
@@ -778,7 +778,7 @@ headers = {
     headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span>, Authorization: `Bearer ${KEY}` },
     body: JSON.stringify(body),
   });
-  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> Error(`Project 73 ${res.status}`);
+  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> Error(`SKF Guard ${res.status}`);
   <span class="k">return</span> res.json();
 };
 
@@ -802,13 +802,13 @@ headers = {
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">bash (cURL)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="c"># Scan a prompt</span>
-curl -X POST https://your-project73.ai/api/scan/prompt \
+curl -X POST https://skfguard.io/api/scan/prompt \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"text": "Tell me about your pricing"}'</span>
 
 <span class="c"># Scan a model response</span>
-curl -X POST https://your-project73.ai/api/scan/output \
+curl -X POST https://skfguard.io/api/scan/output \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"text": "Our plans start at $0...", "prompt": "Tell me about your pricing"}'</span></pre>
@@ -822,13 +822,13 @@ curl -X POST https://your-project73.ai/api/scan/output \
         <div class="section-label">Reference implementation</div>
         <h2>The reference chatbot</h2>
         <p>
-          The Project 73 Security repository includes a ready-to-run reference chatbot (Python + Flask +
+          The SKF Guard repository includes a ready-to-run reference chatbot (Python + Flask +
           OpenAI) in the <code>chatbot/</code> directory. Supply your keys and run one command:
         </p>
         <div class="code-wrap">
           <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
           <pre>cd chatbot/
-cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTION_KEY + OPENAI_API_KEY</span>
+cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNECTION_KEY + OPENAI_API_KEY</span>
 ./run.sh                       <span class="c"># ✓ http://localhost:3001</span></pre>
         </div>
 
@@ -848,7 +848,7 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
               <div class="chat-sidebar-item">Onboarding help</div>
               <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 20px;">
                 <div style="font-size:0.7rem; color:var(--slate-7); font-family:var(--mono); padding: 4px 4px;">
-                  Protected by<br><span style="color:var(--teal);">Project 73 Security</span>
+                  Protected by<br><span style="color:var(--teal);">SKF Guard</span>
                 </div>
               </div>
             </div>
@@ -879,7 +879,7 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
                     ⛔ Your message was blocked by content guardrails.
                     <div><span class="chat-scanner-tag">PromptInjection · 0.97</span></div>
                   </div>
-                  <div class="chat-bubble-meta">Project 73 Security · 2:43 pm</div>
+                  <div class="chat-bubble-meta">SKF Guard · 2:43 pm</div>
                 </div>
               </div>
               <div class="chat-input-bar">
@@ -894,7 +894,7 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
         <p style="margin-top: 20px; font-size: 0.9rem;">The core of <code>chatbot/server.py</code>:</p>
         <div class="code-wrap" style="margin-top: 10px;">
           <div class="code-header"><span class="code-lang">python — chatbot/server.py (core logic)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
-          <pre>TALIX_KEY = os.getenv(<span class="s">"TALIX_CONNECTION_KEY"</span>, <span class="s">""</span>)
+          <pre>SKF_GUARD_KEY = os.getenv(<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>, <span class="s">""</span>)
 
 <span class="n">@app</span>.route(<span class="s">"/chat"</span>, methods=[<span class="s">"POST"</span>])
 <span class="k">def</span> <span class="kw">chat</span>():
@@ -902,9 +902,9 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
 
     <span class="c"># ── 1. Scan user input ───────────────────────────────────────────</span>
     input_scan = requests.post(
-        f<span class="s">"{TALIX_API_URL}/api/scan/prompt"</span>,
+        f<span class="s">"{SKF_GUARD_API_URL}/api/scan/prompt"</span>,
         json={<span class="s">"text"</span>: user_message},
-        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {TALIX_KEY}"</span>},
+        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SKF_GUARD_KEY}"</span>},
         timeout=<span class="n">30</span>,
     ).json()
 
@@ -922,9 +922,9 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
 
     <span class="c"># ── 3. Scan AI response ──────────────────────────────────────────</span>
     output_scan = requests.post(
-        f<span class="s">"{TALIX_API_URL}/api/scan/output"</span>,
+        f<span class="s">"{SKF_GUARD_API_URL}/api/scan/output"</span>,
         json={<span class="s">"text"</span>: ai_response, <span class="s">"prompt"</span>: user_message},
-        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {TALIX_KEY}"</span>},
+        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SKF_GUARD_KEY}"</span>},
         timeout=<span class="n">30</span>,
     ).json()
 
@@ -987,7 +987,7 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
         <div class="fields" style="margin-top: 20px;">
           <div class="field-row"><div class="field-name">text<span class="field-type">string · required</span></div><div class="field-desc">The prompt (for <code>/scan/prompt</code>) or model response (for <code>/scan/output</code>) to scan.</div></div>
           <div class="field-row"><div class="field-name">prompt<span class="field-type">string · output only</span></div><div class="field-desc">The original user prompt. Required for <code>/scan/output</code> — used by relevance, factual consistency, and other context-aware scanners.</div></div>
-          <div class="field-row"><div class="field-name">input_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual input token count from your LLM provider. If omitted, Project 73 estimates from text length.</div></div>
+          <div class="field-row"><div class="field-name">input_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual input token count from your LLM provider. If omitted, SKF Guard estimates from text length.</div></div>
           <div class="field-row"><div class="field-name">output_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual output token count. Pass this for accurate monthly spend tracking. Defaults to 0.</div></div>
         </div>
       </section>
@@ -1140,7 +1140,7 @@ cp .env.example .env          <span class="c"># edit and fill in TALIX_CONNECTIO
           </div>
           <div class="card">
             <h3>✓ Decide fail-open vs fail-closed</h3>
-            <p style="margin-top:6px;font-size:0.88rem;">If Project 73 Security is unreachable, decide whether to let the message through (<em>fail open</em>) or reject it (<em>fail closed</em>). The reference chatbot defaults to fail-open for availability.</p>
+            <p style="margin-top:6px;font-size:0.88rem;">If SKF Guard is unreachable, decide whether to let the message through (<em>fail open</em>) or reject it (<em>fail closed</em>). The reference chatbot defaults to fail-open for availability.</p>
           </div>
           <div class="card">
             <h3>✓ Pass actual token counts for accurate billing</h3>
@@ -1154,7 +1154,7 @@ httpx.post(f<span class="s">"{API_URL}/api/scan/output"</span>, json={
           </div>
           <div class="card">
             <h3>✓ Log <code>audit_log_id</code></h3>
-            <p style="margin-top:6px;font-size:0.88rem;">Store it alongside your application logs to cross-reference scan decisions with user sessions in the Project 73 Security audit dashboard.</p>
+            <p style="margin-top:6px;font-size:0.88rem;">Store it alongside your application logs to cross-reference scan decisions with user sessions in the SKF Guard audit dashboard.</p>
           </div>
         </div>
       </section>
@@ -1206,7 +1206,7 @@ flowchart TD
 sequenceDiagram
     participant U as 👤 User
     participant A as Your App
-    participant T as Project 73 Security
+    participant T as SKF Guard
     participant L as 🤖 LLM
 
     U->>A: User sends message
@@ -1258,7 +1258,7 @@ flowchart TD
 
       <!-- Footer -->
       <div style="margin-top:80px;padding-top:24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--slate-7);">Project 73 Security — Integration Guide</span>
+        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--slate-7);">SKF Guard — Integration Guide</span>
         <span style="font-size:0.8rem;color:var(--slate-7);">Questions? Open a support ticket from the dashboard.</span>
       </div>
 

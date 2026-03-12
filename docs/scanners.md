@@ -1,6 +1,6 @@
-# Project 73 — Scanner Reference
+# SKF Guard — Scanner Reference
 
-Project 73 wraps the [llm-guard](https://github.com/protectai/llm-guard) library. Below is the complete reference for all 39 scanners available in the platform and their configuration parameters.
+SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) library. Below is the complete reference for all 39 scanners available in the platform and their configuration parameters.
 
 Scanners marked **✅ on by default** are active on fresh installs. All others are available but disabled — enable them in the dashboard under **Guardrails**.
 

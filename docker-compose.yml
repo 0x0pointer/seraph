@@ -12,7 +12,7 @@ services:
       - backend_data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY:-changeme-super-secret-key-at-least-32-chars}
-      - DATABASE_URL=sqlite+aiosqlite:///./data/talix_shield.db
+      - DATABASE_URL=sqlite+aiosqlite:///./data/skfguard.db
       - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
       - DEBUG=${DEBUG:-false}
     command: >

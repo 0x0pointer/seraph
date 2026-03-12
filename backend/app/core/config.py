@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./project73.db"
+    database_url: str = "sqlite+aiosqlite:///./skfguard.db"
 
     # JWT
     secret_key: str = "changeme-super-secret-key-at-least-32-chars"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     turnstile_secret_key: str = "1x0000000000000000000000000000000AA"
 
     # App
-    app_name: str = "Project 73 Security"
+    app_name: str = "SKF Guard"
     debug: bool = False
 
     # Frontend base URL (used in reset-password email links)
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "noreply@project73.ai"
+    smtp_from: str = "noreply@skfguard.io"
     smtp_tls: bool = True   # use STARTTLS; set False for plain / SSL-on-connect
 
     # Seed admin password — required in production (debug=False)

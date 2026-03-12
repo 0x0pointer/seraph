@@ -23,7 +23,7 @@ interface Summary {
 }
 
 function Sk({ h = "h-52" }: { h?: string }) {
-  return <div className={`${h} rounded animate-pulse`} style={{ background: "#111827" }} />;
+  return <div className={`${h} rounded animate-pulse`} style={{ background: "var(--card2)" }} />;
 }
 
 const ChartTip = ({ active, payload, label }: {
@@ -33,7 +33,7 @@ const ChartTip = ({ active, payload, label }: {
 }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded border border-white/10 px-3 py-2 text-xs" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/10 px-3 py-2 text-xs" style={{ background: "var(--card)" }}>
       <p className="text-slate-500 mb-1 font-mono">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }} className="font-mono">
@@ -46,7 +46,7 @@ const ChartTip = ({ active, payload, label }: {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div className="rounded border border-white/5 p-4" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/5 p-4" style={{ background: "var(--card)" }}>
       <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-1">{label}</p>
       <p className="text-2xl font-bold tracking-tight" style={{ color: color ?? "#e2e8f0" }}>{value}</p>
       {sub && <p className="text-xs text-slate-600 mt-1">{sub}</p>}
@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
             value={filterOrgId}
             onChange={(e) => setFilterOrgId(e.target.value)}
             className="text-sm rounded px-3 py-2 outline-none shrink-0"
-            style={{ background: "#0d1426", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8" }}
+            style={{ background: "var(--card)", border: "1px solid var(--border-input)", color: "var(--text-muted)" }}
           >
             <option value="">All organizations</option>
             {adminOrgs?.map((o) => (
@@ -161,13 +161,13 @@ export default function AnalyticsPage() {
         <StatCard
           label="Pass Rate (30d)"
           value={`${passRate30d.toFixed(1)}%`}
-          color={passRate30d >= 95 ? "#14B8A6" : passRate30d >= 80 ? "#fbbf24" : "#f87171"}
+          color={passRate30d >= 95 ? "#515594" : passRate30d >= 80 ? "#fbbf24" : "#f87171"}
           sub="clean scans"
         />
         <StatCard
           label="Violation Rate (30d)"
           value={`${violRate30d.toFixed(1)}%`}
-          color={violRate30d < 5 ? "#14B8A6" : violRate30d < 20 ? "#fbbf24" : "#f87171"}
+          color={violRate30d < 5 ? "#515594" : violRate30d < 20 ? "#fbbf24" : "#f87171"}
           sub="of all scans"
         />
         <StatCard
@@ -185,7 +185,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── 30-day volume + violation rate % ─────────────────────── */}
-      <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">
             30-Day Volume &amp; Violation Rate
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── 24h hourly activity ───────────────────────────────────── */}
-      <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Last 24 Hours — Hourly Activity</p>
           <div className="flex items-center gap-5 text-xs font-mono text-slate-600">
@@ -265,7 +265,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Top violated scanners — custom bars */}
-        <div className="lg:col-span-2 rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+        <div className="lg:col-span-2 rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
           {!topViolations ? <Sk /> :
             topViolations.length === 0 ? (
@@ -305,12 +305,12 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Input vs Output */}
-        <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+        <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Input vs Output</p>
           {!summary ? <Sk /> : (
             <div className="space-y-5">
               {([
-                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#14B8A6" },
+                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#515594" },
                 { label: "Output", count: summary.output_scans, pct: outputPct, color: "#a78bfa" },
               ] as const).map(({ label, count, pct, color }) => (
                 <div key={label}>
@@ -329,7 +329,7 @@ export default function AnalyticsPage() {
               ))}
               <div className="border-t border-white/5 pt-3 space-y-2.5">
                 {[
-                  { label: "All-time scans", value: summary.total_scans.toLocaleString(), color: "#e2e8f0" },
+                  { label: "All-time scans", value: summary.total_scans.toLocaleString(), color: "var(--text)" },
                   { label: "All-time violations", value: summary.total_violations.toLocaleString(), color: "#f87171" },
                   { label: "Avg risk score", value: summary.avg_risk_score.toFixed(3), color: "#a78bfa" },
                 ].map(({ label, value, color }) => (

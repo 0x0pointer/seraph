@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import { SCANNER_INTEL, MODEL_TYPE_META } from "@/lib/scanner-intel";
 
 interface Guardrail {
   id: number; name: string; scanner_type: string; direction: string;
@@ -249,7 +250,7 @@ function Toggle({ active, onToggle }: { active: boolean; onToggle: () => void })
     <button
       onClick={onToggle}
       className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0"
-      style={{ background: active ? "#14B8A6" : "#1a2236" }}
+      style={{ background: active ? "#515594" : "#1a2236" }}
     >
       <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
         style={{ transform: active ? "translateX(18px)" : "translateX(2px)" }} />
@@ -258,9 +259,9 @@ function Toggle({ active, onToggle }: { active: boolean; onToggle: () => void })
 }
 
 const inputStyle = {
-  background: "#0A0F1F",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#e2e8f0",
+  background: "var(--bg)",
+  border: "1px solid var(--border-input)",
+  color: "var(--text)",
 };
 
 // ── Scanner catalog picker ────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ function ScannerCatalog({
   const visible = CATALOG.filter((t) => t.direction === dirTab);
 
   return (
-    <div className="rounded border border-white/5 p-6 space-y-5" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/5 p-6 space-y-5" style={{ background: "var(--card)" }}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-white">Choose a scanner</p>
@@ -286,11 +287,11 @@ function ScannerCatalog({
       </div>
 
       {/* Direction tabs */}
-      <div className="flex gap-1 p-1 rounded w-fit" style={{ background: "#0A0F1F" }}>
+      <div className="flex gap-1 p-1 rounded w-fit" style={{ background: "var(--bg)" }}>
         {(["input", "output"] as const).map((d) => (
           <button key={d} onClick={() => setDirTab(d)}
             className="px-4 py-1.5 rounded text-xs font-medium transition-colors capitalize"
-            style={dirTab === d ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+            style={dirTab === d ? { background: "#515594", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
             {d === "input" ? "Input — scan prompts" : "Output — scan responses"}
           </button>
         ))}
@@ -304,13 +305,13 @@ function ScannerCatalog({
             type="button"
             onClick={() => onSelect(tpl)}
             className="text-left rounded border px-4 py-3.5 transition-all group"
-            style={{ background: "#0A0F1F", borderColor: "rgba(255,255,255,0.05)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(20,184,166,0.3)")}
+            style={{ background: "var(--bg)", borderColor: "var(--border)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(81,85,148,0.3)")}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
           >
             <div className="flex items-start justify-between gap-2 mb-1">
               <span className="text-xs font-mono font-medium text-white">{tpl.scanner_type}</span>
-              <span className="text-xs text-slate-700 group-hover:text-teal-500 transition-colors shrink-0">Select →</span>
+              <span className="text-xs text-slate-700 group-hover:text-[#515594] transition-colors shrink-0">Select →</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">{tpl.tagline}</p>
           </button>
@@ -323,8 +324,8 @@ function ScannerCatalog({
 // ── Code reference panel (Custom Rule) ───────────────────────────────────────
 
 const CODE_TAB_STYLES = {
-  active: { background: "#14B8A6", color: "#0A0F1F" },
-  inactive: { color: "#64748b" },
+  active: { background: "#515594", color: "#0A0F1F" },
+  inactive: { color: "var(--text-dim)" },
 };
 
 function CodeReference({ direction, threshold }: { direction: "input" | "output"; threshold: number }) {
@@ -387,7 +388,7 @@ class MyScanner:
 #       return MyScanner(direction=direction, **params)`;
 
   return (
-    <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0A0F1F" }}>
+    <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--bg)" }}>
       {/* Toggle header */}
       <button
         type="button"
@@ -401,7 +402,7 @@ class MyScanner:
       {open && (
         <div className="border-t border-white/5">
           {/* Tab bar */}
-          <div className="flex gap-1 p-2" style={{ background: "#0d1426" }}>
+          <div className="flex gap-1 p-2" style={{ background: "var(--card)" }}>
             {(["api", "python"] as const).map((t) => (
               <button
                 key={t}
@@ -424,7 +425,7 @@ class MyScanner:
             )}
             <pre
               className="overflow-x-auto px-4 pb-4 text-xs leading-relaxed"
-              style={{ color: "#94a3b8", fontFamily: "ui-monospace, SFMono-Regular, monospace", whiteSpace: "pre" }}
+              style={{ color: "var(--text-muted)", fontFamily: "ui-monospace, SFMono-Regular, monospace", whiteSpace: "pre" }}
             >
               {tab === "api" ? apiJson : pythonCode}
             </pre>
@@ -488,16 +489,16 @@ function NewGuardrailForm({
   }
 
   return (
-    <form onSubmit={handleCreate} className="rounded border border-white/5 p-6 space-y-5" style={{ background: "#0d1426" }}>
+    <form onSubmit={handleCreate} className="rounded border border-white/5 p-6 space-y-5" style={{ background: "var(--card)" }}>
       <div className="flex items-center gap-3">
         <button type="button" onClick={onBack} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">← Back</button>
-        <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>
+        <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
           {template.scanner_type}
         </span>
         {!isCustom && <span className="text-xs text-slate-600 capitalize">{template.direction} scanner</span>}
       </div>
 
-      <p className="text-xs text-slate-500 leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(20,184,166,0.3)" }}>
+      <p className="text-xs text-slate-500 leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(81,85,148,0.3)" }}>
         {template.description}
       </p>
 
@@ -541,8 +542,8 @@ function NewGuardrailForm({
                     className="flex-1 py-2 rounded text-xs font-medium transition-colors capitalize"
                     style={
                       direction === d
-                        ? { background: "#14B8A6", color: "#0A0F1F" }
-                        : { background: "#0A0F1F", color: "#64748b", border: "1px solid rgba(255,255,255,0.06)" }
+                        ? { background: "#515594", color: "#0A0F1F" }
+                        : { background: "var(--bg)", color: "var(--text-dim)", border: "1px solid rgba(255,255,255,0.06)" }
                     }
                   >
                     {d === "input" ? "Input — scan prompts" : "Output — scan responses"}
@@ -560,7 +561,7 @@ function NewGuardrailForm({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Detection threshold</label>
-                <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#14B8A6" }}>{threshold.toFixed(2)}</span>
+                <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#515594" }}>{threshold.toFixed(2)}</span>
               </div>
               <input
                 type="range" min={0} max={1} step={0.05}
@@ -568,7 +569,7 @@ function NewGuardrailForm({
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
                 className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, #14B8A6 ${threshold * 100}%, #1a2236 ${threshold * 100}%)`,
+                  background: `linear-gradient(to right, #515594 ${threshold * 100}%, #1a2236 ${threshold * 100}%)`,
                   outline: "none",
                 }}
               />
@@ -583,7 +584,7 @@ function NewGuardrailForm({
       </div>
 
       {!isCustom && (
-        <div className="rounded px-4 py-3 text-xs text-slate-500 leading-relaxed" style={{ background: "#0A0F1F" }}>
+        <div className="rounded px-4 py-3 text-xs text-slate-500 leading-relaxed" style={{ background: "var(--bg)" }}>
           Default settings will be applied. You can fine-tune thresholds, topics, and keywords on the next screen.
         </div>
       )}
@@ -597,7 +598,7 @@ function NewGuardrailForm({
       <div className="flex gap-3">
         <button type="submit" disabled={saving}
           className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50"
-          style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+          style={{ background: "#515594", color: "#0A0F1F" }}>
           {saving ? "Creating…" : "Create guardrail →"}
         </button>
         <button type="button" onClick={onBack} className="text-xs px-4 py-2 rounded border border-white/10 text-slate-400">
@@ -643,11 +644,11 @@ export default function GuardrailsPage() {
     <div className="space-y-6 max-w-3xl">
       {/* Tabs + add button */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 p-1 rounded" style={{ background: "#0d1426" }}>
+        <div className="flex gap-1 p-1 rounded" style={{ background: "var(--card)" }}>
           {(["input", "output"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className="px-4 py-1.5 rounded text-xs font-medium transition-colors capitalize"
-              style={tab === t ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+              style={tab === t ? { background: "#515594", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
               {t}
             </button>
           ))}
@@ -663,7 +664,7 @@ export default function GuardrailsPage() {
                 setAddStep("configure");
               }}
               className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-              style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6", border: "1px solid rgba(20,184,166,0.2)" }}
+              style={{ background: "rgba(81,85,148,0.1)", color: "#515594", border: "1px solid rgba(81,85,148,0.2)" }}
             >
               + Build custom rule
             </button>
@@ -692,11 +693,11 @@ export default function GuardrailsPage() {
       {error && <p className="text-xs text-red-400">Failed to load guardrails.</p>}
 
       {/* Scanner list */}
-      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         {!data ? (
           <div className="p-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-14 rounded animate-pulse" style={{ background: "#111827" }} />
+              <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--card2)" }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -708,27 +709,42 @@ export default function GuardrailsPage() {
           const autoDesc = CATALOG.find(
             (t) => t.scanner_type === g.scanner_type && t.direction === g.direction
           )?.description ?? "No description available.";
+          const intel = SCANNER_INTEL[g.scanner_type];
+          const typeMeta = intel ? MODEL_TYPE_META[intel.modelType] : null;
 
           return (
-            <div key={g.id} className="flex items-center gap-4 px-6 py-4 transition-colors"
+            <div key={g.id} className="flex items-start gap-4 px-6 py-4 transition-colors"
               style={{ borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}>
-              <Toggle active={g.is_active} onToggle={() => handleToggle(g.id)} />
+              <div className="pt-0.5">
+                <Toggle active={g.is_active} onToggle={() => handleToggle(g.id)} />
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <p className="text-sm text-white truncate">{g.name}</p>
                   <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                    style={{ background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}>
+                    style={{ background: "rgba(81,85,148,0.08)", color: "#515594" }}>
                     {g.scanner_type}
                   </span>
+                  {typeMeta && (
+                    <span className="text-xs font-medium px-1.5 py-0.5 rounded shrink-0"
+                      style={{ background: typeMeta.bg, color: typeMeta.color }}>
+                      {typeMeta.label}
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed mb-1">
                   {customDesc ?? autoDesc}
                 </p>
+                {intel?.model && (
+                  <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
+                    {intel.model}
+                  </p>
+                )}
               </div>
-              <span className="text-xs text-slate-700 font-mono shrink-0">#{g.order}</span>
+              <span className="text-xs text-slate-700 font-mono shrink-0 mt-0.5">#{g.order}</span>
               <a href={`/dashboard/guardrails/${g.id}`}
-                className="text-xs text-slate-500 hover:text-white transition-colors shrink-0">
-                Edit →
+                className="text-xs text-slate-500 hover:text-white transition-colors shrink-0 mt-0.5">
+                Details →
               </a>
             </div>
           );

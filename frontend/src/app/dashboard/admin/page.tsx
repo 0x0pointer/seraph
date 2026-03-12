@@ -103,13 +103,13 @@ type AdminTab = "overview" | "users" | "connections" | "guardrails" | "audits" |
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const inputStyle = { background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" };
+const inputStyle = { background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text)" };
 
 function Sk({ h = "h-16", cols = 1 }: { h?: string; cols?: number }) {
   return (
     <>
       {Array.from({ length: cols }).map((_, i) => (
-        <div key={i} className={`${h} rounded animate-pulse`} style={{ background: "#111827" }} />
+        <div key={i} className={`${h} rounded animate-pulse`} style={{ background: "var(--card2)" }} />
       ))}
     </>
   );
@@ -120,7 +120,7 @@ function StatCard({ label, value, sub, color, warn }: {
 }) {
   return (
     <div className="rounded border p-4" style={{
-      background: "#0d1426",
+      background: "var(--card)",
       borderColor: warn ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.05)",
     }}>
       <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-1">{label}</p>
@@ -137,9 +137,9 @@ function timeAgo(iso: string | null): string {
 }
 
 const ENV_COLOR: Record<string, { background: string; color: string }> = {
-  production: { background: "rgba(20,184,166,0.1)", color: "#14B8A6" },
+  production: { background: "rgba(81,85,148,0.1)", color: "#515594" },
   development: { background: "rgba(251,191,36,0.1)", color: "#fbbf24" },
-  staging: { background: "rgba(148,163,184,0.1)", color: "#94a3b8" },
+  staging: { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
 };
 
 function Section({ title, action, children }: {
@@ -194,7 +194,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.8)" }} onClick={onClose}>
       <div className="w-full max-w-sm mx-4 rounded-lg border p-6 space-y-4"
-        style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.08)" }}
+        style={{ background: "var(--card)", borderColor: "var(--border-input)" }}
         onClick={(e) => e.stopPropagation()}>
         <div>
           <p className="text-sm font-semibold text-white">Assign to organization</p>
@@ -203,7 +203,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
 
         {user.org_name && (
           <div className="rounded px-3 py-2 flex items-center justify-between"
-            style={{ background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.06)" }}>
+            style={{ background: "var(--bg)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div>
               <p className="text-xs text-slate-500">Current org</p>
               <p className="text-xs text-white font-medium">{user.org_name}</p>
@@ -222,7 +222,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
             <div className="relative">
               <select value={orgId} onChange={(e) => setOrgId(e.target.value)}
                 className="w-full rounded px-3 py-2 text-sm outline-none appearance-none pr-8"
-                style={{ background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" }}>
+                style={{ background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text)" }}>
                 <option value="">— No organization —</option>
                 {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
@@ -238,8 +238,8 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
                   <button key={v} type="button" onClick={() => setRole(v)}
                     className="flex-1 py-1.5 rounded text-xs font-medium border transition-colors"
                     style={role === v
-                      ? { background: "#14B8A6", color: "#0A0F1F", borderColor: "#14B8A6" }
-                      : { background: "transparent", color: "#64748b", borderColor: "rgba(255,255,255,0.08)" }}>
+                      ? { background: "#515594", color: "#fff", borderColor: "#515594" }
+                      : { background: "transparent", color: "var(--text-dim)", borderColor: "var(--border-input)" }}>
                     {label}
                   </button>
                 ))}
@@ -251,7 +251,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
           <div className="flex gap-3 pt-1">
             <button type="submit" disabled={saving}
               className="flex-1 py-2 rounded text-sm font-medium disabled:opacity-50"
-              style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+              style={{ background: "#515594", color: "#fff" }}>
               {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={onClose}
@@ -272,7 +272,7 @@ function DeleteModal({ user, onConfirm, onCancel }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.8)" }} onClick={onCancel}>
       <div className="w-full max-w-md mx-4 rounded-lg border p-6 space-y-4"
-        style={{ background: "#0d1426", borderColor: "rgba(248,113,113,0.3)" }}
+        style={{ background: "var(--card)", borderColor: "rgba(248,113,113,0.3)" }}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -323,7 +323,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.8)" }} onClick={onClose}>
       <div className="w-full max-w-sm mx-4 rounded-lg border p-6 space-y-4"
-        style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.08)" }}
+        style={{ background: "var(--card)", borderColor: "var(--border-input)" }}
         onClick={(e) => e.stopPropagation()}>
         <div>
           <p className="text-sm font-semibold text-white">Reset password</p>
@@ -331,7 +331,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
         </div>
         {done ? (
           <div className="space-y-3">
-            <p className="text-xs font-mono" style={{ color: "#14B8A6" }}>✓ Password updated.</p>
+            <p className="text-xs font-mono" style={{ color: "#515594" }}>✓ Password updated.</p>
             <button onClick={onClose} className="w-full py-2 rounded text-sm border border-white/10 text-slate-400 hover:text-white transition-colors">Close</button>
           </div>
         ) : (
@@ -346,7 +346,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
             <div className="flex gap-3">
               <button type="submit" disabled={saving}
                 className="flex-1 py-2 rounded text-sm font-medium disabled:opacity-50"
-                style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                style={{ background: "#515594", color: "#fff" }}>
                 {saving ? "Saving…" : "Set password"}
               </button>
               <button type="button" onClick={onClose}
@@ -382,7 +382,7 @@ function CreateUserPanel({ onCreated, onCancel }: { onCreated: () => void; onCan
   }
 
   return (
-    <div className="rounded border p-5 space-y-4" style={{ background: "#0d1426", borderColor: "rgba(20,184,166,0.2)" }}>
+    <div className="rounded border p-5 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.2)" }}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">New User Account</p>
         <button onClick={onCancel} className="text-xs text-slate-600 hover:text-slate-400">✕ Cancel</button>
@@ -422,7 +422,7 @@ function CreateUserPanel({ onCreated, onCancel }: { onCreated: () => void; onCan
         </div>
         <div className="sm:col-span-2 flex items-center gap-4">
           <button type="submit" disabled={saving} className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+            style={{ background: "#515594", color: "#fff" }}>
             {saving ? "Creating…" : "Create user"}
           </button>
           {error && <p className="text-xs text-red-400">{error}</p>}
@@ -442,9 +442,9 @@ const ALL_ROLES: { value: string; label: string }[] = [
 ];
 
 const ALL_PLANS = [
-  { value: "free",       label: "Free",       color: "#94a3b8" },
+  { value: "free",       label: "Free",       color: "var(--text-muted)" },
   { value: "starter",    label: "Starter",    color: "#38bdf8" },
-  { value: "pro",        label: "Pro",        color: "#14B8A6" },
+  { value: "pro",        label: "Pro",        color: "#515594" },
   { value: "enterprise", label: "Enterprise", color: "#a78bfa" },
 ];
 
@@ -475,14 +475,14 @@ function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, on
     <div className="relative">
       <button ref={btnRef} onClick={handleToggle}
         className="text-xs px-2.5 py-1 rounded border transition-colors"
-        style={{ borderColor: "rgba(255,255,255,0.08)", color: "#64748b" }}>
+        style={{ borderColor: "var(--border-input)", color: "var(--text-dim)" }}>
         Actions ▾
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setShowRoles(false); setShowPlans(false); }} />
           <div className="w-52 rounded border z-20 py-1"
-            style={{ ...menuStyle, background: "#0A0F1F", borderColor: "rgba(255,255,255,0.08)" }}>
+            style={{ ...menuStyle, background: "var(--bg)", borderColor: "var(--border-input)" }}>
             <button onClick={() => { setShowRoles(!showRoles); setShowPlans(false); }} disabled={roleLoading}
               className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40">
               {roleLoading ? "Updating…" : `Change role (${user.role}) ▾`}
@@ -541,7 +541,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       <tr
         onClick={() => setExpanded((v) => !v)}
         className="border-b border-white/5 last:border-0 cursor-pointer transition-colors"
-        style={{ background: expanded ? "rgba(20,184,166,0.02)" : undefined }}
+        style={{ background: expanded ? "rgba(81,85,148,0.02)" : undefined }}
         onMouseEnter={(e) => { if (!expanded) e.currentTarget.style.background = "rgba(255,255,255,0.01)"; }}
         onMouseLeave={(e) => { if (!expanded) e.currentTarget.style.background = ""; }}
       >
@@ -553,7 +553,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         <td className="px-4 py-3">
           <span className="text-xs font-mono px-2 py-0.5 rounded"
             style={entry.is_valid
-              ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }
+              ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
               : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
             {entry.is_valid ? "pass" : "block"}
           </span>
@@ -593,7 +593,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       {expanded && (
         <tr className="border-b border-white/5">
           <td colSpan={10} className="px-4 pb-4 pt-1">
-            <div className="rounded border border-white/5 p-4 space-y-4" style={{ background: "#0A0F1F" }}>
+            <div className="rounded border border-white/5 p-4 space-y-4" style={{ background: "var(--bg)" }}>
               {/* Full prompt text */}
               <div>
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-2">Full text</p>
@@ -613,10 +613,10 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
                       .map(([name, score]) => {
                         const pct = Math.round(score * 100);
                         const isViol = entry.violation_scanners.includes(name);
-                        const barColor = isViol ? "#f87171" : score > 0.4 ? "#fbbf24" : "#14B8A6";
+                        const barColor = isViol ? "#f87171" : score > 0.4 ? "#fbbf24" : "#515594";
                         return (
                           <div key={name} className="rounded px-3 py-2 border border-white/5"
-                            style={{ background: isViol ? "rgba(248,113,113,0.04)" : "#0d1426" }}>
+                            style={{ background: isViol ? "rgba(248,113,113,0.04)" : "var(--card)" }}>
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs font-mono text-slate-400 truncate mr-2">{name}</span>
                               <span className="text-xs font-mono shrink-0"
@@ -677,7 +677,7 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
           return (
             <button key={p} onClick={() => onPage(p)}
               className="w-7 h-7 rounded text-xs font-mono transition-colors"
-              style={p === page ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+              style={p === page ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
               {p}
             </button>
           );
@@ -694,25 +694,25 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
 // ── System Events sub-tab ─────────────────────────────────────────────────────
 
 const EVENT_STYLES: Record<string, { background: string; color: string }> = {
-  "user.created":        { background: "rgba(20,184,166,0.1)",  color: "#14B8A6" },
-  "user.registered":     { background: "rgba(20,184,166,0.08)", color: "#5eead4" },
+  "user.created":        { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "user.registered":     { background: "rgba(81,85,148,0.08)", color: "#5eead4" },
   "user.deleted":        { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "user.role_changed":   { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
   "user.password_reset": { background: "rgba(251,191,36,0.08)", color: "#fbbf24" },
   "user.impersonated":   { background: "rgba(251,191,36,0.12)", color: "#fbbf24" },
-  "guardrail.created":   { background: "rgba(20,184,166,0.1)",  color: "#14B8A6" },
-  "guardrail.updated":   { background: "rgba(148,163,184,0.1)", color: "#94a3b8" },
+  "guardrail.created":   { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "guardrail.updated":   { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
   "guardrail.deleted":   { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "guardrail.toggled":   { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
-  "connection.created":  { background: "rgba(20,184,166,0.1)",  color: "#14B8A6" },
-  "connection.updated":  { background: "rgba(148,163,184,0.1)", color: "#94a3b8" },
+  "connection.created":  { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "connection.updated":  { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
   "connection.deleted":  { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "connection.toggled":  { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
   "connection.spend_reset": { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
-  "org.created":            { background: "rgba(20,184,166,0.1)",  color: "#14B8A6" },
+  "org.created":            { background: "rgba(81,85,148,0.1)",  color: "#515594" },
   "org.deleted":            { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "org.member_removed":     { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
-  "org.invite_created":     { background: "rgba(20,184,166,0.08)", color: "#5eead4" },
+  "org.invite_created":     { background: "rgba(81,85,148,0.08)", color: "#5eead4" },
   "user.org_assigned":      { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
 };
 
@@ -811,7 +811,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       {/* Table */}
-      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -826,7 +826,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={6} className="px-4 py-3">
-                      <div className="h-3 rounded animate-pulse" style={{ background: "#111827" }} />
+                      <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                     </td>
                   </tr>
                 ))
@@ -837,14 +837,14 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                   </td>
                 </tr>
               ) : data.items.map((e) => {
-                const style = EVENT_STYLES[e.event_type] ?? { background: "rgba(148,163,184,0.08)", color: "#94a3b8" };
+                const style = EVENT_STYLES[e.event_type] ?? { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" };
                 const isExpanded = expanded === e.id;
                 return (
                   <>
                     <tr key={e.id}
                       onClick={() => setExpanded(isExpanded ? null : e.id)}
                       className="border-b border-white/5 cursor-pointer transition-colors"
-                      style={{ background: isExpanded ? "rgba(20,184,166,0.02)" : undefined }}
+                      style={{ background: isExpanded ? "rgba(81,85,148,0.02)" : undefined }}
                       onMouseEnter={(ev) => { if (!isExpanded) ev.currentTarget.style.background = "rgba(255,255,255,0.01)"; }}
                       onMouseLeave={(ev) => { if (!isExpanded) ev.currentTarget.style.background = ""; }}
                     >
@@ -881,7 +881,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                     {isExpanded && (
                       <tr key={`${e.id}-exp`} className="border-b border-white/5">
                         <td colSpan={6} className="px-4 pb-4 pt-1">
-                          <div className="rounded border border-white/5 p-4 space-y-3" style={{ background: "#0A0F1F" }}>
+                          <div className="rounded border border-white/5 p-4 space-y-3" style={{ background: "var(--bg)" }}>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-mono">
                               <div>
                                 <p className="text-slate-600 uppercase tracking-wider mb-1">Event ID</p>
@@ -911,7 +911,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-2">Details</p>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {Object.entries(e.details).map(([k, v]) => (
-                                    <div key={k} className="rounded px-3 py-2 border border-white/5" style={{ background: "#0d1426" }}>
+                                    <div key={k} className="rounded px-3 py-2 border border-white/5" style={{ background: "var(--card)" }}>
                                       <p className="text-xs text-slate-600 font-mono mb-0.5">{k}</p>
                                       <p className="text-xs text-slate-300 font-mono">{String(v)}</p>
                                     </div>
@@ -976,11 +976,11 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="space-y-4">
       {/* Sub-tab bar */}
-      <div className="flex gap-1 p-1 rounded w-fit" style={{ background: "#0A0F1F" }}>
+      <div className="flex gap-1 p-1 rounded w-fit" style={{ background: "var(--bg)" }}>
         {(["scan-logs", "system-events"] as const).map((k) => (
           <button key={k} onClick={() => setSubTab(k)}
             className="px-4 py-1.5 rounded text-xs font-medium transition-colors"
-            style={subTab === k ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+            style={subTab === k ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
             {k === "scan-logs" ? "Scan Logs" : "System Events"}
           </button>
         ))}
@@ -997,25 +997,25 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
               className="rounded px-3 py-2 text-sm outline-none w-64"
               style={inputStyle}
             />
-            <div className="flex gap-1 p-1 rounded" style={{ background: "#0d1426" }}>
+            <div className="flex gap-1 p-1 rounded" style={{ background: "var(--card)" }}>
               {(["all", "input", "output"] as const).map((d) => (
                 <button key={d} onClick={() => applyFilter("dir", d)}
                   className="px-3 py-1 rounded text-xs font-medium transition-colors capitalize"
-                  style={dir === d ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+                  style={dir === d ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
                   {d}
                 </button>
               ))}
             </div>
-            <div className="flex gap-1 p-1 rounded" style={{ background: "#0d1426" }}>
+            <div className="flex gap-1 p-1 rounded" style={{ background: "var(--card)" }}>
               {[{ v: "all", label: "All" }, { v: "pass", label: "Pass" }, { v: "block", label: "Block" }].map(({ v, label }) => (
                 <button key={v} onClick={() => applyFilter("status", v)}
                   className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                  style={status === v ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+                  style={status === v ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
                   {label}
                 </button>
               ))}
             </div>
-            <button onClick={() => downloadCSV("/admin/export/audit-logs?limit=1000", "talix-audit-logs.csv")}
+            <button onClick={() => downloadCSV("/admin/export/audit-logs?limit=1000", "skfguard-audit-logs.csv")}
               className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
               ↓ Export CSV
             </button>
@@ -1028,7 +1028,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
           </div>
 
           {/* Table */}
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -1043,7 +1043,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i} className="border-b border-white/5">
                         <td colSpan={10} className="px-4 py-3">
-                          <div className="h-3 rounded animate-pulse" style={{ background: "#111827" }} />
+                          <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                         </td>
                       </tr>
                     ))
@@ -1149,7 +1149,7 @@ function OrgsTab() {
         <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">All Organizations</p>
         <button onClick={() => setShowCreate(!showCreate)}
           className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-          style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "#94a3b8" } : { background: "#14B8A6", color: "#0A0F1F" }}>
+          style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#515594", color: "#fff" }}>
           {showCreate ? "✕ Cancel" : "+ New org"}
         </button>
       </div>
@@ -1157,27 +1157,27 @@ function OrgsTab() {
       {showCreate && (
         <form onSubmit={handleCreate}
           className="rounded border p-4 flex items-end gap-3"
-          style={{ background: "#0d1426", borderColor: "rgba(20,184,166,0.2)" }}>
+          style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.2)" }}>
           <div className="flex-1">
             <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Organization Name</label>
             <input value={newOrgName} onChange={(e) => setNewOrgName(e.target.value)}
               required placeholder="e.g. Acme Corp"
               className="w-full rounded px-3 py-2 text-sm outline-none"
-              style={{ background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" }} />
+              style={{ background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text)" }} />
           </div>
           <button type="submit" disabled={creating}
             className="px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
-            style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+            style={{ background: "#515594", color: "#fff" }}>
             {creating ? "Creating…" : "Create"}
           </button>
           {createError && <p className="text-xs text-red-400">{createError}</p>}
         </form>
       )}
 
-      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         {isLoading ? (
           <div className="p-6 space-y-3">{Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-10 rounded animate-pulse" style={{ background: "#111827" }} />
+            <div key={i} className="h-10 rounded animate-pulse" style={{ background: "var(--card2)" }} />
           ))}</div>
         ) : !orgs || orgs.length === 0 ? (
           <div className="px-4 py-16 text-center text-xs text-slate-600 font-mono">
@@ -1189,7 +1189,7 @@ function OrgsTab() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 hover:bg-white/[0.01] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>
+                  style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
                   {org.name[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -1216,7 +1216,7 @@ function OrgsTab() {
                     onChange={(e) => handleOrgPlanChange(org, e.target.value)}
                     disabled={planChangingId === org.id}
                     className="text-xs rounded px-2 py-1 outline-none appearance-none pr-5 disabled:opacity-40"
-                    style={{ background: "#0A0F1F", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", fontSize: "11px" }}
+                    style={{ background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text-dim)", fontSize: "11px" }}
                   >
                     <option value="free">free</option>
                     <option value="pro">pro</option>
@@ -1227,15 +1227,15 @@ function OrgsTab() {
                 <button onClick={() => toggleExpand(org.id, "members")}
                   className="text-xs px-2.5 py-1 rounded border transition-colors"
                   style={isOpen(org.id, "members")
-                    ? { borderColor: "rgba(20,184,166,0.4)", color: "#14B8A6" }
-                    : { borderColor: "rgba(255,255,255,0.08)", color: "#64748b" }}>
+                    ? { borderColor: "rgba(81,85,148,0.4)", color: "#515594" }
+                    : { borderColor: "var(--border-input)", color: "var(--text-dim)" }}>
                   Members {isOpen(org.id, "members") ? "▲" : "▼"}
                 </button>
                 <button onClick={() => toggleExpand(org.id, "teams")}
                   className="text-xs px-2.5 py-1 rounded border transition-colors"
                   style={isOpen(org.id, "teams")
                     ? { borderColor: "rgba(99,102,241,0.4)", color: "#a5b4fc" }
-                    : { borderColor: "rgba(255,255,255,0.08)", color: "#64748b" }}>
+                    : { borderColor: "var(--border-input)", color: "var(--text-dim)" }}>
                   Teams {isOpen(org.id, "teams") ? "▲" : "▼"}
                 </button>
                 <button onClick={() => handleDelete(org)} disabled={deletingId === org.id}
@@ -1248,7 +1248,7 @@ function OrgsTab() {
 
             {/* Members panel */}
             {isOpen(org.id, "members") && (
-              <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(20,184,166,0.02)" }}>
+              <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(81,85,148,0.02)" }}>
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-2">Members</p>
                 {!orgMembers[org.id] ? (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
@@ -1262,7 +1262,7 @@ function OrgsTab() {
                         <span className="font-mono px-1.5 py-0.5 rounded"
                           style={m.role === "org_admin"
                             ? { background: "rgba(251,191,36,0.1)", color: "#fbbf24" }
-                            : { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}>
+                            : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
                           {m.role === "org_admin" ? "Org Admin" : "Member"}
                         </span>
                         {m.email && <span className="text-slate-600">{m.email}</span>}
@@ -1357,8 +1357,8 @@ function BillingAdminTab() {
     () => api.get<AdminInvoicePage>(`/admin/billing/invoices?status_filter=${statusFilter}&limit=50`),
   );
 
-  const PLAN_COLOR: Record<string, string> = { free: "#64748b", pro: "#14B8A6", enterprise: "#a78bfa" };
-  const STATUS_COLOR: Record<string, string> = { paid: "#14B8A6", open: "#fbbf24", failed: "#f87171", void: "#475569" };
+  const PLAN_COLOR: Record<string, string> = { free: "#64748b", pro: "#515594", enterprise: "#a78bfa" };
+  const STATUS_COLOR: Record<string, string> = { paid: "#515594", open: "#fbbf24", failed: "#f87171", void: "#475569" };
 
   async function markPaid(inv: AdminInvoice) {
     setMarkingPaid(inv.id);
@@ -1394,9 +1394,9 @@ function BillingAdminTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {!billing ? <Sk h="h-20" cols={4} /> : (
           <>
-            <StatCard label="Est. MRR" value={`$${billing.mrr.toLocaleString()}`} color="#14B8A6" sub="based on Pro seats" />
+            <StatCard label="Est. MRR" value={`$${billing.mrr.toLocaleString()}`} color="#515594" sub="based on Pro seats" />
             <StatCard label="Total Invoiced" value={`$${billing.total_invoiced.toFixed(2)}`} color="#e2e8f0" sub="all time" />
-            <StatCard label="Total Paid" value={`$${billing.total_paid.toFixed(2)}`} color="#14B8A6" sub="collected" />
+            <StatCard label="Total Paid" value={`$${billing.total_paid.toFixed(2)}`} color="#515594" sub="collected" />
             <StatCard label="Open / Unpaid" value={`$${billing.total_open.toFixed(2)}`} color={billing.total_open > 0 ? "#fbbf24" : "#64748b"} sub="outstanding" />
           </>
         )}
@@ -1407,7 +1407,7 @@ function BillingAdminTab() {
         <Section title="Plan Distribution">
           <div className="flex flex-wrap gap-4 px-1">
             {Object.entries(billing.plan_counts).map(([plan, count]) => (
-              <div key={plan} className="rounded border border-white/5 px-5 py-4 flex items-center gap-4" style={{ background: "#0d1426" }}>
+              <div key={plan} className="rounded border border-white/5 px-5 py-4 flex items-center gap-4" style={{ background: "var(--card)" }}>
                 <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
                   style={{ background: `${PLAN_COLOR[plan] || "#64748b"}18`, color: PLAN_COLOR[plan] || "#64748b" }}>
                   {plan}
@@ -1432,14 +1432,14 @@ function BillingAdminTab() {
               ))}
             </select>
             <button onClick={() => setShowCreate(true)}
-              className="text-xs px-3 py-1 rounded font-medium" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+              className="text-xs px-3 py-1 rounded font-medium" style={{ background: "#515594", color: "#fff" }}>
               + Create invoice
             </button>
           </div>
         }
       >
         {showCreate && (
-          <div className="mx-5 mb-4 rounded border border-white/10 p-4 space-y-3" style={{ background: "#0A0F1F" }}>
+          <div className="mx-5 mb-4 rounded border border-white/10 p-4 space-y-3" style={{ background: "var(--bg)" }}>
             <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">New invoice</p>
             <div className="grid grid-cols-2 gap-3">
               <input placeholder="User ID" value={newInv.user_id} onChange={(e) => setNewInv({ ...newInv, user_id: e.target.value })}
@@ -1459,7 +1459,7 @@ function BillingAdminTab() {
             </div>
             <div className="flex gap-2">
               <button onClick={handleCreate} disabled={creating}
-                className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50" style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+                className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50" style={{ background: "#515594", color: "#fff" }}>
                 {creating ? "Creating…" : "Create"}
               </button>
               <button onClick={() => { setShowCreate(false); setCreateError(""); }} className="text-sm px-4 py-2 rounded text-slate-500 hover:text-white transition-colors">
@@ -1510,7 +1510,7 @@ function BillingAdminTab() {
                     {inv.status === "open" && (
                       <button onClick={() => markPaid(inv)} disabled={markingPaid === inv.id}
                         className="text-xs px-2.5 py-1 rounded font-mono disabled:opacity-50"
-                        style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}>
+                        style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
                         {markingPaid === inv.id ? "…" : "Mark paid"}
                       </button>
                     )}
@@ -1586,7 +1586,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             </div>
             <button onClick={() => set("signup_enabled", signupEnabled ? "false" : "true")}
               className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-              style={{ background: signupEnabled ? "#14B8A6" : "rgba(255,255,255,0.1)" }}>
+              style={{ background: signupEnabled ? "#515594" : "rgba(255,255,255,0.1)" }}>
               <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                 style={{ transform: signupEnabled ? "translateX(20px)" : "translateX(2px)" }} />
             </button>
@@ -1604,7 +1604,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             </div>
             <button onClick={() => set("chatbot_enabled", chatbotEnabled ? "false" : "true")}
               className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-              style={{ background: chatbotEnabled ? "#14B8A6" : "rgba(255,255,255,0.1)" }}>
+              style={{ background: chatbotEnabled ? "#515594" : "rgba(255,255,255,0.1)" }}>
               <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                 style={{ transform: chatbotEnabled ? "translateX(20px)" : "translateX(2px)" }} />
             </button>
@@ -1679,7 +1679,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             <div className="flex items-center gap-3 pt-5">
               <button onClick={() => set("smtp_tls", settings.smtp_tls === "true" ? "false" : "true")}
                 className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-                style={{ background: settings.smtp_tls === "true" ? "#14B8A6" : "rgba(255,255,255,0.1)" }}>
+                style={{ background: settings.smtp_tls === "true" ? "#515594" : "rgba(255,255,255,0.1)" }}>
                 <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                   style={{ transform: settings.smtp_tls === "true" ? "translateX(20px)" : "translateX(2px)" }} />
               </button>
@@ -1693,10 +1693,10 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
       <div className="flex items-center gap-4">
         <button onClick={handleSave} disabled={saving}
           className="px-6 py-2.5 rounded font-medium text-sm disabled:opacity-50 transition-colors"
-          style={{ background: "#14B8A6", color: "#0A0F1F" }}>
+          style={{ background: "#515594", color: "#fff" }}>
           {saving ? "Saving…" : "Save all settings"}
         </button>
-        {saved && <p className="text-xs font-mono" style={{ color: "#14B8A6" }}>✓ Settings saved</p>}
+        {saved && <p className="text-xs font-mono" style={{ color: "#515594" }}>✓ Settings saved</p>}
       </div>
     </div>
   );
@@ -1713,7 +1713,7 @@ function AccessDenied() {
       </div>
       <p className="text-white font-semibold">Administrator access required</p>
       <p className="text-xs text-slate-500">This page is only accessible to admin accounts.</p>
-      <a href="/dashboard" className="text-xs font-mono mt-2" style={{ color: "#14B8A6" }}>← Back to dashboard</a>
+      <a href="/dashboard" className="text-xs font-mono mt-2" style={{ color: "#515594" }}>← Back to dashboard</a>
     </div>
   );
 }
@@ -1744,7 +1744,7 @@ function ActivityScannerRows({ entry }: { entry: ActivityEntry }) {
       {pairs.map(([name, score]) => {
         const isViol = entry.violation_scanners.includes(name);
         const pct = Math.min(Math.round(score * 100), 100);
-        const color = isViol ? "#f87171" : score > 0.5 ? "#fbbf24" : "#14B8A6";
+        const color = isViol ? "#f87171" : score > 0.5 ? "#fbbf24" : "#515594";
         return (
           <div key={name}>
             <div className="flex items-center justify-between mb-1">
@@ -1752,7 +1752,7 @@ function ActivityScannerRows({ entry }: { entry: ActivityEntry }) {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono" style={{ color }}>{score.toFixed(3)}</span>
                 <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                  style={isViol ? { background: "rgba(248,113,113,0.12)", color: "#f87171" } : { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}>
+                  style={isViol ? { background: "rgba(248,113,113,0.12)", color: "#f87171" } : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
                   {isViol ? "blocked" : "pass"}
                 </span>
               </div>
@@ -1782,13 +1782,13 @@ function ActivityFeed({
   const blockCount = entries.filter((e) => !e.is_valid).length;
 
   return (
-    <div className="rounded border overflow-hidden" style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.05)" }}>
-      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+    <div className="rounded border overflow-hidden" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
         <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">Requests</p>
         <div className="flex items-center gap-3">
           {entries.length > 0 && (
             <>
-              <span className="text-xs font-mono" style={{ color: "#14B8A6" }}>{passCount} pass</span>
+              <span className="text-xs font-mono" style={{ color: "#515594" }}>{passCount} pass</span>
               <span className="text-xs font-mono" style={{ color: "#f87171" }}>{blockCount} blocked</span>
             </>
           )}
@@ -1797,7 +1797,7 @@ function ActivityFeed({
       </div>
       {entries.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center space-y-3">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#14B8A6" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#515594" }} />
           <p className="text-sm text-slate-500">No scans yet — waiting for traffic.</p>
         </div>
       ) : (
@@ -1808,12 +1808,12 @@ function ActivityFeed({
             return (
               <button key={entry.id} onClick={() => onSelect(entry)} className="w-full text-left px-4 py-3 transition-all"
                 style={{
-                  background: isNew ? "rgba(20,184,166,0.06)" : isSel ? "rgba(255,255,255,0.03)" : "transparent",
-                  borderLeft: isSel ? "2px solid #14B8A6" : "2px solid transparent",
+                  background: isNew ? "rgba(81,85,148,0.06)" : isSel ? "rgba(255,255,255,0.03)" : "transparent",
+                  borderLeft: isSel ? "2px solid #515594" : "2px solid transparent",
                 }}>
                 <div className="flex items-center gap-3">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: entry.is_valid ? "#14B8A6" : "#f87171" }} />
+                    style={{ background: entry.is_valid ? "#515594" : "#f87171" }} />
                   <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
                     style={{
                       background: entry.direction === "input" ? "rgba(167,139,250,0.1)" : "rgba(251,191,36,0.1)",
@@ -1822,7 +1822,7 @@ function ActivityFeed({
                     {entry.direction}
                   </span>
                   <span className="text-xs font-mono shrink-0"
-                    style={{ color: entry.is_valid ? "#14B8A6" : "#f87171" }}>
+                    style={{ color: entry.is_valid ? "#515594" : "#f87171" }}>
                     {entry.is_valid ? "pass" : "blocked"}
                   </span>
                   {entry.violation_scanners.length > 0 && (
@@ -1853,7 +1853,7 @@ function ActivityDetailPanel({ selected }: { selected: ActivityEntry | null }) {
   if (!selected) {
     return (
       <div className="rounded border p-12 flex items-center justify-center"
-        style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.05)" }}>
+        style={{ background: "var(--card)", borderColor: "var(--border)" }}>
         <p className="text-sm text-slate-500">Select a request from the feed.</p>
       </div>
     );
@@ -1862,14 +1862,14 @@ function ActivityDetailPanel({ selected }: { selected: ActivityEntry | null }) {
     <div className="space-y-4">
       <div className="rounded border px-5 py-4"
         style={{
-          background: "#0d1426",
-          borderColor: selected.is_valid ? "rgba(20,184,166,0.2)" : "rgba(248,113,113,0.25)",
+          background: "var(--card)",
+          borderColor: selected.is_valid ? "rgba(81,85,148,0.2)" : "rgba(248,113,113,0.25)",
         }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono font-bold px-2.5 py-1 rounded"
               style={selected.is_valid
-                ? { background: "rgba(20,184,166,0.1)", color: "#14B8A6" }
+                ? { background: "rgba(81,85,148,0.1)", color: "#515594" }
                 : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
               {selected.is_valid ? "✓ PASS" : "✗ BLOCKED"}
             </span>
@@ -1895,14 +1895,14 @@ function ActivityDetailPanel({ selected }: { selected: ActivityEntry | null }) {
         </div>
         {selected.preview && (
           <div className="mt-3 px-3 py-2 rounded text-xs font-mono text-slate-400"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
             {selected.preview}{selected.preview.length >= 80 ? "…" : ""}
           </div>
         )}
       </div>
 
       <div className="rounded border p-4 space-y-4"
-        style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.05)" }}>
+        style={{ background: "var(--card)", borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between">
           <p className="text-xs text-slate-500 uppercase tracking-wider font-mono">Scanner chain</p>
           <p className="text-xs font-mono text-slate-600">
@@ -1975,7 +1975,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
       {/* Header + sub-tabs */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#14B8A6" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#515594" }} />
           <p className="text-xs font-mono text-slate-500 uppercase tracking-wider">Live request monitor</p>
         </div>
         <div className="flex items-center gap-1 ml-4">
@@ -1983,7 +1983,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
             <button key={v} onClick={() => { setSubView(v); setConnFilter(null); setSelected(null); }}
               className="px-3 py-1.5 text-xs font-medium rounded transition-colors capitalize"
               style={subView === v
-                ? { background: "rgba(20,184,166,0.1)", color: "#14B8A6" }
+                ? { background: "rgba(81,85,148,0.1)", color: "#515594" }
                 : { color: "#475569" }}>
               {v === "connections" ? "By Connection" : "Feed"}
             </button>
@@ -2004,8 +2004,8 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
 
       {/* Connections view */}
       {subView === "connections" && !connFilter && (
-        <div className="rounded border overflow-hidden" style={{ background: "#0d1426", borderColor: "rgba(255,255,255,0.05)" }}>
-          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+        <div className="rounded border overflow-hidden" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
             <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">Connections</p>
             <span className="text-xs font-mono text-slate-700">{connList.length} active in last 30 scans</span>
           </div>
@@ -2021,7 +2021,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: conn.violations > 0 ? "#f87171" : "#14B8A6" }} />
+                        style={{ background: conn.violations > 0 ? "#f87171" : "#515594" }} />
                       <div className="min-w-0">
                         <p className="text-sm text-slate-200 font-medium truncate">{conn.name}</p>
                         {conn.env && (
@@ -2054,7 +2054,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
         <div className="space-y-3">
           <button onClick={() => { setConnFilter(null); setSelected(null); }}
             className="flex items-center gap-2 text-xs font-mono transition-colors"
-            style={{ color: "#14B8A6" }}>
+            style={{ color: "#515594" }}>
             ← Back to connections
           </button>
           <p className="text-sm font-medium text-white">{connFilter}</p>
@@ -2185,7 +2185,7 @@ export default function AdminPage() {
     }
   }
 
-  if (meLoading) return <div className="h-64 rounded animate-pulse" style={{ background: "#0d1426" }} />;
+  if (meLoading) return <div className="h-64 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   if (!isAdmin) return <AccessDenied />;
 
   const filteredUsers = users?.filter((u) => roleFilter ? u.role === roleFilter : true);
@@ -2201,11 +2201,11 @@ export default function AdminPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className="px-4 py-2.5 text-sm font-medium transition-colors relative"
-            style={tab === t.key ? { color: "#14B8A6" } : { color: "#64748b" }}
+            style={tab === t.key ? { color: "#515594" } : { color: "var(--text-dim)" }}
           >
             {t.label}
             {tab === t.key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: "#14B8A6" }} />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: "#515594" }} />
             )}
           </button>
         ))}
@@ -2225,15 +2225,15 @@ export default function AdminPage() {
                 <StatCard label="Platform Scans" value={stats.total_scans.toLocaleString()} color="#e2e8f0"
                   sub={`${stats.scans_today.toLocaleString()} today`} />
                 <StatCard label="Pass Rate" value={`${stats.pass_rate.toFixed(1)}%`}
-                  color={stats.pass_rate >= 95 ? "#14B8A6" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
+                  color={stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
                   sub={`${stats.pass_rate_today.toFixed(1)}% today`} />
                 <StatCard label="Violations" value={stats.total_violations.toLocaleString()}
-                  color={stats.total_violations > 0 ? "#f87171" : "#14B8A6"}
+                  color={stats.total_violations > 0 ? "#f87171" : "#515594"}
                   sub={`${stats.violations_today} today`} />
                 <StatCard label="Active Guardrails" value={`${stats.active_guardrails} / ${stats.total_guardrails}`}
-                  color="#14B8A6" sub="scanning now" />
+                  color="#515594" sub="scanning now" />
                 <StatCard label="API Connections" value={stats.total_connections.toString()}
-                  color={stats.blocked_connections > 0 ? "#f87171" : "#14B8A6"}
+                  color={stats.blocked_connections > 0 ? "#f87171" : "#515594"}
                   sub={stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "all active"}
                   warn={stats.blocked_connections > 0} />
                 <StatCard label="Month Spend" value={`$${stats.total_month_spend.toFixed(2)}`}
@@ -2242,7 +2242,7 @@ export default function AdminPage() {
                   color="#fbbf24" sub="registrations" />
                 <StatCard label="Platform Health"
                   value={stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor"}
-                  color={stats.pass_rate >= 95 ? "#14B8A6" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
+                  color={stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
                   sub="based on pass rate" />
               </>
             )}
@@ -2252,10 +2252,10 @@ export default function AdminPage() {
           {stats && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#14B8A6" },
+                { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#515594" },
                 { label: "All-Time Violations", big: stats.total_violations, total: stats.total_scans, color: "#fbbf24" },
               ].map(({ label, big, total, color }) => (
-                <div key={label} className="rounded border border-white/5 px-5 py-4" style={{ background: "#0d1426" }}>
+                <div key={label} className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
                   <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-3">{label}</p>
                   <div className="flex items-end gap-2">
                     <p className="text-3xl font-bold" style={{ color }}>{big.toLocaleString()}</p>
@@ -2267,13 +2267,13 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
-              <div className="rounded border border-white/5 px-5 py-4" style={{ background: "#0d1426" }}>
+              <div className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-4">System Status</p>
                 <div className="space-y-3">
                   {[
-                    { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#14B8A6" : "#f87171" },
-                    { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#14B8A6" },
-                    { label: "Platform health", val: stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor", color: stats.pass_rate >= 95 ? "#14B8A6" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171" },
+                    { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#515594" : "#f87171" },
+                    { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#515594" },
+                    { label: "Platform health", val: stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor", color: stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171" },
                     { label: "Month spend", val: `$${stats.total_month_spend.toFixed(2)}`, color: "#a78bfa" },
                   ].map(({ label, val, color }) => (
                     <div key={label} className="flex items-center justify-between">
@@ -2306,7 +2306,7 @@ export default function AdminPage() {
 
           {/* Top violated scanners + Guardrail health */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+            <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
               <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
               {!topViolations ? <Sk h="h-40" /> : topViolations.length === 0 ? (
                 <p className="text-xs text-slate-600 py-10 text-center font-mono">No violations recorded.</p>
@@ -2333,7 +2333,7 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
-            <div className="rounded border border-white/5 p-5" style={{ background: "#0d1426" }}>
+            <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Guardrail Health</p>
                 <button onClick={() => setTab("guardrails")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
@@ -2345,10 +2345,10 @@ export default function AdminPage() {
                   {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
                     <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#14B8A6" }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#515594" }} />
                         <span className="text-xs text-slate-400 truncate">{g.name}</span>
                         <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                          style={{ background: g.direction === "input" ? "rgba(20,184,166,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#14B8A6" : "#a78bfa" }}>
+                          style={{ background: g.direction === "input" ? "rgba(81,85,148,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#515594" : "#a78bfa" }}>
                           {g.direction}
                         </span>
                       </div>
@@ -2372,7 +2372,7 @@ export default function AdminPage() {
               </button>
             }
           >
-            <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+            <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/5">
@@ -2384,7 +2384,7 @@ export default function AdminPage() {
                 <tbody>
                   {!activity ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-white/5">
-                      <td colSpan={7} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "#111827" }} /></td>
+                      <td colSpan={7} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                     </tr>
                   )) : activity.map((a) => {
                     const riskColor = a.max_risk_score >= 0.8 ? "#f87171" : a.max_risk_score >= 0.5 ? "#fbbf24" : "#94a3b8";
@@ -2397,7 +2397,7 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>
                         <td className="px-4 py-3">
                           <span className="text-xs font-mono px-2 py-0.5 rounded"
-                            style={a.is_valid ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
+                            style={a.is_valid ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
                             {a.is_valid ? "pass" : "block"}
                           </span>
                         </td>
@@ -2431,7 +2431,7 @@ export default function AdminPage() {
           title="User Management"
           action={
             <div className="flex items-center gap-3">
-              <button onClick={() => downloadCSV("/admin/export/users", "talix-users.csv")}
+              <button onClick={() => downloadCSV("/admin/export/users", "skfguard-users.csv")}
                 className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
                 ↓ Export CSV
               </button>
@@ -2439,14 +2439,14 @@ export default function AdminPage() {
                 {(["", "admin", "viewer"] as const).map((r) => (
                   <button key={r || "all"} onClick={() => setRoleFilter(r)}
                     className="text-xs px-2.5 py-1 rounded transition-colors"
-                    style={roleFilter === r ? { background: "#14B8A6", color: "#0A0F1F" } : { color: "#64748b" }}>
+                    style={roleFilter === r ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
                     {r === "" ? "All" : r}
                   </button>
                 ))}
               </div>
               <button onClick={() => setShowCreate(!showCreate)}
                 className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-                style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "#94a3b8" } : { background: "#14B8A6", color: "#0A0F1F" }}>
+                style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#515594", color: "#fff" }}>
                 {showCreate ? "✕ Cancel" : "+ New user"}
               </button>
             </div>
@@ -2458,7 +2458,7 @@ export default function AdminPage() {
               onCancel={() => setShowCreate(false)}
             />
           )}
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/5">
@@ -2470,7 +2470,7 @@ export default function AdminPage() {
               <tbody>
                 {!users ? Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td colSpan={9} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "#111827" }} /></td>
+                    <td colSpan={9} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                   </tr>
                 )) : filteredUsers?.length === 0 ? (
                   <tr><td colSpan={9} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No users found.</td></tr>
@@ -2479,7 +2479,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(20,184,166,0.1)", color: u.role === "admin" ? "#f87171" : "#14B8A6" }}>
+                          style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(81,85,148,0.1)", color: u.role === "admin" ? "#f87171" : "#515594" }}>
                           {u.username[0].toUpperCase()}
                         </div>
                         <div>
@@ -2491,7 +2491,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono">{u.email ?? <span className="text-slate-700">—</span>}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                        style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}>
+                        style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
                         {u.role}
                       </span>
                     </td>
@@ -2499,8 +2499,8 @@ export default function AdminPage() {
                       <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
                         style={
                           (u.plan ?? "free") === "enterprise" ? { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }
-                          : (u.plan ?? "free") === "pro"        ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }
-                          :                                       { background: "rgba(148,163,184,0.08)", color: "#94a3b8" }
+                          : (u.plan ?? "free") === "pro"        ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
+                          :                                       { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" }
                         }>
                         {u.plan ?? "free"}
                       </span>
@@ -2549,7 +2549,7 @@ export default function AdminPage() {
       {/* ── Connections ─────────────────────────────────────────────── */}
       {tab === "connections" && (
         <Section title="All API Connections">
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/5">
@@ -2561,7 +2561,7 @@ export default function AdminPage() {
               <tbody>
                 {!connections ? Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "#111827" }} /></td>
+                    <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                   </tr>
                 )) : connections.length === 0 ? (
                   <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No API connections found.</td></tr>
@@ -2585,7 +2585,7 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                          style={c.status === "active" ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
+                          style={c.status === "active" ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
                           {c.status}
                         </span>
                       </td>
@@ -2629,7 +2629,7 @@ export default function AdminPage() {
       {/* ── Guardrails ──────────────────────────────────────────────── */}
       {tab === "guardrails" && (
         <Section title="All Guardrails">
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
             {!guardrails ? (
               <div className="p-6 space-y-2"><Sk h="h-10" cols={6} /></div>
             ) : (
@@ -2641,7 +2641,7 @@ export default function AdminPage() {
                       <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"
                         style={{ background: "rgba(255,255,255,0.01)" }}>
                         <span className="text-xs font-mono font-semibold capitalize px-2 py-0.5 rounded"
-                          style={dir === "input" ? { background: "rgba(20,184,166,0.1)", color: "#14B8A6" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
+                          style={dir === "input" ? { background: "rgba(81,85,148,0.1)", color: "#515594" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
                           {dir}
                         </span>
                         <span className="text-xs text-slate-600 font-mono">
@@ -2651,7 +2651,7 @@ export default function AdminPage() {
                       {list.map((g) => (
                         <div key={g.id} className="flex items-center justify-between px-5 py-3 border-b border-white/5 last:border-0">
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#14B8A6" : "#334155" }} />
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#515594" : "#334155" }} />
                             <span className="text-xs text-slate-300 truncate">{g.name}</span>
                             <span className="text-xs font-mono text-slate-600 shrink-0">{g.scanner_type}</span>
                           </div>
@@ -2660,8 +2660,8 @@ export default function AdminPage() {
                             disabled={toggling === g.id}
                             className="text-xs px-3 py-1 rounded border ml-4 shrink-0 transition-colors disabled:opacity-40"
                             style={g.is_active
-                              ? { borderColor: "rgba(20,184,166,0.3)", color: "#14B8A6" }
-                              : { borderColor: "rgba(255,255,255,0.08)", color: "#475569" }}>
+                              ? { borderColor: "rgba(81,85,148,0.3)", color: "#515594" }
+                              : { borderColor: "var(--border-input)", color: "#475569" }}>
                             {toggling === g.id ? "…" : g.is_active ? "On" : "Off"}
                           </button>
                         </div>

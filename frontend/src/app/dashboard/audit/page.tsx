@@ -34,15 +34,15 @@ interface AuditList { items: AuditItem[]; total: number; page: number; page_size
 interface ConnectionOption { id: number; name: string; environment: string; }
 
 const inputStyle = {
-  background: "#0d1426",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#94a3b8",
+  background: "var(--card)",
+  border: "1px solid var(--border-input)",
+  color: "var(--text-muted)",
 };
 
 const ENV_COLORS: Record<string, { background: string; color: string }> = {
-  production: { background: "rgba(20,184,166,0.1)", color: "#14B8A6" },
+  production: { background: "rgba(81,85,148,0.1)", color: "#515594" },
   development: { background: "rgba(251,191,36,0.1)", color: "#fbbf24" },
-  staging: { background: "rgba(148,163,184,0.1)", color: "#94a3b8" },
+  staging: { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
 };
 
 function ScoreBar({ name, score, violated }: { name: string; score: number; violated: boolean }) {
@@ -62,7 +62,7 @@ function ScoreBar({ name, score, violated }: { name: string; score: number; viol
           className="h-1 rounded-full transition-all"
           style={{
             width: `${pct}%`,
-            background: violated ? "#f87171" : score > 0.3 ? "#fbbf24" : "#14B8A6",
+            background: violated ? "#f87171" : score > 0.3 ? "#fbbf24" : "#515594",
           }}
         />
       </div>
@@ -73,7 +73,7 @@ function ScoreBar({ name, score, violated }: { name: string; score: number; viol
 function RiskGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded border border-white/5" style={{ background: "#0d1426" }}>
+    <div className="rounded border border-white/5" style={{ background: "var(--card)" }}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -102,7 +102,7 @@ function RiskGuide() {
               {
                 label: "Low risk", range: "0.00 – 0.49",
                 desc: "Scanner found nothing concerning. Request passed cleanly.",
-                color: "#14B8A6", border: "rgba(20,184,166,0.2)", bg: "rgba(20,184,166,0.06)",
+                color: "#515594", border: "rgba(81,85,148,0.2)", bg: "rgba(81,85,148,0.06)",
               },
               {
                 label: "Medium risk", range: "0.50 – 0.79",
@@ -136,7 +136,7 @@ function RiskGuide() {
 
 function MetaCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div className="rounded px-3 py-2.5 space-y-0.5" style={{ background: "#0A0F1F" }}>
+    <div className="rounded px-3 py-2.5 space-y-0.5" style={{ background: "var(--bg)" }}>
       <p className="text-xs text-slate-600 font-mono uppercase tracking-wider">{label}</p>
       <p className="text-xs font-semibold font-mono" style={{ color: color ?? "#e2e8f0" }}>{value}</p>
       {sub && <p className="text-xs text-slate-600">{sub}</p>}
@@ -147,7 +147,7 @@ function MetaCard({ label, value, sub, color }: { label: string; value: string; 
 function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: string | null; isAdmin: boolean }) {
   const riskColor =
     item.max_risk_score >= 0.8 ? "#f87171" :
-    item.max_risk_score >= 0.5 ? "#fbbf24" : "#14B8A6";
+    item.max_risk_score >= 0.5 ? "#fbbf24" : "#515594";
 
   const envStyle = item.connection_environment
     ? (ENV_COLORS[item.connection_environment] ?? ENV_COLORS.staging)
@@ -179,7 +179,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
       {isAdmin && orgName && (
         <div
           className="flex items-center gap-2.5 px-3 py-2.5 rounded"
-          style={{ background: "#0A0F1F" }}
+          style={{ background: "var(--bg)" }}
         >
           <svg className="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -198,7 +198,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
       {item.connection_name ? (
         <div
           className="flex items-center gap-3 px-3 py-2.5 rounded"
-          style={{ background: "#0A0F1F" }}
+          style={{ background: "var(--bg)" }}
         >
           <svg className="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -218,7 +218,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
       ) : (
         <div
           className="flex items-center gap-3 px-3 py-2.5 rounded"
-          style={{ background: "#0A0F1F" }}
+          style={{ background: "var(--bg)" }}
         >
           <svg className="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -231,13 +231,13 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
       {item.token_cost !== null && (
         <div
           className="flex items-center gap-3 px-3 py-2.5 rounded"
-          style={{ background: "#0A0F1F" }}
+          style={{ background: "var(--bg)" }}
         >
           <svg className="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span className="text-slate-500">Token cost:</span>
-          <span className="font-mono" style={{ color: "#14B8A6" }}>
+          <span className="font-mono" style={{ color: "#515594" }}>
             ${item.token_cost < 0.01 ? item.token_cost.toFixed(6) : item.token_cost.toFixed(4)}
           </span>
           {item.input_tokens !== null && (
@@ -254,7 +254,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
           <p className="text-slate-600 font-mono uppercase tracking-wider mb-2">Raw text</p>
           <p
             className="text-slate-400 leading-relaxed border border-white/5 rounded px-4 py-3 font-mono whitespace-pre-wrap break-words"
-            style={{ background: "#0d1426" }}
+            style={{ background: "var(--card)" }}
           >
             {item.raw_text}
           </p>
@@ -264,7 +264,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
             <p className="text-slate-600 font-mono uppercase tracking-wider mb-2">Sanitized output</p>
             <p
               className="leading-relaxed border border-white/5 rounded px-4 py-3 font-mono whitespace-pre-wrap break-words"
-              style={{ background: "#0d1426", color: "#14B8A6" }}
+              style={{ background: "var(--card)", color: "#515594" }}
             >
               {item.sanitized_text}
             </p>
@@ -450,7 +450,7 @@ export default function AuditPage() {
 
       {error && <p className="text-xs text-red-400">Failed to load logs.</p>}
 
-      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/5">
@@ -466,7 +466,7 @@ export default function AuditPage() {
               ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={isAdmin ? 9 : 8} className="px-4 py-3">
-                      <div className="h-3 rounded animate-pulse" style={{ background: "#111827" }} />
+                      <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                     </td>
                   </tr>
                 ))
@@ -496,7 +496,7 @@ export default function AuditPage() {
                             className="text-xs font-mono px-2 py-0.5 rounded"
                             style={
                               item.is_valid
-                                ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6" }
+                                ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
                                 : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
                             }
                           >
@@ -556,7 +556,7 @@ export default function AuditPage() {
                           <td
                             colSpan={isAdmin ? 9 : 8}
                             className="px-6 py-5 border-b border-white/5"
-                            style={{ background: "#0A0F1F" }}
+                            style={{ background: "var(--bg)" }}
                           >
                             <ExpandedRow item={item} orgName={item.org_id ? (orgMap[item.org_id] ?? `org #${item.org_id}`) : null} isAdmin={isAdmin} />
                           </td>

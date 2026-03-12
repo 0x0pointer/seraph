@@ -25,9 +25,9 @@ function fmt(iso: string) {
 }
 
 const inputStyle = {
-  background: "#0A0F1F",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#e2e8f0",
+  background: "var(--bg)",
+  border: "1px solid var(--border-input)",
+  color: "var(--text)",
   borderRadius: "6px",
 } as const;
 
@@ -111,7 +111,7 @@ export default function AnnouncementsPage() {
         <button
           onClick={openCreate}
           className="px-4 py-2 rounded text-sm font-medium shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: "#14B8A6", color: "#0A0F1F" }}
+          style={{ background: "#515594", color: "#0A0F1F" }}
         >
           + New announcement
         </button>
@@ -120,11 +120,11 @@ export default function AnnouncementsPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total created", value: items?.length ?? "—", color: "#94a3b8" },
-          { label: "Currently active", value: active, color: "#14B8A6" },
+          { label: "Total created", value: items?.length ?? "—", color: "var(--text-muted)" },
+          { label: "Currently active", value: active, color: "#515594" },
           { label: "Archived", value: archived, color: "#475569" },
         ].map((s) => (
-          <div key={s.label} className="rounded-lg px-5 py-4 border border-white/5" style={{ background: "#0d1426" }}>
+          <div key={s.label} className="rounded-lg px-5 py-4 border border-white/5" style={{ background: "var(--card)" }}>
             <p className="text-2xl font-bold tracking-tight" style={{ color: s.color }}>{String(s.value)}</p>
             <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
           </div>
@@ -134,7 +134,7 @@ export default function AnnouncementsPage() {
       {/* Type legend */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {Object.entries(TYPE_META).map(([key, meta]) => (
-          <div key={key} className="flex items-start gap-3 rounded-lg px-4 py-3 border border-white/5" style={{ background: "#0d1426" }}>
+          <div key={key} className="flex items-start gap-3 rounded-lg px-4 py-3 border border-white/5" style={{ background: "var(--card)" }}>
             <span className="text-xs font-mono px-2 py-0.5 rounded shrink-0 mt-0.5" style={{ background: meta.bg, color: meta.color }}>
               {meta.label}
             </span>
@@ -145,7 +145,7 @@ export default function AnnouncementsPage() {
 
       {/* Create / Edit form */}
       {creating && (
-        <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+        <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
             <p className="text-sm font-medium text-white">{editing ? "Edit announcement" : "New announcement"}</p>
             <button onClick={cancelForm} className="text-slate-500 hover:text-white transition-colors text-lg leading-none">×</button>
@@ -164,7 +164,7 @@ export default function AnnouncementsPage() {
                     style={
                       form.type === key
                         ? { background: meta.bg, borderColor: meta.color, color: meta.color }
-                        : { background: "transparent", borderColor: "rgba(255,255,255,0.08)", color: "#475569" }
+                        : { background: "transparent", borderColor: "var(--border-input)", color: "#475569" }
                     }
                   >
                     <span className="block font-semibold mb-0.5">{meta.label}</span>
@@ -206,7 +206,7 @@ export default function AnnouncementsPage() {
             {form.title && (
               <div>
                 <label className={labelCls}>Preview in notification bell</label>
-                <div className="flex items-start gap-3 p-3 rounded border border-white/5" style={{ background: "#0A0F1F" }}>
+                <div className="flex items-start gap-3 p-3 rounded border border-white/5" style={{ background: "var(--bg)" }}>
                   <div
                     className="w-7 h-7 rounded flex items-center justify-center shrink-0 text-sm font-bold"
                     style={{ background: TYPE_META[form.type]?.bg, color: TYPE_META[form.type]?.color }}
@@ -227,7 +227,7 @@ export default function AnnouncementsPage() {
                 type="submit"
                 disabled={saving || !form.title.trim()}
                 className="px-5 py-2 rounded text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: "#14B8A6", color: "#0A0F1F" }}
+                style={{ background: "#515594", color: "#0A0F1F" }}
               >
                 {saving ? "Saving…" : editing ? "Save changes" : "Publish announcement"}
               </button>
@@ -240,22 +240,22 @@ export default function AnnouncementsPage() {
       )}
 
       {/* List */}
-      <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "#0d1426" }}>
+      <div className="rounded-lg border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
         <div className="px-6 py-4 border-b border-white/5">
           <p className="text-sm font-medium text-white">All announcements</p>
         </div>
 
         {!items ? (
-          <div className="p-6 space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded animate-pulse" style={{ background: "#0A0F1F" }} />)}</div>
+          <div className="p-6 space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
         ) : items.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm text-slate-600 mb-2">No announcements yet.</p>
-            <button onClick={openCreate} className="text-xs" style={{ color: "#14B8A6" }}>Create your first one →</button>
+            <button onClick={openCreate} className="text-xs" style={{ color: "#515594" }}>Create your first one →</button>
           </div>
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr style={{ background: "#0A0F1F" }}>
+              <tr style={{ background: "var(--bg)" }}>
                 {["Type", "Title", "Created by", "Date", "Status", "Actions"].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium border-b border-white/5">{h}</th>
                 ))}
@@ -284,8 +284,8 @@ export default function AnnouncementsPage() {
                         className="font-mono px-2 py-0.5 rounded border transition-colors disabled:opacity-50"
                         style={
                           item.is_active
-                            ? { background: "rgba(20,184,166,0.08)", color: "#14B8A6", borderColor: "rgba(20,184,166,0.2)" }
-                            : { background: "rgba(71,85,105,0.15)", color: "#64748b", borderColor: "rgba(255,255,255,0.06)" }
+                            ? { background: "rgba(81,85,148,0.08)", color: "#515594", borderColor: "rgba(81,85,148,0.2)" }
+                            : { background: "rgba(71,85,105,0.15)", color: "var(--text-dim)", borderColor: "rgba(255,255,255,0.06)" }
                         }
                       >
                         {toggling === item.id ? "…" : item.is_active ? "Active" : "Archived"}
@@ -312,7 +312,7 @@ export default function AnnouncementsPage() {
       {/* Delete confirm */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
-          <div className="rounded-lg border border-white/10 p-6 max-w-sm w-full mx-4" style={{ background: "#0d1426" }}>
+          <div className="rounded-lg border border-white/10 p-6 max-w-sm w-full mx-4" style={{ background: "var(--card)" }}>
             <p className="text-sm font-semibold text-white mb-2">Delete announcement?</p>
             <p className="text-xs text-slate-500 mb-5">
               &ldquo;{deleteTarget.title}&rdquo; will be permanently removed from all notification feeds.
