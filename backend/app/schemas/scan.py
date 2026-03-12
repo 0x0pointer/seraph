@@ -20,6 +20,11 @@ class ScanResponse(BaseModel):
     scanner_results: dict[str, float]
     violation_scanners: list[str]
     audit_log_id: int
+    # Guardrails AI-inspired action metadata
+    on_fail_actions: dict[str, str] = {}     # scanner_name → action taken (blocked/fixed/monitored/reask)
+    monitored_scanners: list[str] = []       # violations logged but allowed through (monitor action)
+    reask_context: list[str] | None = None   # correction instructions for reask-action violations
+    fix_applied: bool = False                # True if at least one scanner sanitized the text
 
 
 class Message(BaseModel):

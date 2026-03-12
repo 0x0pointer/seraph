@@ -51,6 +51,9 @@ async def create_audit_log(
     input_tokens: int | None = None,
     output_tokens: int | None = None,
     token_cost: float | None = None,
+    on_fail_actions: dict | None = None,
+    fix_applied: bool = False,
+    reask_context: list | None = None,
 ) -> AuditLog:
     log = AuditLog(
         direction=direction,
@@ -69,6 +72,9 @@ async def create_audit_log(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         token_cost=token_cost,
+        on_fail_actions=on_fail_actions or {},
+        fix_applied=fix_applied,
+        reask_context=reask_context,
     )
     session.add(log)
     await session.commit()

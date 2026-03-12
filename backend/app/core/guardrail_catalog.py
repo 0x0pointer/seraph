@@ -6,22 +6,27 @@ every scanner is represented in the database.
 
 GUARDRAIL_CATALOG: list[dict] = [
     # ── Input scanners ──────────────────────────────────────────────────────────
+    # on_fail_action values (inspired by Guardrails AI):
+    #   block   — reject the request (default, safest)
+    #   fix     — use scanner's sanitized/redacted output instead of blocking
+    #   monitor — log violation but allow the request through
+    #   reask   — reject + return structured correction hints for LLM retries
     {"name": "Prompt Injection Detector",  "scanner_type": "PromptInjection",  "direction": "input",
-     "is_active": True,  "params": {"use_onnx": True}, "order": 1},
+     "is_active": True,  "on_fail_action": "block",   "params": {"use_onnx": True}, "order": 1},
     {"name": "Toxicity Filter",            "scanner_type": "Toxicity",          "direction": "input",
-     "is_active": True,  "params": {"threshold": 0.5, "use_onnx": True}, "order": 2},
+     "is_active": True,  "on_fail_action": "block",   "params": {"threshold": 0.5, "use_onnx": True}, "order": 2},
     {"name": "Secrets Scanner",            "scanner_type": "Secrets",           "direction": "input",
-     "is_active": True,  "params": {}, "order": 3},
+     "is_active": True,  "on_fail_action": "fix",     "params": {}, "order": 3},
     {"name": "Token Limit",                "scanner_type": "TokenLimit",        "direction": "input",
-     "is_active": True,  "params": {"limit": 4096}, "order": 4},
+     "is_active": True,  "on_fail_action": "block",   "params": {"limit": 4096}, "order": 4},
     {"name": "Anonymize",                  "scanner_type": "Anonymize",         "direction": "input",
-     "is_active": False, "params": {"use_onnx": True}, "order": 5},
+     "is_active": False, "on_fail_action": "fix",     "params": {"use_onnx": True}, "order": 5},
     {"name": "Ban Code (Input)",           "scanner_type": "BanCode",           "direction": "input",
-     "is_active": False, "params": {}, "order": 6},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 6},
     {"name": "Ban Competitors (Input)",    "scanner_type": "BanCompetitors",    "direction": "input",
-     "is_active": False, "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 7},
+     "is_active": False, "on_fail_action": "monitor", "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 7},
     {"name": "Ban Substrings (Input)",     "scanner_type": "BanSubstrings",     "direction": "input",
-     "is_active": True,  "params": {"substrings": [
+     "is_active": True,  "on_fail_action": "block",   "params": {"substrings": [
          # DAN family — sourced from SecLists jailbreak dataset (217+ occurrences)
          "do anything now",
          "dan mode enabled",
@@ -121,7 +126,7 @@ GUARDRAIL_CATALOG: list[dict] = [
          "in a way that would not get taken down",
      ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
-     "is_active": True,  "params": {"topics": [
+     "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
          # Original topics
          "violence", "weapons", "drugs", "self-harm",
          # Expanded from SecLists 13 forbidden content policy categories
@@ -139,17 +144,17 @@ GUARDRAIL_CATALOG: list[dict] = [
          "drug synthesis", "weapons synthesis",
      ], "threshold": 0.5, "use_onnx": True}, "order": 9},
     {"name": "Code Detector (Input)",      "scanner_type": "Code",              "direction": "input",
-     "is_active": False, "params": {}, "order": 10},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 10},
     {"name": "Emotion Detection (Input)",  "scanner_type": "EmotionDetection",  "direction": "input",
-     "is_active": False, "params": {}, "order": 11},
+     "is_active": False, "on_fail_action": "monitor", "params": {}, "order": 11},
     {"name": "Gibberish Filter (Input)",   "scanner_type": "Gibberish",         "direction": "input",
-     "is_active": False, "params": {"threshold": 0.7}, "order": 12},
+     "is_active": False, "on_fail_action": "block",   "params": {"threshold": 0.7}, "order": 12},
     {"name": "Invisible Text",             "scanner_type": "InvisibleText",     "direction": "input",
-     "is_active": False, "params": {}, "order": 13},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 13},
     {"name": "Language Detector (Input)",  "scanner_type": "Language",          "direction": "input",
-     "is_active": False, "params": {"valid_languages": ["en"]}, "order": 14},
+     "is_active": False, "on_fail_action": "block",   "params": {"valid_languages": ["en"]}, "order": 14},
     {"name": "Regex Filter (Input)",       "scanner_type": "Regex",             "direction": "input",
-     "is_active": True,  "params": {"patterns": [
+     "is_active": True,  "on_fail_action": "block",   "params": {"patterns": [
          # ── Credential leak patterns (original) ──────────────────────────────
          r"(?i)(my\s+)?password\s+(is\s+)?\S+",
          r"(?i)passwd\s*[:=]\s*\S+",
@@ -217,21 +222,21 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\bdo\s+not\s+(?:write\s+out|print|show|display)\s+the\s+decoded\s+(?:prompt|message|text|request)\b",
      ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
-     "is_active": False, "params": {"threshold": 0.0}, "order": 16},
+     "is_active": False, "on_fail_action": "monitor", "params": {"threshold": 0.0}, "order": 16},
 
     # ── Output scanners ─────────────────────────────────────────────────────────
     {"name": "Toxicity Filter (Output)",   "scanner_type": "Toxicity",          "direction": "output",
-     "is_active": True,  "params": {"threshold": 0.5, "use_onnx": True}, "order": 1},
+     "is_active": True,  "on_fail_action": "block",   "params": {"threshold": 0.5, "use_onnx": True}, "order": 1},
     {"name": "No Refusal",                 "scanner_type": "NoRefusal",         "direction": "output",
-     "is_active": True,  "params": {}, "order": 2},
+     "is_active": True,  "on_fail_action": "reask",   "params": {}, "order": 2},
     {"name": "Ban Competitors (Output)",   "scanner_type": "BanCompetitors",    "direction": "output",
-     "is_active": False, "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 3},
+     "is_active": False, "on_fail_action": "monitor", "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 3},
     {"name": "Bias Detector",              "scanner_type": "Bias",              "direction": "output",
-     "is_active": False, "params": {"threshold": 0.75}, "order": 4},
+     "is_active": False, "on_fail_action": "reask",   "params": {"threshold": 0.75}, "order": 4},
     {"name": "Ban Code (Output)",          "scanner_type": "BanCode",           "direction": "output",
-     "is_active": False, "params": {}, "order": 5},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 5},
     {"name": "Ban Substrings (Output)",    "scanner_type": "BanSubstrings",     "direction": "output",
-     "is_active": True,  "params": {"substrings": [
+     "is_active": True,  "on_fail_action": "block",   "params": {"substrings": [
          # Detect if LLM was successfully manipulated into persona mode
          "dan mode enabled",
          "developer mode enabled",
@@ -244,7 +249,7 @@ GUARDRAIL_CATALOG: list[dict] = [
          "i will comply without restrictions",
      ]}, "order": 6},
     {"name": "Ban Topics (Output)",        "scanner_type": "BanTopics",         "direction": "output",
-     "is_active": True,  "params": {"topics": [
+     "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
          "violence", "weapons", "drugs", "self-harm",
          "illegal activities", "cybercrime", "hacking",
          "malware", "ransomware",
@@ -260,35 +265,35 @@ GUARDRAIL_CATALOG: list[dict] = [
          "drug synthesis", "weapons synthesis",
      ], "threshold": 0.5, "use_onnx": True}, "order": 7},
     {"name": "Code Detector (Output)",     "scanner_type": "Code",              "direction": "output",
-     "is_active": False, "params": {}, "order": 8},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 8},
     {"name": "Deanonymize",                "scanner_type": "Deanonymize",       "direction": "output",
-     "is_active": False, "params": {}, "order": 9},
+     "is_active": False, "on_fail_action": "fix",     "params": {}, "order": 9},
     {"name": "Emotion Detection (Output)", "scanner_type": "EmotionDetection",  "direction": "output",
-     "is_active": False, "params": {}, "order": 10},
+     "is_active": False, "on_fail_action": "monitor", "params": {}, "order": 10},
     {"name": "Factual Consistency",        "scanner_type": "FactualConsistency","direction": "output",
-     "is_active": False, "params": {"threshold": 0.5}, "order": 11},
+     "is_active": False, "on_fail_action": "reask",   "params": {"threshold": 0.5}, "order": 11},
     {"name": "Gibberish Filter (Output)",  "scanner_type": "Gibberish",         "direction": "output",
-     "is_active": False, "params": {"threshold": 0.7}, "order": 12},
+     "is_active": False, "on_fail_action": "block",   "params": {"threshold": 0.7}, "order": 12},
     {"name": "JSON Validator",             "scanner_type": "JSON",              "direction": "output",
-     "is_active": False, "params": {}, "order": 13},
+     "is_active": False, "on_fail_action": "reask",   "params": {}, "order": 13},
     {"name": "Language Detector (Output)", "scanner_type": "Language",          "direction": "output",
-     "is_active": False, "params": {"valid_languages": ["en"]}, "order": 14},
+     "is_active": False, "on_fail_action": "block",   "params": {"valid_languages": ["en"]}, "order": 14},
     {"name": "Language Same",              "scanner_type": "LanguageSame",      "direction": "output",
-     "is_active": False, "params": {}, "order": 15},
+     "is_active": False, "on_fail_action": "reask",   "params": {}, "order": 15},
     {"name": "Malicious URLs",             "scanner_type": "MaliciousURLs",     "direction": "output",
-     "is_active": False, "params": {}, "order": 16},
+     "is_active": False, "on_fail_action": "block",   "params": {}, "order": 16},
     {"name": "No Refusal Light",           "scanner_type": "NoRefusalLight",    "direction": "output",
-     "is_active": False, "params": {}, "order": 17},
+     "is_active": False, "on_fail_action": "reask",   "params": {}, "order": 17},
     {"name": "Reading Time",               "scanner_type": "ReadingTime",       "direction": "output",
-     "is_active": False, "params": {"max_time": 5.0}, "order": 18},
+     "is_active": False, "on_fail_action": "monitor", "params": {"max_time": 5.0}, "order": 18},
     {"name": "Regex Filter (Output)",      "scanner_type": "Regex",             "direction": "output",
-     "is_active": False, "params": {"patterns": [r"(?i)(my\s+)?password\s+(is\s+)?\S+", r"(?i)passwd\s*[:=]\s*\S+"]}, "order": 19},
+     "is_active": False, "on_fail_action": "block",   "params": {"patterns": [r"(?i)(my\s+)?password\s+(is\s+)?\S+", r"(?i)passwd\s*[:=]\s*\S+"]}, "order": 19},
     {"name": "Relevance",                  "scanner_type": "Relevance",         "direction": "output",
-     "is_active": False, "params": {"threshold": 0.5}, "order": 20},
+     "is_active": False, "on_fail_action": "reask",   "params": {"threshold": 0.5}, "order": 20},
     {"name": "Sensitive Data (Output)",    "scanner_type": "Sensitive",         "direction": "output",
-     "is_active": False, "params": {}, "order": 21},
+     "is_active": False, "on_fail_action": "fix",     "params": {}, "order": 21},
     {"name": "Sentiment Filter (Output)",  "scanner_type": "Sentiment",         "direction": "output",
-     "is_active": False, "params": {"threshold": 0.0}, "order": 22},
+     "is_active": False, "on_fail_action": "monitor", "params": {"threshold": 0.0}, "order": 22},
     {"name": "URL Reachability",           "scanner_type": "URLReachability",   "direction": "output",
-     "is_active": False, "params": {}, "order": 23},
+     "is_active": False, "on_fail_action": "monitor", "params": {}, "order": 23},
 ]

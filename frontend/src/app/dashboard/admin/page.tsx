@@ -660,6 +660,63 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   );
 }
 
+// ── Column visibility toggle ──────────────────────────────────────────────────
+
+function ColVis({ cols, hidden, onToggle }: {
+  cols: { key: string; label: string }[];
+  hidden: Set<string>;
+  onToggle: (k: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    if (open) document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const visCount = cols.length - cols.filter((c) => hidden.has(c.key)).length;
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+      >
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        </svg>
+        Columns
+        {hidden.size > 0 && (
+          <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(81,85,148,0.2)", color: "#818cf8" }}>
+            {visCount}/{cols.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 rounded border border-white/10 py-1.5 w-40 shadow-xl" style={{ background: "var(--card)" }}>
+          {cols.map((c) => (
+            <label key={c.key} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} className="accent-indigo-500 w-3 h-3 shrink-0" />
+              <span className="text-xs text-slate-400 font-mono">{c.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const OVERVIEW_SCAN_COLS = [
+  { key: "time",       label: "Time" },
+  { key: "dir",        label: "Dir" },
+  { key: "status",     label: "Status" },
+  { key: "risk",       label: "Risk" },
+  { key: "connection", label: "Connection" },
+  { key: "violations", label: "Violations" },
+  { key: "preview",    label: "Preview" },
+] as const;
+
+type OverviewScanColKey = typeof OVERVIEW_SCAN_COLS[number]["key"];
+
 // ── Pagination helper ─────────────────────────────────────────────────────────
 
 function Pagination({ page, total, limit, onPage }: { page: number; total: number; limit: number; onPage: (p: number) => void }) {
@@ -747,16 +804,17 @@ function eventSummary(e: SystemEventEntry): string {
 
 function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [eventFilter, setEventFilter] = useState("all");
   const [actorSearch, setActorSearch] = useState("");
   const [debouncedActor, setDebouncedActor] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const buildKey = useCallback(() => {
-    const params = new URLSearchParams({ page: page.toString(), limit: "50", event_type: eventFilter });
+    const params = new URLSearchParams({ page: page.toString(), limit: pageSize.toString(), event_type: eventFilter });
     if (debouncedActor.trim()) params.set("actor", debouncedActor.trim());
     return `/admin/events?${params}`;
-  }, [page, eventFilter, debouncedActor]);
+  }, [page, pageSize, eventFilter, debouncedActor]);
 
   const { data, isLoading } = useSWR<SystemEventsPage>(
     isAdmin ? buildKey() : null,
@@ -803,8 +861,20 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
           </select>
           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none text-xs">▾</span>
         </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs text-slate-600 font-mono">Rows:</span>
+          {[25, 50, 100].map((n) => (
+            <button key={n} onClick={() => { setPageSize(n); setPage(1); }}
+              className="text-xs px-2 py-1 rounded font-mono transition-colors"
+              style={pageSize === n
+                ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+              {n}
+            </button>
+          ))}
+        </div>
         {data && (
-          <p className="text-xs text-slate-600 font-mono ml-auto">
+          <p className="text-xs text-slate-600 font-mono">
             {data.total.toLocaleString()} {data.total === 1 ? "event" : "events"}
           </p>
         )}
@@ -929,7 +999,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
             </tbody>
           </table>
         </div>
-        {data && <Pagination page={page} total={data.total} limit={50} onPage={setPage} />}
+        {data && <Pagination page={page} total={data.total} limit={pageSize} onPage={setPage} />}
       </div>
     </div>
   );
@@ -940,16 +1010,17 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
 function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
   const [subTab, setSubTab] = useState<"scan-logs" | "system-events">("scan-logs");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [dir, setDir] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const buildKey = useCallback(() => {
-    const params = new URLSearchParams({ page: page.toString(), limit: "50", direction: dir, status });
+    const params = new URLSearchParams({ page: page.toString(), limit: pageSize.toString(), direction: dir, status });
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     return `/admin/audit-logs?${params}`;
-  }, [page, dir, status, debouncedSearch]);
+  }, [page, pageSize, dir, status, debouncedSearch]);
 
   const { data, isLoading } = useSWR<AdminAuditPage>(
     isAdmin ? buildKey() : null,
@@ -971,7 +1042,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
     setPage(1);
   }
 
-  const totalPages = data ? Math.ceil(data.total / 50) : 1;
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
 
   return (
     <div className="space-y-4">
@@ -1015,6 +1086,18 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 font-mono">Rows:</span>
+              {[25, 50, 100].map((n) => (
+                <button key={n} onClick={() => { setPageSize(n); setPage(1); }}
+                  className="text-xs px-2 py-1 rounded font-mono transition-colors"
+                  style={pageSize === n
+                    ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                    : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  {n}
+                </button>
+              ))}
+            </div>
             <button onClick={() => downloadCSV("/admin/export/audit-logs?limit=1000", "skfguard-audit-logs.csv")}
               className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
               ↓ Export CSV
@@ -1022,7 +1105,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
             {data && (
               <p className="text-xs text-slate-600 font-mono ml-auto">
                 {data.total.toLocaleString()} {data.total === 1 ? "entry" : "entries"}
-                {data.total > 50 ? ` · page ${page} of ${totalPages}` : ""}
+                {data.total > pageSize ? ` · page ${page} of ${totalPages}` : ""}
               </p>
             )}
           </div>
@@ -1059,7 +1142,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                 </tbody>
               </table>
             </div>
-            {data && <Pagination page={page} total={data.total} limit={50} onPage={setPage} />}
+            {data && <Pagination page={page} total={data.total} limit={pageSize} onPage={setPage} />}
           </div>
         </div>
       )}
@@ -2136,7 +2219,24 @@ export default function AdminPage() {
   const [assignOrgTarget, setAssignOrgTarget] = useState<AdminUser | null>(null);
   const [roleLoading, setRoleLoading] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(20);
+  const [connSearch, setConnSearch] = useState("");
+  const [connPage, setConnPage] = useState(1);
+  const [connPageSize, setConnPageSize] = useState(20);
   const [toggling, setToggling] = useState<number | null>(null);
+  const [overviewHiddenCols, setOverviewHiddenCols] = useState<Set<OverviewScanColKey>>(new Set());
+  function toggleOverviewCol(k: string) {
+    setOverviewHiddenCols((prev) => {
+      const next = new Set(prev) as Set<OverviewScanColKey>;
+      if (next.has(k as OverviewScanColKey)) next.delete(k as OverviewScanColKey);
+      else next.add(k as OverviewScanColKey);
+      return next;
+    });
+  }
+  const ovis = (k: OverviewScanColKey) => !overviewHiddenCols.has(k);
+  const overviewColSpan = OVERVIEW_SCAN_COLS.filter((c) => ovis(c.key)).length;
 
   const { data: platformSettings, mutate: mutatePlatform } = useSWR<Record<string, string>>(
     isAdmin ? "/admin/platform" : null,
@@ -2188,7 +2288,27 @@ export default function AdminPage() {
   if (meLoading) return <div className="h-64 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   if (!isAdmin) return <AccessDenied />;
 
-  const filteredUsers = users?.filter((u) => roleFilter ? u.role === roleFilter : true);
+  const allFilteredUsers = users?.filter((u) => {
+    if (roleFilter && u.role !== roleFilter) return false;
+    if (userSearch) {
+      const q = userSearch.toLowerCase();
+      return u.username.toLowerCase().includes(q) ||
+        (u.full_name ?? "").toLowerCase().includes(q) ||
+        (u.email ?? "").toLowerCase().includes(q);
+    }
+    return true;
+  });
+  const userTotalPages = Math.ceil((allFilteredUsers?.length ?? 0) / userPageSize);
+  const filteredUsers = allFilteredUsers?.slice((userPage - 1) * userPageSize, userPage * userPageSize);
+
+  const allFilteredConns = connections?.filter((c) => {
+    if (!connSearch) return true;
+    const q = connSearch.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q) || c.environment.toLowerCase().includes(q);
+  });
+  const connTotalPages = Math.ceil((allFilteredConns?.length ?? 0) / connPageSize);
+  const filteredConns = allFilteredConns?.slice((connPage - 1) * connPageSize, connPage * connPageSize);
+
   const maxViol = topViolations?.[0]?.count ?? 1;
 
   return (
@@ -2367,54 +2487,73 @@ export default function AdminPage() {
           {/* Recent platform activity */}
           <Section title="Recent Platform Activity"
             action={
-              <button onClick={() => setTab("audits")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
-                Full audit log →
-              </button>
+              <div className="flex items-center gap-3">
+                <ColVis cols={[...OVERVIEW_SCAN_COLS]} hidden={overviewHiddenCols} onToggle={toggleOverviewCol} />
+                <button onClick={() => setTab("audits")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
+                  Full audit log →
+                </button>
+              </div>
             }
           >
             <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/5">
-                    {["Time", "Dir", "Status", "Risk", "Via", "Violations", "Preview"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
-                    ))}
+                    {ovis("time")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Time</th>}
+                    {ovis("dir")        && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Dir</th>}
+                    {ovis("status")     && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Status</th>}
+                    {ovis("risk")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Risk</th>}
+                    {ovis("connection") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Connection</th>}
+                    {ovis("violations") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Violations</th>}
+                    {ovis("preview")    && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Preview</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {!activity ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-white/5">
-                      <td colSpan={7} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
+                      <td colSpan={overviewColSpan} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                     </tr>
                   )) : activity.map((a) => {
                     const riskColor = a.max_risk_score >= 0.8 ? "#f87171" : a.max_risk_score >= 0.5 ? "#fbbf24" : "#94a3b8";
                     const envStyle = a.connection_environment ? (ENV_COLOR[a.connection_environment] ?? ENV_COLOR.staging) : null;
                     return (
                       <tr key={a.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
-                          {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-mono px-2 py-0.5 rounded"
-                            style={a.is_valid ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
-                            {a.is_valid ? "pass" : "block"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
-                        <td className="px-4 py-3">
-                          {a.connection_name ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
-                              {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
-                            </div>
-                          ) : <span className="text-xs text-slate-700 font-mono">token</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-mono"
-                          style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
-                          {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " …" : "") : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
+                        {ovis("time") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                            {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "—"}
+                          </td>
+                        )}
+                        {ovis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>}
+                        {ovis("status") && (
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-mono px-2 py-0.5 rounded"
+                              style={a.is_valid ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
+                              {a.is_valid ? "pass" : "block"}
+                            </span>
+                          </td>
+                        )}
+                        {ovis("risk") && (
+                          <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
+                        )}
+                        {ovis("connection") && (
+                          <td className="px-4 py-3">
+                            {a.connection_name ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
+                                {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
+                              </div>
+                            ) : <span className="text-xs text-slate-700 font-mono">token</span>}
+                          </td>
+                        )}
+                        {ovis("violations") && (
+                          <td className="px-4 py-3 text-xs font-mono"
+                            style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
+                            {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " …" : "") : "—"}
+                          </td>
+                        )}
+                        {ovis("preview") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
+                        )}
                       </tr>
                     );
                   })}
@@ -2430,20 +2569,40 @@ export default function AdminPage() {
         <Section
           title="User Management"
           action={
-            <div className="flex items-center gap-3">
-              <button onClick={() => downloadCSV("/admin/export/users", "skfguard-users.csv")}
-                className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
-                ↓ Export CSV
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="text"
+                placeholder="Search users…"
+                value={userSearch}
+                onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
+                className="rounded px-3 py-1.5 text-sm outline-none w-44"
+                style={inputStyle}
+              />
               <div className="flex gap-1 p-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)" }}>
                 {(["", "admin", "viewer"] as const).map((r) => (
-                  <button key={r || "all"} onClick={() => setRoleFilter(r)}
+                  <button key={r || "all"} onClick={() => { setRoleFilter(r); setUserPage(1); }}
                     className="text-xs px-2.5 py-1 rounded transition-colors"
                     style={roleFilter === r ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
                     {r === "" ? "All" : r}
                   </button>
                 ))}
               </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-600 font-mono">Rows:</span>
+                {[10, 20, 50].map((n) => (
+                  <button key={n} onClick={() => { setUserPageSize(n); setUserPage(1); }}
+                    className="text-xs px-2 py-1 rounded font-mono transition-colors"
+                    style={userPageSize === n
+                      ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                      : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => downloadCSV("/admin/export/users", "skfguard-users.csv")}
+                className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
+                ↓ Export CSV
+              </button>
               <button onClick={() => setShowCreate(!showCreate)}
                 className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
                 style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#515594", color: "#fff" }}>
@@ -2536,10 +2695,27 @@ export default function AdminPage() {
             </table>
             {users && (
               <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-                <p className="text-xs text-slate-700 font-mono">{filteredUsers?.length ?? 0} of {users.length} users shown</p>
                 <p className="text-xs text-slate-700 font-mono">
-                  {users.filter((u) => u.role === "admin").length} admin · {users.filter((u) => u.role === "viewer").length} viewer
+                  {filteredUsers?.length ?? 0} shown · {allFilteredUsers?.length ?? 0} filtered · {users.length} total
                 </p>
+                <div className="flex items-center gap-2">
+                  {userTotalPages > 1 && (
+                    <>
+                      <button disabled={userPage <= 1} onClick={() => setUserPage((p) => p - 1)}
+                        className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                        ← Prev
+                      </button>
+                      <span className="text-xs text-slate-600 font-mono">{userPage} / {userTotalPages}</span>
+                      <button disabled={userPage >= userTotalPages} onClick={() => setUserPage((p) => p + 1)}
+                        className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                        Next →
+                      </button>
+                    </>
+                  )}
+                  <p className="text-xs text-slate-700 font-mono ml-2">
+                    {users.filter((u) => u.role === "admin").length} admin · {users.filter((u) => u.role === "viewer").length} viewer
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -2548,7 +2724,32 @@ export default function AdminPage() {
 
       {/* ── Connections ─────────────────────────────────────────────── */}
       {tab === "connections" && (
-        <Section title="All API Connections">
+        <Section title="All API Connections"
+          action={
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Search connections…"
+                value={connSearch}
+                onChange={(e) => { setConnSearch(e.target.value); setConnPage(1); }}
+                className="rounded px-3 py-1.5 text-sm outline-none w-44"
+                style={inputStyle}
+              />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-600 font-mono">Rows:</span>
+                {[10, 20, 50].map((n) => (
+                  <button key={n} onClick={() => { setConnPageSize(n); setConnPage(1); }}
+                    className="text-xs px-2 py-1 rounded font-mono transition-colors"
+                    style={connPageSize === n
+                      ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                      : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          }
+        >
           <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
             <table className="w-full text-sm">
               <thead>
@@ -2563,9 +2764,9 @@ export default function AdminPage() {
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                   </tr>
-                )) : connections.length === 0 ? (
+                )) : (filteredConns ?? []).length === 0 ? (
                   <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No API connections found.</td></tr>
-                ) : connections.map((c) => {
+                ) : (filteredConns ?? []).map((c) => {
                   const envStyle = ENV_COLOR[c.environment] ?? ENV_COLOR.staging;
                   const violRate = c.total_requests > 0 ? (c.total_violations / c.total_requests) * 100 : 0;
                   const spendPct = c.max_monthly_spend && c.max_monthly_spend > 0
@@ -2615,11 +2816,24 @@ export default function AdminPage() {
               </tbody>
             </table>
             {connections && (
-              <div className="px-4 py-3 border-t border-white/5">
+              <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
                 <p className="text-xs text-slate-700 font-mono">
-                  {connections.length} connections · {connections.filter((c) => c.status === "blocked").length} blocked ·{" "}
+                  {(filteredConns ?? []).length} shown · {connections.length} total · {connections.filter((c) => c.status === "blocked").length} blocked ·{" "}
                   ${connections.reduce((s, c) => s + c.month_spend, 0).toFixed(2)} month spend
                 </p>
+                {connTotalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button disabled={connPage <= 1} onClick={() => setConnPage((p) => p - 1)}
+                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                      ← Prev
+                    </button>
+                    <span className="text-xs text-slate-600 font-mono">{connPage} / {connTotalPages}</span>
+                    <button disabled={connPage >= connTotalPages} onClick={() => setConnPage((p) => p + 1)}
+                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                      Next →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

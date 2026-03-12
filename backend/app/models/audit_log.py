@@ -32,6 +32,14 @@ class AuditLog(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Guardrails AI-inspired action metadata
+    # on_fail_actions: {"ScannerName": "blocked"|"fixed"|"monitored"|"reask"}
+    on_fail_actions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # fix_applied: True when at least one scanner sanitized the text instead of blocking
+    fix_applied: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    # reask_context: list of correction instructions returned when a reask-action scanner fires
+    reask_context: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )

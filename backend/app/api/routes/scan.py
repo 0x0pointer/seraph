@@ -156,9 +156,11 @@ async def scan_prompt(
     allowed_input = None if current_user.role == "admin" else limits["input_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
-    is_valid, sanitized, results, violations = await scanner_engine.run_input_scan(
-        session, data.text, allowed_types=allowed_input,
-        allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
+    is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
+        await scanner_engine.run_input_scan(
+            session, data.text, allowed_types=allowed_input,
+            allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
+        )
     )
 
     # Resolve token counts for cost tracking
@@ -171,6 +173,10 @@ async def scan_prompt(
             session, conn, is_valid, input_tok, output_tok
         )
 
+    # Include monitored (non-blocking) violations in the audit trail
+    monitored = [k for k, v in on_fail_actions.items() if v == "monitored"]
+    all_violations_for_audit = violations + monitored
+
     log = await audit_service.create_audit_log(
         session,
         direction="input",
@@ -178,7 +184,7 @@ async def scan_prompt(
         sanitized_text=sanitized,
         is_valid=is_valid,
         scanner_results=results,
-        violation_scanners=violations,
+        violation_scanners=all_violations_for_audit,
         ip_address=ip,
         user_id=current_user.id,
         org_id=current_user.org_id,
@@ -189,6 +195,9 @@ async def scan_prompt(
         input_tokens=audit_input,
         output_tokens=audit_output,
         token_cost=audit_cost,
+        on_fail_actions=on_fail_actions,
+        fix_applied=fix_applied,
+        reask_context=reask_context,
     )
 
     return ScanResponse(
@@ -197,6 +206,10 @@ async def scan_prompt(
         scanner_results=results,
         violation_scanners=violations,
         audit_log_id=log.id,
+        on_fail_actions=on_fail_actions,
+        monitored_scanners=monitored,
+        reask_context=reask_context,
+        fix_applied=fix_applied,
     )
 
 
@@ -224,9 +237,11 @@ async def scan_output(
     allowed_output = None if current_user.role == "admin" else limits["output_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
-    is_valid, sanitized, results, violations = await scanner_engine.run_output_scan(
-        session, prompt, data.text, allowed_types=allowed_output,
-        allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
+    is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
+        await scanner_engine.run_output_scan(
+            session, prompt, data.text, allowed_types=allowed_output,
+            allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
+        )
     )
 
     # Resolve token counts for cost tracking
@@ -239,6 +254,9 @@ async def scan_output(
             session, conn, is_valid, input_tok, output_tok
         )
 
+    monitored = [k for k, v in on_fail_actions.items() if v == "monitored"]
+    all_violations_for_audit = violations + monitored
+
     log = await audit_service.create_audit_log(
         session,
         direction="output",
@@ -246,7 +264,7 @@ async def scan_output(
         sanitized_text=sanitized,
         is_valid=is_valid,
         scanner_results=results,
-        violation_scanners=violations,
+        violation_scanners=all_violations_for_audit,
         ip_address=ip,
         user_id=current_user.id,
         org_id=current_user.org_id,
@@ -257,6 +275,9 @@ async def scan_output(
         input_tokens=audit_input,
         output_tokens=audit_output,
         token_cost=audit_cost,
+        on_fail_actions=on_fail_actions,
+        fix_applied=fix_applied,
+        reask_context=reask_context,
     )
 
     return ScanResponse(
@@ -265,6 +286,10 @@ async def scan_output(
         scanner_results=results,
         violation_scanners=violations,
         audit_log_id=log.id,
+        on_fail_actions=on_fail_actions,
+        monitored_scanners=monitored,
+        reask_context=reask_context,
+        fix_applied=fix_applied,
     )
 
 

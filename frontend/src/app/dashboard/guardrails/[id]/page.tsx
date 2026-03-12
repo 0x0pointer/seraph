@@ -8,7 +8,7 @@ import { SCANNER_INTEL, MODEL_TYPE_META } from "@/lib/scanner-intel";
 
 interface Guardrail {
   id: number; name: string; scanner_type: string; direction: string;
-  is_active: boolean; params: Record<string, unknown>; order: number;
+  is_active: boolean; on_fail_action: string; params: Record<string, unknown>; order: number;
 }
 
 // ── Param schema definitions ──────────────────────────────────────────────────
@@ -561,6 +561,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [onFailAction, setOnFailAction] = useState("block");
   const [editParams, setEditParams] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -570,6 +571,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
     if (guardrail) {
       setName(guardrail.name);
       setIsActive(guardrail.is_active);
+      setOnFailAction(guardrail.on_fail_action ?? "block");
       const p = guardrail.params ?? {};
       setDescription(typeof p._description === "string" ? p._description : "");
       setEditParams(p);
@@ -581,7 +583,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
     setError(""); setSaving(true);
     try {
       const params = { ...editParams, _description: description.trim() || undefined };
-      await api.put(`/guardrails/${id}`, { name, is_active: isActive, params, order: guardrail!.order });
+      await api.put(`/guardrails/${id}`, { name, is_active: isActive, on_fail_action: onFailAction, params, order: guardrail!.order });
       await mutate();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -677,6 +679,33 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
                     ? "All prompts are being scanned by this guardrail."
                     : "This guardrail is disabled and will not scan any prompts."}
                 </p>
+              </div>
+            </div>
+
+            {/* On-fail action */}
+            <div>
+              <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">On violation</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: "block",   label: "Block",   desc: "Reject the request immediately.",                          color: "#f87171", bg: "rgba(248,113,113,0.08)" },
+                  { value: "fix",     label: "Fix",     desc: "Use the scanner's sanitized output instead of blocking.",  color: "#34d399", bg: "rgba(52,211,153,0.08)"  },
+                  { value: "monitor", label: "Monitor", desc: "Log the violation but let the request through.",           color: "#fbbf24", bg: "rgba(251,191,36,0.08)"  },
+                  { value: "reask",   label: "Reask",   desc: "Reject and return correction hints for LLM retries.",      color: "#60a5fa", bg: "rgba(96,165,250,0.08)"  },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setOnFailAction(opt.value)}
+                    className="text-left rounded border px-3 py-2.5 transition-all"
+                    style={{
+                      background: onFailAction === opt.value ? opt.bg : "var(--bg)",
+                      borderColor: onFailAction === opt.value ? opt.color : "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <p className="text-xs font-mono font-semibold mb-0.5" style={{ color: opt.color }}>{opt.label}</p>
+                    <p className="text-xs text-slate-600 leading-snug">{opt.desc}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>

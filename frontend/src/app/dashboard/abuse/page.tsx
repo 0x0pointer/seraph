@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { format } from "date-fns";
@@ -235,14 +235,88 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
   );
 }
 
+// ── Column visibility ─────────────────────────────────────────────────────────
+
+const ABUSE_COLS = [
+  { key: "id",               label: "ID" },
+  { key: "time",             label: "Time" },
+  { key: "risk",             label: "Risk" },
+  { key: "connection",       label: "Connection" },
+  { key: "org",              label: "Org" },
+  { key: "violated_scanners", label: "Violated Scanners" },
+  { key: "ip",               label: "IP" },
+  { key: "preview",          label: "Preview" },
+] as const;
+
+type AbuseColKey = typeof ABUSE_COLS[number]["key"];
+
+function ColVis({ cols, hidden, onToggle }: {
+  cols: { key: string; label: string }[];
+  hidden: Set<string>;
+  onToggle: (k: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    if (open) document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const visCount = cols.length - cols.filter((c) => hidden.has(c.key)).length;
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+      >
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        </svg>
+        Columns
+        {hidden.size > 0 && (
+          <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(248,113,113,0.15)", color: "#f87171" }}>
+            {visCount}/{cols.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 rounded border border-white/10 py-1.5 w-44 shadow-xl" style={{ background: "var(--card)" }}>
+          {cols.map((c) => (
+            <label key={c.key} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} className="accent-red-400 w-3 h-3 shrink-0" />
+              <span className="text-xs text-slate-400 font-mono">{c.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+
 export default function AbusePage() {
   const { data: me } = useSWR<UserInfo>(
     "/auth/me", () => api.get<UserInfo>("/auth/me"), { revalidateOnFocus: false },
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [connectionId, setConnectionId] = useState("");
   const [filterOrgId, setFilterOrgId] = useState("");
+  const [search, setSearch] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [hiddenCols, setHiddenCols] = useState<Set<AbuseColKey>>(new Set());
+
+  function toggleCol(k: string) {
+    setHiddenCols((prev) => {
+      const next = new Set(prev) as Set<AbuseColKey>;
+      if (next.has(k as AbuseColKey)) next.delete(k as AbuseColKey);
+      else next.add(k as AbuseColKey);
+      return next;
+    });
+  }
+  const vis = (k: AbuseColKey) => !hiddenCols.has(k);
 
   const isAdmin = me?.role === "admin";
 
@@ -257,9 +331,26 @@ export default function AbusePage() {
   const orgMap: Record<number, string> = {};
   adminOrgs?.forEach((o) => { orgMap[o.id] = o.name; });
 
-  const queryStr = `/audit/abuse?page=${page}&page_size=20${connectionId ? `&connection_id=${connectionId}` : ""}${filterOrgId ? `&filter_org_id=${filterOrgId}` : ""}`;
+  const visibleCols = ABUSE_COLS.filter((c) => (c.key !== "org" || isAdmin) && vis(c.key));
+  const colSpanCount = visibleCols.length;
+
+  const queryStr = `/audit/abuse?page=${page}&page_size=${pageSize}${connectionId ? `&connection_id=${connectionId}` : ""}${filterOrgId ? `&filter_org_id=${filterOrgId}` : ""}`;
   const { data, error } = useSWR<AuditList>(queryStr, () => api.get<AuditList>(queryStr));
-  const totalPages = data ? Math.ceil(data.total / 20) : 1;
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
+
+  const filteredItems = (data?.items ?? []).filter((item) => {
+    if (riskFilter) {
+      const risk = riskLevel(item.max_risk_score, item.violation_scanners.length);
+      if (risk.label !== riskFilter) return false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!item.raw_text.toLowerCase().includes(q) &&
+          !item.violation_scanners.join(" ").toLowerCase().includes(q) &&
+          !(item.connection_name ?? "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4 max-w-6xl">
@@ -298,19 +389,43 @@ export default function AbusePage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header + filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#f87171" }} />
           <p className="text-xs text-red-400 font-mono uppercase tracking-wider">
             {data?.total ?? "…"} blocked requests
           </p>
         </div>
+
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search text, scanner, connection…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="text-sm rounded px-3 py-2 outline-none w-52"
+          style={inputStyle}
+        />
+
+        {/* Risk level filter */}
+        <select
+          value={riskFilter}
+          onChange={(e) => { setRiskFilter(e.target.value); setPage(1); }}
+          className="text-sm rounded px-3 py-2 outline-none"
+          style={inputStyle}
+        >
+          <option value="">All risk levels</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+        </select>
+
         {/* Connection filter */}
         <select
           value={connectionId}
           onChange={(e) => { setConnectionId(e.target.value); setPage(1); }}
-          className="text-sm rounded px-3 py-2 outline-none ml-auto"
+          className="text-sm rounded px-3 py-2 outline-none"
           style={inputStyle}
         >
           <option value="">All connections</option>
@@ -320,6 +435,33 @@ export default function AbusePage() {
             </option>
           ))}
         </select>
+
+        <div className="flex-1" />
+
+        {/* Rows per page */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-600 font-mono whitespace-nowrap">Rows:</span>
+          <div className="flex gap-1">
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => { setPageSize(n); setPage(1); }}
+                className="text-xs px-2.5 py-1.5 rounded font-mono transition-colors"
+                style={pageSize === n
+                  ? { background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
+                  : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }
+                }
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <ColVis
+          cols={ABUSE_COLS.filter((c) => c.key !== "org" || isAdmin)}
+          hidden={hiddenCols}
+          onToggle={toggleCol}
+        />
       </div>
 
       {error && <p className="text-xs text-red-400">Failed to load.</p>}
@@ -328,23 +470,26 @@ export default function AbusePage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/5">
-              {["ID", "Time", "Risk", "Connection", ...(isAdmin ? ["Org"] : []), "Violated Scanners", "IP", "Preview"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">
-                  {h}
-                </th>
-              ))}
+              {vis("id")               && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">ID</th>}
+              {vis("time")             && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Time</th>}
+              {vis("risk")             && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Risk</th>}
+              {vis("connection")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Connection</th>}
+              {isAdmin && vis("org")   && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Org</th>}
+              {vis("violated_scanners") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Violated Scanners</th>}
+              {vis("ip")               && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">IP</th>}
+              {vis("preview")          && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Preview</th>}
             </tr>
           </thead>
           <tbody>
             {!data
               ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td colSpan={isAdmin ? 8 : 7} className="px-4 py-3">
+                    <td colSpan={colSpanCount} className="px-4 py-3">
                       <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                     </td>
                   </tr>
                 ))
-              : data.items.map((item) => {
+              : filteredItems.map((item) => {
                   const risk = riskLevel(item.max_risk_score, item.violation_scanners.length);
                   const envStyle = item.connection_environment
                     ? (ENV_COLORS[item.connection_environment] ?? ENV_COLORS.staging)
@@ -358,45 +503,40 @@ export default function AbusePage() {
                         style={{ background: expanded === item.id ? "rgba(248,113,113,0.02)" : undefined }}
                         onClick={() => setExpanded(expanded === item.id ? null : item.id)}
                       >
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.id}</td>
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
-                          {format(new Date(item.created_at), "MM/dd HH:mm:ss")}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className="text-xs font-mono px-2 py-0.5 rounded"
-                            style={{ color: risk.color, background: risk.bg }}
-                          >
-                            {risk.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {item.connection_name ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-slate-400 truncate max-w-[90px]">
-                                {item.connection_name}
-                              </span>
-                              {envStyle && (
-                                <span
-                                  className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0"
-                                  style={envStyle}
-                                >
-                                  {item.connection_environment}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-700 font-mono">personal</span>
-                          )}
-                        </td>
-                        {/* Org column — super admins only */}
-                        {isAdmin && (
+                        {vis("id") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.id}</td>}
+                        {vis("time") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                            {format(new Date(item.created_at), "MM/dd HH:mm:ss")}
+                          </td>
+                        )}
+                        {vis("risk") && (
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ color: risk.color, background: risk.bg }}>
+                              {risk.label}
+                            </span>
+                          </td>
+                        )}
+                        {vis("connection") && (
+                          <td className="px-4 py-3">
+                            {item.connection_name ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400 truncate max-w-[90px]">{item.connection_name}</span>
+                                {envStyle && (
+                                  <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>
+                                    {item.connection_environment}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-700 font-mono">personal</span>
+                            )}
+                          </td>
+                        )}
+                        {isAdmin && vis("org") && (
                           <td className="px-4 py-3">
                             {item.org_id ? (
-                              <span
-                                className="text-xs font-mono px-1.5 py-0.5 rounded truncate max-w-[100px] inline-block"
-                                style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8" }}
-                              >
+                              <span className="text-xs font-mono px-1.5 py-0.5 rounded truncate max-w-[100px] inline-block"
+                                style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8" }}>
                                 {orgMap[item.org_id] ?? `org #${item.org_id}`}
                               </span>
                             ) : (
@@ -404,30 +544,29 @@ export default function AbusePage() {
                             )}
                           </td>
                         )}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.violation_scanners.map((s) => (
-                              <span
-                                key={s}
-                                className="text-xs font-mono px-1.5 py-0.5 rounded"
-                                style={{ color: "#f87171", background: "rgba(248,113,113,0.08)" }}
-                              >
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">
-                          {item.ip_address ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">
-                          {item.raw_text.slice(0, 55)}
-                        </td>
+                        {vis("violated_scanners") && (
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {item.violation_scanners.map((s) => (
+                                <span key={s} className="text-xs font-mono px-1.5 py-0.5 rounded"
+                                  style={{ color: "#f87171", background: "rgba(248,113,113,0.08)" }}>
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        )}
+                        {vis("ip") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.ip_address ?? "—"}</td>}
+                        {vis("preview") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">
+                            {item.raw_text.slice(0, 55)}
+                          </td>
+                        )}
                       </tr>
                       {expanded === item.id && (
                         <tr key={`${item.id}-exp`}>
                           <td
-                            colSpan={isAdmin ? 8 : 7}
+                            colSpan={colSpanCount}
                             className="px-6 py-5 border-b border-white/5"
                             style={{ background: "var(--bg)" }}
                           >
@@ -443,7 +582,9 @@ export default function AbusePage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-600 font-mono">page {page} / {totalPages}</p>
+        <p className="text-xs text-slate-600 font-mono">
+          page {page} / {totalPages} · {filteredItems.length} shown · {data?.total ?? 0} total
+        </p>
         <div className="flex gap-2">
           {([
             ["← prev", () => setPage((p) => Math.max(1, p - 1)), page === 1],

@@ -21,6 +21,10 @@ class AuditLogRead(BaseModel):
     user_id: int | None = None
     team_id: int | None = None
     created_at: datetime
+    # Guardrails AI-inspired action metadata
+    on_fail_actions: dict | None = None    # scanner_name → action taken
+    fix_applied: bool = False              # text was sanitized by a fix-action scanner
+    reask_context: list | None = None     # correction instructions for reask-action violations
 
     model_config = {"from_attributes": True}
 
@@ -36,6 +40,22 @@ class AuditLogRead(BaseModel):
     @property
     def scanner_count(self) -> int:
         return len(self.scanner_results)
+
+    @computed_field
+    @property
+    def outcome(self) -> str:
+        """Human-readable outcome: pass | fixed | blocked | reask | monitored."""
+        actions = self.on_fail_actions or {}
+        if not self.is_valid:
+            if any(v == "reask" for v in actions.values()):
+                return "reask"
+            return "blocked"
+        if self.fix_applied:
+            return "fixed"
+        monitored = [k for k, v in actions.items() if v == "monitored"]
+        if monitored:
+            return "monitored"
+        return "pass"
 
 
 class AuditLogList(BaseModel):

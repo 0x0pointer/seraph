@@ -7,6 +7,7 @@ class GuardrailCreate(BaseModel):
     scanner_type: str
     direction: str  # input | output
     is_active: bool = True
+    on_fail_action: str = "block"  # block | fix | monitor | reask
     params: dict = {}
     order: int = 0
 
@@ -14,6 +15,7 @@ class GuardrailCreate(BaseModel):
 class GuardrailUpdate(BaseModel):
     name: str | None = None
     is_active: bool | None = None
+    on_fail_action: str | None = None
     params: dict | None = None
     order: int | None = None
 
@@ -24,6 +26,7 @@ class GuardrailRead(BaseModel):
     scanner_type: str
     direction: str
     is_active: bool
+    on_fail_action: str
     params: dict
     order: int
     created_at: datetime

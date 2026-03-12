@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { format } from "date-fns";
@@ -28,7 +28,27 @@ interface AuditItem {
   max_risk_score: number;
   scanner_count: number;
   created_at: string;
+  // Guardrails AI-inspired action metadata
+  on_fail_actions: Record<string, string> | null;   // scanner → "blocked"|"fixed"|"monitored"|"reask"
+  fix_applied: boolean;
+  reask_context: string[] | null;
+  outcome: string;   // computed: "pass"|"fixed"|"blocked"|"reask"|"monitored"
 }
+
+const OUTCOME_STYLE: Record<string, { label: string; color: string; bg: string }> = {
+  pass:      { label: "pass",     color: "#515594", bg: "rgba(81,85,148,0.08)"    },
+  fixed:     { label: "fixed",    color: "#34d399", bg: "rgba(52,211,153,0.08)"   },
+  blocked:   { label: "blocked",  color: "#f87171", bg: "rgba(248,113,113,0.08)"  },
+  reask:     { label: "reask",    color: "#60a5fa", bg: "rgba(96,165,250,0.08)"   },
+  monitored: { label: "monitored",color: "#fbbf24", bg: "rgba(251,191,36,0.08)"   },
+};
+
+const ACTION_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  blocked:   { color: "#f87171", bg: "rgba(248,113,113,0.08)",  border: "rgba(248,113,113,0.2)"  },
+  fixed:     { color: "#34d399", bg: "rgba(52,211,153,0.08)",   border: "rgba(52,211,153,0.2)"   },
+  monitored: { color: "#fbbf24", bg: "rgba(251,191,36,0.08)",   border: "rgba(251,191,36,0.2)"   },
+  reask:     { color: "#60a5fa", bg: "rgba(96,165,250,0.08)",   border: "rgba(96,165,250,0.2)"   },
+};
 interface AuditList { items: AuditItem[]; total: number; page: number; page_size: number; }
 
 interface ConnectionOption { id: number; name: string; environment: string; }
@@ -124,9 +144,13 @@ function RiskGuide() {
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
             A scanner triggers a <span className="text-slate-400">violation</span> when its score exceeds
-            the <span className="text-slate-400">detection threshold</span> set in that guardrail&apos;s settings.
-            A request is <span className="text-slate-400">blocked</span> if any scanner triggers.
-            Expand a row below to see individual per-scanner scores.
+            its detection threshold. The outcome depends on each guardrail&apos;s{" "}
+            <span className="text-slate-400">on_fail_action</span>:{" "}
+            <span className="font-mono" style={{ color: "#f87171" }}>blocked</span> rejects the request,{" "}
+            <span className="font-mono" style={{ color: "#34d399" }}>fixed</span> sanitizes the text instead,{" "}
+            <span className="font-mono" style={{ color: "#fbbf24" }}>monitored</span> logs but allows through, and{" "}
+            <span className="font-mono" style={{ color: "#60a5fa" }}>reask</span> rejects with correction hints.
+            Expand a row to see per-scanner actions.
           </p>
         </div>
       )}
@@ -291,20 +315,84 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
         </div>
       )}
 
-      {/* Violation badges */}
+      {/* Action breakdown (on_fail_actions) */}
+      {item.on_fail_actions && Object.keys(item.on_fail_actions).length > 0 && (
+        <div>
+          <p className="text-slate-600 font-mono uppercase tracking-wider mb-2">Actions taken</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(item.on_fail_actions).map(([scanner, action]) => {
+              const s = ACTION_STYLE[action] ?? ACTION_STYLE.blocked;
+              const icon = action === "blocked" ? "✗" : action === "fixed" ? "✦" : action === "monitored" ? "◎" : "↺";
+              return (
+                <span
+                  key={scanner}
+                  className="px-2.5 py-1 rounded font-mono text-xs font-medium"
+                  style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}
+                >
+                  {icon} {scanner} → {action}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Fix applied — show diff between raw and sanitized */}
+      {item.fix_applied && item.sanitized_text && item.sanitized_text !== item.raw_text && (
+        <div
+          className="rounded border px-4 py-3 space-y-1"
+          style={{ background: "rgba(52,211,153,0.04)", borderColor: "rgba(52,211,153,0.15)" }}
+        >
+          <p className="text-xs font-mono uppercase tracking-wider" style={{ color: "#34d399" }}>
+            ✦ Fix applied — text was sanitized
+          </p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            The scanner detected a violation but auto-corrected the text instead of blocking. The sanitized version was passed through.
+          </p>
+        </div>
+      )}
+
+      {/* Reask context */}
+      {item.reask_context && item.reask_context.length > 0 && (
+        <div
+          className="rounded border px-4 py-3 space-y-2"
+          style={{ background: "rgba(96,165,250,0.04)", borderColor: "rgba(96,165,250,0.15)" }}
+        >
+          <p className="text-xs font-mono uppercase tracking-wider" style={{ color: "#60a5fa" }}>
+            ↺ Reask context — correction hints returned to caller
+          </p>
+          <div className="space-y-1.5">
+            {item.reask_context.map((msg, i) => (
+              <p key={i} className="text-xs leading-relaxed font-mono" style={{ color: "#93c5fd" }}>
+                {msg}
+              </p>
+            ))}
+          </div>
+          <p className="text-xs text-slate-600 mt-1">
+            Use this context to re-prompt the LLM with correction instructions and retry the request.
+          </p>
+        </div>
+      )}
+
+      {/* Violation badges — only for hard-blocked scanners */}
       {item.violation_scanners.length > 0 && (
         <div>
-          <p className="text-slate-600 font-mono uppercase tracking-wider mb-2">Triggered scanners</p>
+          <p className="text-slate-600 font-mono uppercase tracking-wider mb-2">Flagged scanners</p>
           <div className="flex flex-wrap gap-2">
-            {item.violation_scanners.map((s) => (
-              <span
-                key={s}
-                className="px-2.5 py-1 rounded font-mono text-xs font-medium"
-                style={{ background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}
-              >
-                ✗ {s}
-              </span>
-            ))}
+            {item.violation_scanners.map((s) => {
+              const action = item.on_fail_actions?.[s];
+              const style = action ? (ACTION_STYLE[action] ?? ACTION_STYLE.blocked) : ACTION_STYLE.blocked;
+              const icon = action === "fixed" ? "✦" : action === "monitored" ? "◎" : action === "reask" ? "↺" : "✗";
+              return (
+                <span
+                  key={s}
+                  className="px-2.5 py-1 rounded font-mono text-xs font-medium"
+                  style={{ background: style.bg, color: style.color, border: `1px solid ${style.border}` }}
+                >
+                  {icon} {s}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -312,18 +400,95 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
   );
 }
 
+// ── Column visibility ─────────────────────────────────────────────────────────
+
+const AUDIT_COLS = [
+  { key: "id",         label: "ID" },
+  { key: "time",       label: "Time" },
+  { key: "dir",        label: "Dir" },
+  { key: "status",     label: "Status" },
+  { key: "connection", label: "Connection" },
+  { key: "org",        label: "Org" },
+  { key: "risk",       label: "Risk" },
+  { key: "violations", label: "Violations" },
+  { key: "preview",    label: "Preview" },
+] as const;
+
+type AuditColKey = typeof AUDIT_COLS[number]["key"];
+
+function ColVis({ cols, hidden, onToggle }: {
+  cols: { key: string; label: string }[];
+  hidden: Set<string>;
+  onToggle: (k: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    if (open) document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const visCount = cols.length - cols.filter((c) => hidden.has(c.key)).length;
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+      >
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        </svg>
+        Columns
+        {hidden.size > 0 && (
+          <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(81,85,148,0.2)", color: "#818cf8" }}>
+            {visCount}/{cols.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 rounded border border-white/10 py-1.5 w-40 shadow-xl" style={{ background: "var(--card)" }}>
+          {cols.map((c) => (
+            <label key={c.key} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} className="accent-indigo-500 w-3 h-3 shrink-0" />
+              <span className="text-xs text-slate-400 font-mono">{c.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+
 export default function AuditPage() {
   const { data: me } = useSWR<UserInfo>(
     "/auth/me", () => api.get<UserInfo>("/auth/me"), { revalidateOnFocus: false },
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [direction, setDirection] = useState("");
   const [isValid, setIsValid] = useState("");
+  const [outcomeFilter, setOutcomeFilter] = useState("");
   const [connectionId, setConnectionId] = useState("");
   const [filterOrgId, setFilterOrgId] = useState("");
+  const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [hiddenCols, setHiddenCols] = useState<Set<AuditColKey>>(new Set());
 
   const isAdmin = me?.role === "admin";
+
+  function toggleCol(k: string) {
+    setHiddenCols((prev) => {
+      const next = new Set(prev) as Set<AuditColKey>;
+      if (next.has(k as AuditColKey)) next.delete(k as AuditColKey);
+      else next.add(k as AuditColKey);
+      return next;
+    });
+  }
+  const vis = (k: AuditColKey) => !hiddenCols.has(k);
+  const visibleCols = AUDIT_COLS.filter((c) => (c.key !== "org" || isAdmin) && vis(c.key));
+  const colSpanCount = visibleCols.length;
 
   const { data: connections } = useSWR<ConnectionOption[]>(
     "/connections",
@@ -337,18 +502,35 @@ export default function AuditPage() {
   const orgMap: Record<number, string> = {};
   adminOrgs?.forEach((o) => { orgMap[o.id] = o.name; });
 
-  const queryStr = `/audit?page=${page}&page_size=20${direction ? `&direction=${direction}` : ""}${isValid !== "" ? `&is_valid=${isValid}` : ""}${connectionId ? `&connection_id=${connectionId}` : ""}${filterOrgId ? `&filter_org_id=${filterOrgId}` : ""}`;
+  // Outcome filter maps to is_valid where possible; full outcome filtering done client-side
+  const apiIsValid = outcomeFilter === "pass" || outcomeFilter === "fixed" ? "true"
+    : outcomeFilter === "blocked" || outcomeFilter === "reask" ? "false"
+    : isValid;
+
+  const queryStr = `/audit?page=${page}&page_size=${pageSize}${direction ? `&direction=${direction}` : ""}${apiIsValid !== "" ? `&is_valid=${apiIsValid}` : ""}${connectionId ? `&connection_id=${connectionId}` : ""}${filterOrgId ? `&filter_org_id=${filterOrgId}` : ""}`;
   const { data, error } = useSWR<AuditList>(queryStr, () => api.get<AuditList>(queryStr));
+
+  // Client-side filters applied on top of server results
+  const filteredItems = (data?.items ?? []).filter((item) => {
+    if (outcomeFilter && item.outcome !== outcomeFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!item.raw_text.toLowerCase().includes(q) &&
+          !item.violation_scanners.join(" ").toLowerCase().includes(q) &&
+          !(item.connection_name ?? "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   function exportCSV() {
     if (!data) return;
     const csv = [
-      ["ID", "Time", "Direction", "Valid", "Connection", "Environment", "Max Risk", "Violations", "IP", "Preview"],
-      ...data.items.map((i) => [
+      ["ID", "Time", "Direction", "Outcome", "Connection", "Environment", "Max Risk", "Violations", "IP", "Preview"],
+      ...filteredItems.map((i) => [
         i.id,
         i.created_at,
         i.direction,
-        i.is_valid,
+        i.outcome,
         i.connection_name ?? "personal token",
         i.connection_environment ?? "—",
         i.max_risk_score,
@@ -363,7 +545,7 @@ export default function AuditPage() {
     a.click();
   }
 
-  const totalPages = data ? Math.ceil(data.total / 20) : 1;
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
 
   return (
     <div className="space-y-4 max-w-6xl">
@@ -404,6 +586,15 @@ export default function AuditPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search text, scanner, connection…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="text-sm rounded px-3 py-2 outline-none w-56"
+          style={inputStyle}
+        />
         <select
           value={direction}
           onChange={(e) => { setDirection(e.target.value); setPage(1); }}
@@ -415,14 +606,25 @@ export default function AuditPage() {
           <option value="output">Output</option>
         </select>
         <select
-          value={isValid}
-          onChange={(e) => { setIsValid(e.target.value); setPage(1); }}
+          value={outcomeFilter || isValid}
+          onChange={(e) => {
+            const v = e.target.value;
+            // Outcome values take precedence; clear the old isValid filter
+            if (["pass", "fixed", "blocked", "reask", "monitored"].includes(v)) {
+              setOutcomeFilter(v); setIsValid(""); setPage(1);
+            } else {
+              setOutcomeFilter(""); setIsValid(v); setPage(1);
+            }
+          }}
           className="text-sm rounded px-3 py-2 outline-none"
           style={inputStyle}
         >
-          <option value="">All results</option>
-          <option value="true">Pass only</option>
-          <option value="false">Blocked only</option>
+          <option value="">All outcomes</option>
+          <option value="pass">Pass</option>
+          <option value="fixed">Fixed</option>
+          <option value="monitored">Monitored</option>
+          <option value="reask">Reask</option>
+          <option value="blocked">Blocked</option>
         </select>
         <select
           value={connectionId}
@@ -431,19 +633,47 @@ export default function AuditPage() {
           style={inputStyle}
         >
           <option value="">All connections</option>
-          <option value="">Personal token</option>
           {connections?.map((c) => (
             <option key={c.id} value={String(c.id)}>
               {c.name} ({c.environment})
             </option>
           ))}
         </select>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Rows per page */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-600 font-mono whitespace-nowrap">Rows:</span>
+          <div className="flex gap-1">
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => { setPageSize(n); setPage(1); }}
+                className="text-xs px-2.5 py-1.5 rounded font-mono transition-colors"
+                style={pageSize === n
+                  ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                  : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }
+                }
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={exportCSV}
-          className="ml-auto text-xs font-medium px-3 py-2 rounded border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+          className="text-xs font-medium px-3 py-2 rounded border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
         >
           Export CSV
         </button>
+        <ColVis
+          cols={AUDIT_COLS.filter((c) => c.key !== "org" || isAdmin)}
+          hidden={hiddenCols}
+          onToggle={toggleCol}
+        />
       </div>
 
       <RiskGuide />
@@ -454,23 +684,27 @@ export default function AuditPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/5">
-              {["ID", "Time", "Dir", "Status", "Connection", ...(isAdmin ? ["Org"] : []), "Risk", "Violations", "Preview"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">
-                  {h}
-                </th>
-              ))}
+              {vis("id")         && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">ID</th>}
+              {vis("time")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Time</th>}
+              {vis("dir")        && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Dir</th>}
+              {vis("status")     && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Status</th>}
+              {vis("connection") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Connection</th>}
+              {isAdmin && vis("org") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Org</th>}
+              {vis("risk")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Risk</th>}
+              {vis("violations") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Violations</th>}
+              {vis("preview")    && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Preview</th>}
             </tr>
           </thead>
           <tbody>
             {!data
               ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td colSpan={isAdmin ? 9 : 8} className="px-4 py-3">
+                    <td colSpan={colSpanCount} className="px-4 py-3">
                       <div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} />
                     </td>
                   </tr>
                 ))
-              : data.items.map((item) => {
+              : filteredItems.map((item) => {
                   const riskColor =
                     item.max_risk_score >= 0.8 ? "#f87171" :
                     item.max_risk_score >= 0.5 ? "#fbbf24" : "#94a3b8";
@@ -486,50 +720,46 @@ export default function AuditPage() {
                         style={{ background: expanded === item.id ? "rgba(255,255,255,0.02)" : undefined }}
                         onClick={() => setExpanded(expanded === item.id ? null : item.id)}
                       >
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.id}</td>
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
-                          {format(new Date(item.created_at), "MM/dd HH:mm:ss")}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.direction}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className="text-xs font-mono px-2 py-0.5 rounded"
-                            style={
-                              item.is_valid
-                                ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
-                                : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
-                            }
-                          >
-                            {item.is_valid ? "pass" : "block"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {item.connection_name ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-slate-400 truncate max-w-[100px]">
-                                {item.connection_name}
-                              </span>
-                              {envStyle && (
-                                <span
-                                  className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0"
-                                  style={envStyle}
-                                >
-                                  {item.connection_environment}
+                        {vis("id") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.id}</td>}
+                        {vis("time") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                            {format(new Date(item.created_at), "MM/dd HH:mm:ss")}
+                          </td>
+                        )}
+                        {vis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{item.direction}</td>}
+                        {vis("status") && (
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const o = OUTCOME_STYLE[item.outcome] ?? OUTCOME_STYLE.pass;
+                              return (
+                                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: o.bg, color: o.color }}>
+                                  {o.label}
                                 </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-700 font-mono">personal</span>
-                          )}
-                        </td>
-                        {/* Org column — super admins only */}
-                        {isAdmin && (
+                              );
+                            })()}
+                          </td>
+                        )}
+                        {vis("connection") && (
+                          <td className="px-4 py-3">
+                            {item.connection_name ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400 truncate max-w-[100px]">{item.connection_name}</span>
+                                {envStyle && (
+                                  <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>
+                                    {item.connection_environment}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-700 font-mono">personal</span>
+                            )}
+                          </td>
+                        )}
+                        {isAdmin && vis("org") && (
                           <td className="px-4 py-3">
                             {item.org_id ? (
-                              <span
-                                className="text-xs font-mono px-1.5 py-0.5 rounded truncate max-w-[100px] inline-block"
-                                style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8" }}
-                              >
+                              <span className="text-xs font-mono px-1.5 py-0.5 rounded truncate max-w-[100px] inline-block"
+                                style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8" }}>
                                 {orgMap[item.org_id] ?? `org #${item.org_id}`}
                               </span>
                             ) : (
@@ -537,24 +767,26 @@ export default function AuditPage() {
                             )}
                           </td>
                         )}
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-mono" style={{ color: riskColor }}>
-                            {item.max_risk_score.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 font-mono">
-                          {item.violation_scanners.length > 0
-                            ? item.violation_scanners.join(", ")
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">
-                          {item.raw_text.slice(0, 55)}
-                        </td>
+                        {vis("risk") && (
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-mono" style={{ color: riskColor }}>{item.max_risk_score.toFixed(2)}</span>
+                          </td>
+                        )}
+                        {vis("violations") && (
+                          <td className="px-4 py-3 text-xs text-slate-600 font-mono">
+                            {item.violation_scanners.length > 0 ? item.violation_scanners.join(", ") : "—"}
+                          </td>
+                        )}
+                        {vis("preview") && (
+                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">
+                            {item.raw_text.slice(0, 55)}
+                          </td>
+                        )}
                       </tr>
                       {expanded === item.id && (
                         <tr key={`${item.id}-exp`}>
                           <td
-                            colSpan={isAdmin ? 9 : 8}
+                            colSpan={colSpanCount}
                             className="px-6 py-5 border-b border-white/5"
                             style={{ background: "var(--bg)" }}
                           >
@@ -572,7 +804,7 @@ export default function AuditPage() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-600 font-mono">
-          page {page} / {totalPages} · {data?.total ?? 0} total
+          page {page} / {totalPages} · {filteredItems.length} shown · {data?.total ?? 0} total
         </p>
         <div className="flex gap-2">
           {([

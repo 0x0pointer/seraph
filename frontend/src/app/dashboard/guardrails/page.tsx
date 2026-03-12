@@ -8,8 +8,15 @@ import { SCANNER_INTEL, MODEL_TYPE_META } from "@/lib/scanner-intel";
 
 interface Guardrail {
   id: number; name: string; scanner_type: string; direction: string;
-  is_active: boolean; params: Record<string, unknown>; order: number;
+  is_active: boolean; on_fail_action: string; params: Record<string, unknown>; order: number;
 }
+
+const ON_FAIL_META: Record<string, { label: string; color: string; bg: string }> = {
+  block:   { label: "block",   color: "#f87171", bg: "rgba(248,113,113,0.08)" },
+  fix:     { label: "fix",     color: "#34d399", bg: "rgba(52,211,153,0.08)"  },
+  monitor: { label: "monitor", color: "#fbbf24", bg: "rgba(251,191,36,0.08)"  },
+  reask:   { label: "reask",   color: "#60a5fa", bg: "rgba(96,165,250,0.08)"  },
+};
 
 // ── Scanner catalog ────────────────────────────────────────────────────────────
 
@@ -731,6 +738,16 @@ export default function GuardrailsPage() {
                       {typeMeta.label}
                     </span>
                   )}
+                  {(() => {
+                    const action = g.on_fail_action ?? "block";
+                    const m = ON_FAIL_META[action] ?? ON_FAIL_META.block;
+                    return (
+                      <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
+                        style={{ background: m.bg, color: m.color }}>
+                        {m.label}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed mb-1">
                   {customDesc ?? autoDesc}

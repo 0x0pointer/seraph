@@ -196,6 +196,12 @@ async def _run_migrations():
         "ALTER TABLE api_connections ADD COLUMN use_custom_guardrails BOOLEAN DEFAULT 0",
         # connection_guardrails table — per-guardrail threshold override
         "ALTER TABLE connection_guardrails ADD COLUMN threshold_override FLOAT",
+        # guardrail_configs table — on_fail_action (Guardrails AI-inspired)
+        "ALTER TABLE guardrail_configs ADD COLUMN on_fail_action VARCHAR(20) DEFAULT 'block'",
+        # audit_logs table — on_fail_action metadata
+        "ALTER TABLE audit_logs ADD COLUMN on_fail_actions JSON",
+        "ALTER TABLE audit_logs ADD COLUMN fix_applied BOOLEAN DEFAULT 0",
+        "ALTER TABLE audit_logs ADD COLUMN reask_context JSON",
         # Stripe billing columns
         "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)",
         "ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)",
@@ -232,7 +238,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v8")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v9")
         )).scalar_one_or_none()
         if marker:
             return
@@ -246,16 +252,18 @@ async def _sync_guardrail_defaults():
                 None,
             )
             if entry:
-                # v3: only update params — preserve user's manual is_active toggles
+                # v9: sync params + on_fail_action defaults — preserve user's is_active toggles
                 g.params = entry["params"]
+                if entry.get("on_fail_action"):
+                    g.on_fail_action = entry["on_fail_action"]
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v8", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v9", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
-            logger.info("Synced %d guardrail param sets to v8 defaults (Deck of Many Prompts patterns added).", updated)
+            logger.info("Synced %d guardrail configs to v9 defaults (on_fail_action added).", updated)
 
 
 async def _seed_org_memberships():
