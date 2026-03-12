@@ -41,12 +41,15 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 | **REST API** | FastAPI backend with JWT auth + connection API keys |
 | **Per-connection guardrails** | Choose exactly which scanners run per API key |
 | **Dynamic config** | Enable/disable and tune scanners live — no redeployment |
-| **Audit log** | Every scan logged with full scanner breakdown & token costs |
+| **on_fail_action** | Per-guardrail failure behaviour: `block` (reject), `fix` (sanitize in-place), `monitor` (log-only, allow through), `reask` (reject + return correction hints for LLM retry) |
+| **Audit log** | Every scan logged with full scanner breakdown, per-scanner actions, fix diffs, reask context, and token costs |
+| **Outcome tracking** | Each audit entry carries a computed outcome — `pass`, `fixed`, `monitored`, `reask`, or `blocked` — with color-coded UI and column-level filtering |
 | **Analytics** | Violation trends, top scanners, risk scores |
 | **Multi-tenant** | Organisations, teams, roles (`admin`, `org_admin`, `viewer`) |
 | **Admin panel** | Super-admin UI — manage users, orgs, platform settings |
 | **Scanner intelligence** | Each guardrail shows its model, how it works, and training data provenance |
 | **Trained rule sets** | BanSubstrings, Regex, BanTopics pre-loaded with 182 rules from 4 red-team datasets |
+| **Table controls** | Adjustable page size and show/hide columns on all dashboard tables; search and outcome/risk filters on audit log and abuse cases |
 | **Light / dark mode** | Full theme support across dashboard and chatbot demo |
 | **Chatbot demo** | Embedded Flask chatbot showing guardrails in action |
 
@@ -107,11 +110,12 @@ skf-guard/
 │   ├── app/
 │   │   ├── api/routes/        # REST endpoints (auth, scan, guardrails, admin …)
 │   │   ├── core/              # Config, database, security, guardrail catalog
-│   │   │   └── guardrail_catalog.py   # 47 scanner configs with trained rule sets
+│   │   │   └── guardrail_catalog.py   # 47 scanner configs with trained rule sets + on_fail_action defaults
 │   │   ├── models/            # SQLAlchemy ORM models
 │   │   ├── schemas/           # Pydantic request/response schemas
 │   │   └── services/          # Scanner engine, email
 │   ├── seed.py                # DB seeder (creates admin user + guardrail configs)
+│   ├── seed_demo_logs.py      # Seeds 8 demo audit entries covering every outcome type
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
@@ -163,7 +167,8 @@ pip install -r requirements.txt
 
 cp .env.example .env   # edit SECRET_KEY, SMTP, etc.
 
-python seed.py         # create admin user + default guardrail configs
+python seed.py             # create admin user + default guardrail configs
+python seed_demo_logs.py   # optional: seed 8 demo audit entries (one per outcome type)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -275,12 +280,29 @@ Response:
   "is_valid": false,
   "sanitized_text": "Ignore all previous instructions...",
   "scanner_results": {
-    "PromptInjection": {"is_valid": false, "score": 0.97},
-    "BanSubstrings":   {"is_valid": false, "score": 1.0}
+    "PromptInjection": 0.97,
+    "BanSubstrings": 1.0
   },
-  "violation_scanners": ["PromptInjection", "BanSubstrings"]
+  "violation_scanners": ["PromptInjection", "BanSubstrings"],
+  "on_fail_actions": {
+    "PromptInjection": "blocked",
+    "BanSubstrings": "blocked"
+  },
+  "fix_applied": false,
+  "reask_context": null,
+  "monitored_scanners": [],
+  "audit_log_id": 42
 }
 ```
+
+The `on_fail_action` for each guardrail controls what happens on violation:
+
+| Action | Behaviour |
+|--------|-----------|
+| `block` | Request rejected — `is_valid: false` |
+| `fix` | Text sanitized in-place — `is_valid: true`, `fix_applied: true`, `sanitized_text` contains the cleaned version |
+| `monitor` | Logged but allowed through — `is_valid: true`, scanner appears in `monitored_scanners` |
+| `reask` | Request rejected — `reask_context` contains correction hints to pass back to the LLM for a retry |
 
 ---
 
