@@ -8,39 +8,41 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #0A0F1F;
-      --surface:  #0d1426;
-      --surface2: #111827;
-      --border:   rgba(255,255,255,0.06);
-      --border2:  rgba(255,255,255,0.1);
-      --teal:     #14B8A6;
-      --teal-dim: rgba(20,184,166,0.1);
-      --teal-mid: rgba(20,184,166,0.2);
-      --red:      #f87171;
-      --red-dim:  rgba(248,113,113,0.1);
-      --amber:    #fbbf24;
-      --amber-dim:rgba(251,191,36,0.1);
-      --purple:   #a78bfa;
-      --slate-2:  #cbd5e1;
-      --slate-3:  #e2e8f0;
-      --slate-4:  #94a3b8;
-      --slate-5:  #64748b;
-      --slate-6:  #475569;
-      --slate-7:  #334155;
-      --mono:     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --bg:         #0A0F1F;
+      --surface:    #0d1426;
+      --surface2:   #111827;
+      --surface3:   #1a2236;
+      --border:     rgba(255,255,255,0.06);
+      --border2:    rgba(255,255,255,0.1);
+      --accent:     #6b6fab;
+      --accent-bright: #8b8fc4;
+      --accent-dim: rgba(107,111,171,0.12);
+      --accent-mid: rgba(107,111,171,0.22);
+      --red:        #f87171;
+      --red-dim:    rgba(248,113,113,0.1);
+      --amber:      #fbbf24;
+      --amber-dim:  rgba(251,191,36,0.1);
+      --green:      #4ade80;
+      --slate-2:    #cbd5e1;
+      --slate-3:    #e2e8f0;
+      --slate-4:    #94a3b8;
+      --slate-5:    #64748b;
+      --slate-6:    #475569;
+      --slate-7:    #334155;
+      --mono:       "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
 
     html { scroll-behavior: smooth; }
     body {
       background: var(--bg);
       color: var(--slate-4);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       font-size: 15px;
       line-height: 1.6;
     }
 
     /* ── Layout ── */
-    .wrap { max-width: 980px; margin: 0 auto; padding: 60px 24px 120px; }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 60px 24px 120px; }
     .layout { display: flex; gap: 52px; }
     .content { flex: 1; min-width: 0; }
 
@@ -49,13 +51,13 @@
     h2 { font-size: 1.35rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; margin-bottom: 10px; }
     h3 { font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
     p  { color: var(--slate-4); line-height: 1.7; }
-    a  { color: var(--teal); text-decoration: none; }
+    a  { color: var(--accent-bright); text-decoration: none; }
     a:hover { text-decoration: underline; }
     strong { color: var(--slate-3); font-weight: 600; }
     em { color: var(--slate-5); font-style: normal; }
     code {
       font-family: var(--mono); font-size: 0.8em;
-      background: rgba(20,184,166,0.08); color: var(--teal);
+      background: var(--accent-dim); color: var(--accent-bright);
       padding: 1px 5px; border-radius: 4px;
     }
 
@@ -64,7 +66,7 @@
     .section-label {
       font-family: var(--mono); font-size: 0.68rem;
       letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--teal); margin-bottom: 10px;
+      color: var(--accent-bright); margin-bottom: 10px;
     }
 
     /* ── Cards ── */
@@ -79,7 +81,7 @@
     .step  { display: flex; gap: 20px; }
     .step-num {
       flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-      background: var(--teal-dim); color: var(--teal);
+      background: var(--accent-dim); color: var(--accent-bright);
       font-size: 0.75rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center; margin-top: 2px;
     }
@@ -88,7 +90,7 @@
     /* ── Bullets ── */
     .bullets { list-style: none; display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
     .bullets li { display: flex; gap: 8px; font-size: 0.88rem; color: var(--slate-5); }
-    .bullets li::before { content: "→"; color: var(--teal); flex-shrink: 0; }
+    .bullets li::before { content: "→"; color: var(--accent-bright); flex-shrink: 0; }
 
     /* ── Comparison table ── */
     .compare {
@@ -104,13 +106,13 @@
     }
     .compare thead th:nth-child(1) { color: var(--slate-6); }
     .compare thead th:nth-child(2) { color: var(--slate-5); }
-    .compare thead th:nth-child(3) { color: var(--teal); }
+    .compare thead th:nth-child(3) { color: var(--accent-bright); }
     .compare tbody tr { border-top: 1px solid rgba(255,255,255,0.04); }
     .compare tbody tr:first-child { border-top: none; }
     .compare td { padding: 10px 16px; font-size: 0.85rem; background: var(--surface); }
     .compare td:nth-child(1) { font-family: var(--mono); color: var(--slate-5); font-size: 0.78rem; }
     .compare td:nth-child(2) { color: var(--slate-6); }
-    .compare td:nth-child(3) { color: var(--teal); }
+    .compare td:nth-child(3) { color: var(--accent-bright); }
 
     /* ── Code blocks ── */
     .code-wrap {
@@ -120,6 +122,7 @@
     .code-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 8px 16px; border-bottom: 1px solid var(--border);
+      background: var(--surface2);
     }
     .code-lang { font-family: var(--mono); font-size: 0.7rem; color: var(--slate-6); }
     .copy-btn {
@@ -127,16 +130,16 @@
       background: none; border: none; cursor: pointer; padding: 2px 6px;
       border-radius: 4px; transition: color 0.15s;
     }
-    .copy-btn:hover { color: var(--teal); }
-    .copy-btn.copied { color: var(--teal); }
+    .copy-btn:hover { color: var(--accent-bright); }
+    .copy-btn.copied { color: var(--accent-bright); }
     pre {
       font-family: var(--mono); font-size: 0.8rem; line-height: 1.65;
       color: var(--slate-4); padding: 18px 20px; overflow-x: auto; white-space: pre;
     }
     pre .c  { color: var(--slate-7); }
-    pre .k  { color: #a78bfa; }
+    pre .k  { color: #c4b5fd; }
     pre .s  { color: #86efac; }
-    pre .kw { color: var(--teal); }
+    pre .kw { color: var(--accent-bright); }
     pre .n  { color: #fbbf24; }
 
     /* ── Tabs ── */
@@ -146,18 +149,19 @@
       border: none; background: none; color: var(--slate-5); cursor: pointer;
       transition: background 0.12s, color 0.12s;
     }
-    .tab-btn.active { background: var(--teal); color: #0A0F1F; }
+    .tab-btn.active { background: var(--accent); color: #fff; }
     .tab-btn:not(.active):hover { color: var(--slate-3); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
     /* ── Callout ── */
     .callout {
-      border-left: 2px solid var(--teal); background: rgba(20,184,166,0.04);
+      border-left: 2px solid var(--accent); background: var(--accent-dim);
       border-radius: 0 6px 6px 0; padding: 12px 16px;
       font-size: 0.88rem; color: var(--slate-5); line-height: 1.6; margin-top: 14px;
     }
     .callout.warn { border-color: var(--amber); background: rgba(251,191,36,0.04); }
+    .callout.info { border-color: #60a5fa; background: rgba(96,165,250,0.04); }
 
     /* ── Response fields ── */
     .fields { margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -175,22 +179,31 @@
       display: inline-block; font-family: var(--mono); font-size: 0.7rem;
       padding: 1px 7px; border-radius: 99px;
     }
-    .badge.teal { background: var(--teal-dim); color: var(--teal); }
-    .badge.red  { background: var(--red-dim); color: var(--red); }
-    .badge.amber{ background: var(--amber-dim); color: var(--amber); }
-    .badge.dim  { background: rgba(255,255,255,0.05); color: var(--slate-5); }
+    .badge.accent { background: var(--accent-dim); color: var(--accent-bright); }
+    .badge.red    { background: var(--red-dim);    color: var(--red); }
+    .badge.amber  { background: var(--amber-dim);  color: var(--amber); }
+    .badge.dim    { background: rgba(255,255,255,0.05); color: var(--slate-5); }
+    .badge.green  { background: rgba(74,222,128,0.1); color: var(--green); }
 
     /* ── TOC ── */
-    .toc { position: sticky; top: 40px; align-self: flex-start; width: 175px; flex-shrink: 0; }
+    .toc { position: sticky; top: 40px; align-self: flex-start; width: 180px; flex-shrink: 0; }
     .toc-label {
       font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--teal); margin-bottom: 10px; padding-left: 10px;
+      text-transform: uppercase; color: var(--accent-bright); margin-bottom: 10px; padding-left: 10px;
     }
     .toc a {
       display: block; font-size: 0.82rem; color: var(--slate-6);
       padding: 5px 10px; border-radius: 5px; transition: color 0.12s;
     }
     .toc a:hover { color: var(--slate-3); text-decoration: none; }
+    .toc-group { margin-top: 8px; }
+    .toc-group-label {
+      font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--slate-7);
+      padding: 4px 10px 2px; margin-top: 6px;
+    }
+    .toc a.sub { padding-left: 18px; font-size: 0.78rem; color: var(--slate-7); }
+    .toc a.sub:hover { color: var(--slate-5); }
 
     @media (max-width: 760px) { .layout { display: block; } .toc { display: none; } }
 
@@ -199,7 +212,7 @@
       border-bottom: 1px solid var(--border); padding: 14px 24px;
       display: flex; align-items: center; gap: 10px;
     }
-    .logo { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; color: var(--teal); }
+    .logo { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; color: var(--accent-bright); }
     .logo-sep { color: var(--slate-7); margin: 0 4px; }
     .logo-sub { font-size: 0.82rem; color: var(--slate-6); }
 
@@ -218,7 +231,7 @@
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     }
     .mockup-titlebar {
-      background: #1a2236;
+      background: var(--surface3);
       border-bottom: 1px solid rgba(255,255,255,0.06);
       padding: 8px 14px;
       display: flex;
@@ -241,8 +254,8 @@
     }
     .mockup-label-tag {
       font-family: var(--mono); font-size: 0.65rem;
-      color: var(--teal); letter-spacing: 0.08em; text-transform: uppercase;
-      background: var(--teal-dim); padding: 2px 8px; border-radius: 4px;
+      color: var(--accent-bright); letter-spacing: 0.08em; text-transform: uppercase;
+      background: var(--accent-dim); padding: 2px 8px; border-radius: 4px;
     }
     .mockup-body {
       background: var(--bg);
@@ -250,28 +263,15 @@
     }
 
     /* ── Pipeline visual ── */
-    .pipeline-visual {
-      display: flex; flex-direction: column; align-items: center; gap: 0;
-      padding: 28px 20px;
-    }
-    .pv-row { display: flex; align-items: center; gap: 0; width: 100%; justify-content: center; }
     .pv-node {
       border-radius: 8px; padding: 8px 16px;
       font-size: 0.8rem; font-weight: 500; text-align: center;
       border: 1px solid;
     }
     .pv-node.user   { background: rgba(255,255,255,0.03); border-color: var(--border2); color: var(--slate-4); min-width: 80px; }
-    .pv-node.api    { background: var(--teal-dim); border-color: var(--teal-mid); color: var(--teal); font-family: var(--mono); font-size: 0.75rem; }
+    .pv-node.api    { background: var(--accent-dim); border-color: var(--accent-mid); color: var(--accent-bright); font-family: var(--mono); font-size: 0.75rem; }
     .pv-node.block  { background: var(--red-dim); border-color: rgba(248,113,113,0.25); color: var(--red); font-size: 0.78rem; }
-    .pv-node.llm    { background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.2); color: var(--purple); }
-    .pv-arrow { color: var(--slate-7); font-size: 1rem; padding: 0 8px; }
-    .pv-arrow.down { transform: rotate(90deg); display: block; height: 22px; display: flex; align-items: center; justify-content: center; }
-    .pv-branch { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 4px; }
-    .pv-note { font-size: 0.75rem; color: var(--slate-6); margin-left: 8px; }
-    .pv-col { display: flex; flex-direction: column; align-items: center; }
-    .pv-side { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; width: 100%; justify-content: center; }
-    .pv-side-col { display: flex; flex-direction: column; align-items: center; }
-    .pv-divider { color: var(--slate-7); font-size: 0.72rem; margin: 0 16px; padding-top: 10px; }
+    .pv-node.llm    { background: rgba(139,143,196,0.08); border-color: rgba(139,143,196,0.2); color: var(--accent-bright); }
 
     /* ── Connection card mockup ── */
     .mc-card {
@@ -282,7 +282,7 @@
     }
     .mc-header { display: flex; align-items: flex-start; justify-content: space-between; }
     .mc-title-row { display: flex; align-items: center; gap: 10px; }
-    .mc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.4); flex-shrink: 0; }
+    .mc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-bright); box-shadow: 0 0 6px rgba(107,111,171,0.5); flex-shrink: 0; }
     .mc-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
     .mc-badges { display: flex; gap: 6px; margin-top: 6px; margin-left: 18px; flex-wrap: wrap; }
     .mc-actions { display: flex; gap: 6px; flex-shrink: 0; }
@@ -292,8 +292,8 @@
       background: none; cursor: default;
     }
     .mc-btn.guardrails {
-      border-color: rgba(20,184,166,0.4); color: var(--teal);
-      background: var(--teal-dim);
+      border-color: rgba(107,111,171,0.4); color: var(--accent-bright);
+      background: var(--accent-dim);
       position: relative;
     }
     .mc-btn.danger { border-color: rgba(248,113,113,0.3); color: var(--red); }
@@ -311,20 +311,20 @@
     .mc-stat-val { font-size: 1rem; font-weight: 700; color: #fff; margin-top: 3px; }
     .mc-stat-sub { font-size: 0.72rem; color: var(--slate-6); margin-top: 2px; }
     .highlight-ring {
-      outline: 2px solid var(--teal);
+      outline: 2px solid var(--accent-bright);
       outline-offset: 2px;
       border-radius: 5px;
     }
     .tooltip-bubble {
       position: absolute; top: -38px; left: 50%; transform: translateX(-50%);
-      background: var(--teal); color: #0A0F1F;
+      background: var(--accent); color: #fff;
       font-size: 0.68rem; font-weight: 600; white-space: nowrap;
       padding: 4px 10px; border-radius: 5px; pointer-events: none;
     }
     .tooltip-bubble::after {
       content: ""; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
       border-left: 5px solid transparent; border-right: 5px solid transparent;
-      border-top: 5px solid var(--teal);
+      border-top: 5px solid var(--accent);
     }
 
     /* ── Chatbot mockup ── */
@@ -335,11 +335,11 @@
     }
     .chat-sidebar-title { color: var(--slate-6); font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; padding: 0 4px; }
     .chat-sidebar-item { padding: 7px 10px; border-radius: 6px; color: var(--slate-5); cursor: default; }
-    .chat-sidebar-item.active { background: rgba(255,255,255,0.05); color: var(--slate-3); }
+    .chat-sidebar-item.active { background: rgba(107,111,171,0.1); color: var(--slate-3); }
     .chat-main { flex: 1; display: flex; flex-direction: column; }
     .chat-topbar { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 10px; }
     .chat-topbar-name { font-weight: 600; color: #fff; font-size: 0.88rem; }
-    .chat-status { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+    .chat-status { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
     .chat-messages { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
     .chat-msg { max-width: 78%; }
     .chat-msg.user { align-self: flex-end; }
@@ -347,14 +347,14 @@
     .chat-bubble {
       padding: 9px 13px; border-radius: 12px; font-size: 0.83rem; line-height: 1.5;
     }
-    .chat-bubble.user { background: var(--teal-dim); border: 1px solid var(--teal-mid); color: var(--slate-2); border-radius: 12px 12px 2px 12px; }
+    .chat-bubble.user { background: var(--accent-dim); border: 1px solid var(--accent-mid); color: var(--slate-2); border-radius: 12px 12px 2px 12px; }
     .chat-bubble.bot  { background: var(--surface); border: 1px solid var(--border); color: var(--slate-3); border-radius: 12px 12px 12px 2px; }
     .chat-bubble.blocked { background: var(--red-dim); border: 1px solid rgba(248,113,113,0.2); color: var(--red); border-radius: 12px 12px 12px 2px; }
     .chat-bubble-meta { font-size: 0.68rem; color: var(--slate-7); margin-top: 4px; }
     .chat-scanner-tag { display: inline-block; font-family: var(--mono); font-size: 0.65rem; background: rgba(248,113,113,0.15); color: var(--red); padding: 1px 6px; border-radius: 3px; margin-top: 5px; }
     .chat-input-bar { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 8px; }
     .chat-input { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; color: var(--slate-4); }
-    .chat-send { background: var(--teal); color: #0A0F1F; border: none; border-radius: 6px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600; cursor: default; }
+    .chat-send { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600; cursor: default; }
 
     /* ── Guardrails panel mockup ── */
     .gp-overlay {
@@ -364,7 +364,7 @@
     }
     .gp-panel {
       background: var(--surface);
-      border: 1px solid rgba(20,184,166,0.25);
+      border: 1px solid rgba(107,111,171,0.25);
       border-radius: 10px;
       padding: 22px;
       width: 100%; max-width: 460px;
@@ -381,7 +381,7 @@
     .gp-toggle-label { font-size: 0.85rem; font-weight: 500; color: #fff; }
     .gp-toggle-sub { font-size: 0.72rem; color: var(--slate-6); margin-top: 2px; }
     .gp-toggle { width: 36px; height: 20px; border-radius: 99px; position: relative; flex-shrink: 0; }
-    .gp-toggle.on { background: var(--teal); }
+    .gp-toggle.on { background: var(--accent); }
     .gp-toggle.off { background: rgba(255,255,255,0.1); }
     .gp-toggle-knob {
       position: absolute; top: 2px; width: 16px; height: 16px;
@@ -391,7 +391,7 @@
     .gp-toggle.off .gp-toggle-knob { left: 2px; }
     .gp-tabs { display: flex; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 10px; }
     .gp-tab { padding: 6px 12px; font-size: 0.75rem; font-weight: 500; cursor: default; }
-    .gp-tab.active { color: var(--teal); border-bottom: 2px solid var(--teal); }
+    .gp-tab.active { color: var(--accent-bright); border-bottom: 2px solid var(--accent-bright); }
     .gp-tab.inactive { color: var(--slate-6); border-bottom: 2px solid transparent; }
     .gp-scanner-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -401,21 +401,21 @@
     .gp-scanner-name { font-size: 0.8rem; color: var(--slate-3); }
     .gp-scanner-right { display: flex; align-items: center; gap: 8px; }
     .gp-small-toggle { width: 30px; height: 16px; border-radius: 99px; position: relative; flex-shrink: 0; cursor: default; }
-    .gp-small-toggle.on { background: var(--teal); }
+    .gp-small-toggle.on { background: var(--accent); }
     .gp-small-toggle.off { background: rgba(255,255,255,0.1); }
     .gp-small-knob { position: absolute; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
     .gp-small-toggle.on .gp-small-knob  { left: calc(100% - 14px); }
     .gp-small-toggle.off .gp-small-knob { left: 2px; }
     .gp-threshold {
       font-family: var(--mono); font-size: 0.7rem;
-      background: #0d1426; border: 1px solid rgba(255,255,255,0.1);
-      color: var(--teal); padding: 2px 8px; border-radius: 4px;
+      background: #0d1426; border: 1px solid rgba(107,111,171,0.2);
+      color: var(--accent-bright); padding: 2px 8px; border-radius: 4px;
     }
     .gp-test-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
     .gp-test-label { font-family: var(--mono); font-size: 0.65rem; color: var(--slate-6); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 7px; }
     .gp-test-row { display: flex; gap: 7px; }
     .gp-test-input { flex: 1; background: #0A0F1F; border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; padding: 7px 10px; font-size: 0.78rem; color: var(--slate-4); font-family: var(--mono); }
-    .gp-test-btn { background: none; border: 1px solid rgba(20,184,166,0.3); color: var(--teal); border-radius: 5px; padding: 7px 12px; font-size: 0.78rem; cursor: default; }
+    .gp-test-btn { background: none; border: 1px solid rgba(107,111,171,0.3); color: var(--accent-bright); border-radius: 5px; padding: 7px 12px; font-size: 0.78rem; cursor: default; }
     .gp-result {
       margin-top: 8px; border-radius: 6px; padding: 10px 12px;
       border: 1px solid rgba(248,113,113,0.25); background: rgba(248,113,113,0.04);
@@ -430,7 +430,7 @@
     .gp-result-score .name.ok { color: var(--slate-6); }
     .gp-result-score .val.ok  { color: var(--slate-6); }
     .gp-actions { display: flex; gap: 8px; margin-top: 16px; }
-    .gp-save { background: var(--teal); color: #0A0F1F; border: none; border-radius: 6px; padding: 7px 18px; font-size: 0.8rem; font-weight: 600; cursor: default; }
+    .gp-save { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 18px; font-size: 0.8rem; font-weight: 600; cursor: default; }
     .gp-cancel { background: none; border: 1px solid rgba(255,255,255,0.1); color: var(--slate-4); border-radius: 6px; padding: 7px 14px; font-size: 0.8rem; cursor: default; }
 
     /* ── Response visual ── */
@@ -441,22 +441,36 @@
     .rv-json { flex: 1; background: var(--surface); padding: 18px 20px; font-family: var(--mono); font-size: 0.8rem; line-height: 1.8; }
     .rv-json .key   { color: #86efac; }
     .rv-json .val-f { color: var(--red); }
-    .rv-json .val-t { color: var(--teal); }
+    .rv-json .val-t { color: var(--accent-bright); }
     .rv-json .val-s { color: #fbbf24; }
-    .rv-json .val-n { color: #a78bfa; }
+    .rv-json .val-n { color: #c4b5fd; }
     .rv-json .punct { color: var(--slate-6); }
     .rv-anno { width: 220px; flex-shrink: 0; background: #080d1a; border-left: 1px solid var(--border); padding: 12px 0; }
     .rv-anno-row {
       padding: 7px 14px; border-left: 2px solid transparent;
       font-size: 0.75rem; line-height: 1.4;
     }
-    .rv-anno-row.teal  { border-color: var(--teal); color: var(--teal); background: rgba(20,184,166,0.03); }
-    .rv-anno-row.red   { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.03); }
-    .rv-anno-row.amber { border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.03); }
-    .rv-anno-row.dim   { border-color: transparent; color: var(--slate-6); }
+    .rv-anno-row.accent { border-color: var(--accent-bright); color: var(--accent-bright); background: var(--accent-dim); }
+    .rv-anno-row.red    { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.03); }
+    .rv-anno-row.amber  { border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.03); }
+    .rv-anno-row.dim    { border-color: transparent; color: var(--slate-6); }
     .rv-anno-label { font-weight: 600; font-size: 0.72rem; }
     .rv-anno-desc { color: inherit; opacity: 0.75; margin-top: 1px; }
     @media (max-width: 680px) { .rv-anno { display: none; } }
+
+    /* ── Integration pattern cards ── */
+    .pattern-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 20px; }
+    @media (max-width: 720px) { .pattern-grid { grid-template-columns: 1fr; } }
+    .pattern-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .pattern-card.highlighted { border-color: rgba(107,111,171,0.3); }
+    .pattern-num { font-family: var(--mono); font-size: 0.65rem; color: var(--accent-bright); text-transform: uppercase; letter-spacing: 0.1em; }
+    .pattern-title { font-size: 0.92rem; font-weight: 600; color: #fff; }
+    .pattern-desc { font-size: 0.82rem; color: var(--slate-5); line-height: 1.5; }
+    .pattern-tag { font-family: var(--mono); font-size: 0.7rem; color: var(--accent-bright); background: var(--accent-dim); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 4px; }
 
     /* ── Mermaid diagrams ── */
     .mermaid-wrap {
@@ -478,6 +492,8 @@
     /* ── Print ── */
     @media print { .toc { display: none; } .copy-btn { display: none; } .layout { display: block; } }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
@@ -495,10 +511,14 @@
     <nav class="toc">
       <p class="toc-label">Contents</p>
       <a href="#overview">Overview</a>
+      <a href="#patterns">Integration patterns</a>
       <a href="#connection-key">Connection keys</a>
       <a href="#create-connection">1. Create a connection</a>
       <a href="#env-setup">2. Environment setup</a>
-      <a href="#integrate">3. Integrate your app</a>
+      <a href="#integrate">3. Scan API (direct)</a>
+      <a href="#hook">4. Universal Hook</a>
+      <a href="#proxy">5. Transparent Proxy</a>
+      <a href="#litellm">6. LiteLLM</a>
       <a href="#chatbot">Reference chatbot</a>
       <a href="#response">Response reference</a>
       <a href="#guardrails">Per-connection guardrails</a>
@@ -554,12 +574,12 @@
             <!-- Pass branch -->
             <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
               <div style="color:var(--slate-7); font-size:0.75rem; font-family:var(--mono);">is_valid: true</div>
-              <div style="color:var(--teal); font-size:1.1rem;">↓</div>
+              <div style="color:var(--accent-bright); font-size:1.1rem;">↓</div>
               <div class="pv-node llm">
                 <div style="font-size:1rem; margin-bottom:3px;">🤖</div>
                 <div>Your LLM</div>
               </div>
-              <div style="color:var(--teal); font-size:1.1rem;">↓</div>
+              <div style="color:var(--accent-bright); font-size:1.1rem;">↓</div>
               <div class="pv-node api">POST /api/scan/output</div>
               <!-- Second branch -->
               <div style="display:flex; gap:32px; margin-top:6px; flex-wrap:wrap; justify-content:center;">
@@ -571,7 +591,7 @@
                 </div>
                 <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
                   <div style="color:var(--slate-7); font-size:0.72rem; font-family:var(--mono);">is_valid: true</div>
-                  <div style="color:var(--teal); font-size:1rem;">↓</div>
+                  <div style="color:var(--accent-bright); font-size:1rem;">↓</div>
                   <div class="pv-node user" style="text-align:center; padding: 6px 12px;">
                     <div style="font-size:0.9rem;">✓ sanitized_text</div>
                     <div style="font-size:0.72rem; color:var(--slate-5);">→ User</div>
@@ -582,6 +602,40 @@
           </div>
         </div>
       </div>
+
+
+      <!-- ═══════════════════════════════ INTEGRATION PATTERNS ════════════════════ -->
+      <section id="patterns">
+        <div class="section-label">Choose your pattern</div>
+        <h2>Integration patterns</h2>
+        <p>
+          SKF Guard supports three integration patterns — from the simplest one-line wrapper
+          to a fully transparent proxy that requires zero changes to your LLM client.
+        </p>
+        <div class="pattern-grid">
+          <div class="pattern-card highlighted">
+            <div class="pattern-num">Pattern 1</div>
+            <div class="pattern-title">Scan API (direct)</div>
+            <div class="pattern-desc">Call <code>/api/scan/prompt</code> and <code>/api/scan/output</code> from your application code. Full control, works with any LLM.</div>
+            <div class="pattern-tag">POST /api/scan/prompt</div>
+          </div>
+          <div class="pattern-card">
+            <div class="pattern-num">Pattern 2</div>
+            <div class="pattern-title">Universal Hook</div>
+            <div class="pattern-desc">Single endpoint for gateways (Nginx, Traefik, Envoy, AWS API GW). Any direction, any platform.</div>
+            <div class="pattern-tag">POST /api/integrations/hook</div>
+          </div>
+          <div class="pattern-card">
+            <div class="pattern-num">Pattern 3</div>
+            <div class="pattern-title">Transparent Proxy</div>
+            <div class="pattern-desc">OpenAI-compatible reverse proxy. Change one URL — no code changes. Scans both directions automatically.</div>
+            <div class="pattern-tag">POST /api/integrations/proxy</div>
+          </div>
+        </div>
+        <div class="callout info" style="margin-top: 16px;">
+          <strong>LiteLLM users:</strong> dedicated <code>/api/integrations/litellm/pre_call</code> and <code>/api/integrations/litellm/post_call</code> hooks are available — see the <a href="#litellm">LiteLLM section</a>.
+        </div>
+      </section>
 
 
       <!-- ═══════════════════════════════ CONNECTION KEYS ════════════════════════ -->
@@ -643,8 +697,8 @@
                     <span class="mc-name">production-chatbot</span>
                   </div>
                   <div class="mc-badges">
-                    <span class="badge" style="background:rgba(20,184,166,0.08);color:var(--teal);font-family:var(--mono);font-size:0.7rem;">production</span>
-                    <span class="badge teal" style="font-size:0.7rem;">active</span>
+                    <span class="badge" style="background:var(--accent-dim);color:var(--accent-bright);font-family:var(--mono);font-size:0.7rem;">production</span>
+                    <span class="badge accent" style="font-size:0.7rem;">active</span>
                     <span style="font-size:0.72rem;color:var(--slate-7);font-family:var(--mono);">by @jorge</span>
                   </div>
                 </div>
@@ -674,13 +728,13 @@
                 </div>
                 <div>
                   <div class="mc-stat-label">Month spend</div>
-                  <div class="mc-stat-val" style="color:var(--teal);">$4.82</div>
+                  <div class="mc-stat-val" style="color:var(--accent-bright);">$4.82</div>
                   <div class="mc-stat-sub">2.1M in · 890K out</div>
                 </div>
                 <div>
                   <div class="mc-stat-label">Last active</div>
                   <div class="mc-stat-val" style="font-size:0.85rem;">3m ago</div>
-                  <div class="mc-stat-sub">Feb 25, 2026</div>
+                  <div class="mc-stat-sub">Mar 13, 2026</div>
                 </div>
               </div>
             </div>
@@ -714,13 +768,14 @@ OPENAI_API_KEY=sk-...                          <span class="c"># your LLM provid
       </section>
 
 
-      <!-- ═══════════════════════════════ STEP 3: INTEGRATE ═════════════════════ -->
+      <!-- ═══════════════════════════════ STEP 3: SCAN API ══════════════════════ -->
       <section id="integrate">
-        <div class="section-label">Step 3</div>
-        <h2>Integrate into your application</h2>
+        <div class="section-label">Step 3 — Pattern 1</div>
+        <h2>Integrate via the Scan API (direct)</h2>
         <p>
-          Use the connection key as the <code>Bearer</code> token when calling
-          <code>/api/scan/prompt</code> and <code>/api/scan/output</code>.
+          The most flexible option. Call <code>/api/scan/prompt</code> before sending to your model
+          and <code>/api/scan/output</code> before returning the response. Use the connection key
+          as the <code>Bearer</code> token.
         </p>
 
         <div class="tabs">
@@ -772,7 +827,7 @@ headers = {
             <pre><span class="k">const</span> API_URL = process.env.SKF_GUARD_API_URL!;
 <span class="k">const</span> KEY   = process.env.SKF_GUARD_CONNECTION_KEY!;
 
-<span class="k">const</span> <span class="kw">p73</span> = <span class="k">async</span> (path: string, body: object) => {
+<span class="k">const</span> <span class="kw">skf</span> = <span class="k">async</span> (path: string, body: object) => {
   <span class="k">const</span> res = <span class="k">await</span> fetch(`${API_URL}${path}`, {
     method: <span class="s">"POST"</span>,
     headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span>, Authorization: `Bearer ${KEY}` },
@@ -783,12 +838,12 @@ headers = {
 };
 
 <span class="k">async function</span> <span class="kw">chat</span>(userMessage: string): Promise&lt;string&gt; {
-  <span class="k">const</span> scan = <span class="k">await</span> p73(<span class="s">"/api/scan/prompt"</span>, { text: userMessage });
+  <span class="k">const</span> scan = <span class="k">await</span> skf(<span class="s">"/api/scan/prompt"</span>, { text: userMessage });
   <span class="k">if</span> (!scan.is_valid) <span class="k">return</span> <span class="s">"Sorry, I can't help with that."</span>;
 
   <span class="k">const</span> llmResponse = <span class="k">await</span> callYourLLM(scan.sanitized_text);
 
-  <span class="k">const</span> out = <span class="k">await</span> p73(<span class="s">"/api/scan/output"</span>, {
+  <span class="k">const</span> out = <span class="k">await</span> skf(<span class="s">"/api/scan/output"</span>, {
     text: llmResponse, prompt: userMessage,
   });
   <span class="k">if</span> (!out.is_valid) <span class="k">return</span> <span class="s">"Sorry, I can't provide that response."</span>;
@@ -805,13 +860,275 @@ headers = {
 curl -X POST https://skfguard.io/api/scan/prompt \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
-  -d <span class="s">'{"text": "Tell me about your pricing"}'</span>
+  -d <span class="s">'{"text": "What are your security features?"}'</span>
 
 <span class="c"># Scan a model response</span>
 curl -X POST https://skfguard.io/api/scan/output \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
-  -d <span class="s">'{"text": "Our plans start at $0...", "prompt": "Tell me about your pricing"}'</span></pre>
+  -d <span class="s">'{"text": "SKF Guard scans every prompt...", "prompt": "What are your security features?"}'</span></pre>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ═══════════════════════════════ STEP 4: UNIVERSAL HOOK ════════════════ -->
+      <section id="hook">
+        <div class="section-label">Step 4 — Pattern 2</div>
+        <h2>Universal Hook</h2>
+        <p>
+          A single endpoint that works with <strong>any gateway or reverse proxy</strong> that can
+          make an HTTP callback — Nginx <code>auth_request</code>, Traefik <code>forwardAuth</code>,
+          Envoy <code>ext_authz</code>, AWS API Gateway, Apigee, Tyk, or custom middleware.
+          No SDK, no dependencies. One POST in, one decision out.
+        </p>
+
+        <div class="callout">
+          <strong>Endpoint:</strong> <code>POST /api/integrations/hook</code><br/>
+          <strong>Auth:</strong> <code>Authorization: Bearer ts_conn_…</code><br/>
+          <strong>Returns:</strong> <code>200</code> → allowed &nbsp;|&nbsp; <code>400</code> → blocked (gateway should reject)
+        </div>
+
+        <div class="tabs" style="margin-top: 20px;">
+          <button class="tab-btn active" onclick="switchTab(this,'hook-python')">Python</button>
+          <button class="tab-btn" onclick="switchTab(this,'hook-nginx')">Nginx</button>
+          <button class="tab-btn" onclick="switchTab(this,'hook-curl')">cURL</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-hook-python">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="k">import</span> os, httpx
+
+HOOK_URL = f"{os.environ['SKF_GUARD_API_URL']}/api/integrations/hook"
+headers  = {<span class="s">"Authorization"</span>: f<span class="s">"Bearer {os.environ['SKF_GUARD_CONNECTION_KEY']}"</span>}
+
+<span class="k">def</span> <span class="kw">scan</span>(text: str, direction: str = <span class="s">"input"</span>, prompt: str = <span class="s">""</span>) -> dict:
+    resp = httpx.post(
+        HOOK_URL,
+        json={<span class="s">"text"</span>: text, <span class="s">"direction"</span>: direction, <span class="s">"prompt"</span>: prompt},
+        headers=headers, timeout=<span class="n">30</span>,
+    )
+    <span class="k">if</span> resp.status_code == <span class="n">400</span>:
+        <span class="k">return</span> {<span class="s">"allowed"</span>: <span class="n">False</span>, <span class="s">"detail"</span>: resp.json().get(<span class="s">"detail"</span>)}
+    resp.raise_for_status()
+    <span class="k">return</span> {<span class="s">"allowed"</span>: <span class="n">True</span>, **resp.json()}
+
+<span class="c"># Scan input</span>
+result = scan(user_message, direction=<span class="s">"input"</span>)
+<span class="k">if not</span> result[<span class="s">"allowed"</span>]:
+    <span class="k">return</span> {<span class="s">"error"</span>: result[<span class="s">"detail"</span>]}
+
+<span class="c"># Scan output</span>
+result = scan(ai_response, direction=<span class="s">"output"</span>, prompt=user_message)
+<span class="k">if not</span> result[<span class="s">"allowed"</span>]:
+    <span class="k">return</span> {<span class="s">"error"</span>: <span class="s">"Response blocked by guardrails."</span>}</pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-hook-nginx">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">nginx.conf</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="c"># Nginx auth_request — every request is pre-screened by SKF Guard</span>
+location /api/ {
+    auth_request /skf-guard-check;
+    auth_request_set $skf_status $upstream_status;
+    proxy_pass http://your-llm-service;
+}
+
+location = /skf-guard-check {
+    internal;
+    proxy_pass          https://skfguard.io/api/integrations/hook;
+    proxy_method        POST;
+    proxy_set_header    Authorization <span class="s">"Bearer ts_conn_abc123..."</span>;
+    proxy_set_header    Content-Type  <span class="s">"application/json"</span>;
+    proxy_set_body      <span class="s">'{"text": "$request_body", "direction": "input"}'</span>;
+    proxy_pass_request_body off;
+}</pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-hook-curl">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">bash (cURL)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="c"># Scan input via hook</span>
+curl -X POST https://skfguard.io/api/integrations/hook \
+  -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"text": "Hello, help me with my account", "direction": "input"}'</span>
+
+<span class="c"># Scan output via hook</span>
+curl -X POST https://skfguard.io/api/integrations/hook \
+  -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"text": "Here is how to...", "direction": "output", "prompt": "Help me with my account"}'</span>
+
+<span class="c"># Response on allow — 200</span>
+<span class="c"># {"status": "allowed", "sanitized_text": "...", "fix_applied": false}</span>
+
+<span class="c"># Response on block — 400</span>
+<span class="c"># {"detail": "Request blocked by guardrail(s): PromptInjection"}</span></pre>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ═══════════════════════════════ STEP 5: TRANSPARENT PROXY ════════════ -->
+      <section id="proxy">
+        <div class="section-label">Step 5 — Pattern 3</div>
+        <h2>Transparent Proxy</h2>
+        <p>
+          An OpenAI-compatible reverse proxy. <strong>Change one URL in your client — that's it.</strong>
+          SKF Guard scans every request and response automatically, then forwards the (sanitized)
+          traffic to your upstream LLM. Works with the OpenAI SDK, LangChain, and any
+          OpenAI-compatible client.
+        </p>
+
+        <div class="callout">
+          <strong>Endpoint:</strong> <code>POST /api/integrations/proxy</code><br/>
+          <strong>Extra headers:</strong> <code>X-Upstream-URL</code> (your LLM base URL) · <code>X-Upstream-Auth</code> (your LLM key)
+        </div>
+
+        <div class="tabs" style="margin-top: 20px;">
+          <button class="tab-btn active" onclick="switchTab(this,'proxy-python')">Python (OpenAI SDK)</button>
+          <button class="tab-btn" onclick="switchTab(this,'proxy-ts')">TypeScript</button>
+          <button class="tab-btn" onclick="switchTab(this,'proxy-langchain')">LangChain</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-proxy-python">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="k">from</span> openai <span class="k">import</span> OpenAI
+<span class="k">import</span> os
+
+<span class="c"># Before — direct to OpenAI</span>
+<span class="c"># client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])</span>
+
+<span class="c"># After — route through SKF Guard proxy (zero other changes)</span>
+client = OpenAI(
+    base_url=f<span class="s">"{os.environ['SKF_GUARD_API_URL']}/api/integrations/proxy/v1"</span>,
+    api_key=os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>],
+    default_headers={
+        <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
+        <span class="s">"X-Upstream-Auth"</span>: f<span class="s">"Bearer {os.environ['OPENAI_API_KEY']}"</span>,
+    },
+)
+
+<span class="c"># All your existing code stays the same</span>
+response = client.chat.completions.create(
+    model=<span class="s">"gpt-4o-mini"</span>,
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Hello!"</span>}],
+)
+<span class="c"># SKF Guard has already scanned input + output transparently</span></pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-proxy-ts">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">typescript</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="k">import</span> OpenAI <span class="k">from</span> <span class="s">"openai"</span>;
+
+<span class="k">const</span> client = <span class="k">new</span> OpenAI({
+  baseURL: `${process.env.SKF_GUARD_API_URL}/api/integrations/proxy/v1`,
+  apiKey:  process.env.SKF_GUARD_CONNECTION_KEY,
+  defaultHeaders: {
+    <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
+    <span class="s">"X-Upstream-Auth"</span>: `Bearer ${process.env.OPENAI_API_KEY}`,
+  },
+});
+
+<span class="c">// All existing code unchanged — scanning is fully transparent</span>
+<span class="k">const</span> response = <span class="k">await</span> client.chat.completions.create({
+  model: <span class="s">"gpt-4o-mini"</span>,
+  messages: [{ role: <span class="s">"user"</span>, content: <span class="s">"Hello!"</span> }],
+});</pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-proxy-langchain">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python (LangChain)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="k">from</span> langchain_openai <span class="k">import</span> ChatOpenAI
+<span class="k">import</span> os
+
+<span class="c"># Route LangChain through the SKF Guard transparent proxy</span>
+llm = ChatOpenAI(
+    model=<span class="s">"gpt-4o-mini"</span>,
+    openai_api_base=f<span class="s">"{os.environ['SKF_GUARD_API_URL']}/api/integrations/proxy/v1"</span>,
+    openai_api_key=os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>],
+    model_kwargs={
+        <span class="s">"extra_headers"</span>: {
+            <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
+            <span class="s">"X-Upstream-Auth"</span>: f<span class="s">"Bearer {os.environ['OPENAI_API_KEY']}"</span>,
+        }
+    },
+)
+
+<span class="c"># Every LangChain call is now scanned automatically</span>
+result = llm.invoke(<span class="s">"What can you help me with?"</span>)</pre>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ═══════════════════════════════ STEP 6: LITELLM ══════════════════════ -->
+      <section id="litellm">
+        <div class="section-label">Step 6 — LiteLLM</div>
+        <h2>LiteLLM custom guardrail</h2>
+        <p>
+          If you use LiteLLM as your LLM gateway, SKF Guard provides native
+          <code>pre_call</code>, <code>post_call</code>, and <code>during_call</code> hook endpoints.
+          Register them in your LiteLLM config and every call is scanned automatically.
+        </p>
+
+        <div class="tabs" style="margin-top: 16px;">
+          <button class="tab-btn active" onclick="switchTab(this,'litellm-config')">litellm_config.yaml</button>
+          <button class="tab-btn" onclick="switchTab(this,'litellm-endpoints')">Endpoints</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-litellm-config">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">yaml (litellm_config.yaml)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
+            <pre><span class="c"># litellm_config.yaml</span>
+model_list:
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: <span class="s">"os.environ/OPENAI_API_KEY"</span>
+
+guardrails:
+  - guardrail_name: skf-guard
+    litellm_params:
+      guardrail: custom
+      mode: pre_call
+      guardrail_endpoint: <span class="n">https://skfguard.io/api/integrations/litellm/pre_call</span>
+      default_on: <span class="n">true</span>
+      api_key: <span class="s">"os.environ/SKF_GUARD_CONNECTION_KEY"</span>
+
+  - guardrail_name: skf-guard-output
+    litellm_params:
+      guardrail: custom
+      mode: post_call
+      guardrail_endpoint: <span class="n">https://skfguard.io/api/integrations/litellm/post_call</span>
+      default_on: <span class="n">true</span>
+      api_key: <span class="s">"os.environ/SKF_GUARD_CONNECTION_KEY"</span></pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-litellm-endpoints">
+          <div class="fields" style="margin-top: 14px;">
+            <div class="field-row">
+              <div class="field-name"><code>/litellm/pre_call</code><span class="field-type">input scan</span></div>
+              <div class="field-desc">Called before forwarding the prompt to the LLM. Scans the last user message. Returns <code>200</code> (allowed) or <code>400</code> (blocked — LiteLLM surfaces this as an error).</div>
+            </div>
+            <div class="field-row">
+              <div class="field-name"><code>/litellm/post_call</code><span class="field-type">output scan</span></div>
+              <div class="field-desc">Called after the LLM responds. Scans the assistant reply. Returns <code>200</code> or <code>400</code>.</div>
+            </div>
+            <div class="field-row">
+              <div class="field-name"><code>/litellm/during_call</code><span class="field-type">streaming</span></div>
+              <div class="field-desc">Called mid-stream. Treated identically to <code>pre_call</code> — scans the last user message. SKF Guard does not scan partial stream chunks.</div>
+            </div>
           </div>
         </div>
       </section>
@@ -843,12 +1160,12 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
             <!-- Sidebar -->
             <div class="chat-sidebar">
               <div class="chat-sidebar-title">Conversations</div>
-              <div class="chat-sidebar-item active">Product questions</div>
+              <div class="chat-sidebar-item active">Getting started</div>
               <div class="chat-sidebar-item">Support inquiry</div>
-              <div class="chat-sidebar-item">Onboarding help</div>
+              <div class="chat-sidebar-item">Security questions</div>
               <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 20px;">
                 <div style="font-size:0.7rem; color:var(--slate-7); font-family:var(--mono); padding: 4px 4px;">
-                  Protected by<br><span style="color:var(--teal);">SKF Guard</span>
+                  Protected by<br><span style="color:var(--accent-bright);">SKF Guard</span>
                 </div>
               </div>
             </div>
@@ -862,11 +1179,11 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
               <div class="chat-messages">
                 <!-- Normal exchange -->
                 <div class="chat-msg user">
-                  <div class="chat-bubble user">What features does your Pro plan include?</div>
+                  <div class="chat-bubble user">What security features does SKF Guard provide?</div>
                   <div class="chat-bubble-meta" style="text-align:right;">You · 2:41 pm</div>
                 </div>
                 <div class="chat-msg bot">
-                  <div class="chat-bubble bot">The Pro plan includes unlimited API connections, custom guardrail rules, team workspaces, priority support, and full audit log retention. Monthly pricing starts at $49/month.</div>
+                  <div class="chat-bubble bot">SKF Guard scans every prompt and response for prompt injection, toxicity, banned topics, secrets leakage, and more — in real time. All decisions are logged to the audit trail.</div>
                   <div class="chat-bubble-meta">Assistant · 2:41 pm</div>
                 </div>
                 <!-- Blocked message -->
@@ -977,7 +1294,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
               <div class="rv-anno-label">Fired scanner</div>
               <div class="rv-anno-desc">Log internally, don't show users</div>
             </div>
-            <div class="rv-anno-row teal" style="margin-top:2px;">
+            <div class="rv-anno-row accent" style="margin-top:2px;">
               <div class="rv-anno-label">Audit log</div>
               <div class="rv-anno-desc">Cross-reference in dashboard</div>
             </div>
@@ -1024,7 +1341,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
                 <!-- Master toggle ON -->
                 <div class="gp-toggle-row">
                   <div>
-                    <div class="gp-toggle-label">Use guardrails</div>
+                    <div class="gp-toggle-label">Use custom guardrails</div>
                     <div class="gp-toggle-sub">When off, all globally-active guardrails apply.</div>
                   </div>
                   <div class="gp-toggle on"><div class="gp-toggle-knob"></div></div>
@@ -1055,6 +1372,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
                   <div class="gp-scanner-row">
                     <div class="gp-scanner-name">Ban Topics (Input)</div>
                     <div class="gp-scanner-right">
+                      <span class="gp-threshold">0.40</span>
                       <div class="gp-small-toggle on"><div class="gp-small-knob"></div></div>
                     </div>
                   </div>
@@ -1110,8 +1428,8 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
         </div>
 
         <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px;">
-          <div class="card"><h3>1 — Open the Guardrails panel</h3><p style="margin-top:5px;font-size:0.88rem;">In <strong>Dashboard → APIs</strong>, find the connection card and click the <strong>Guardrails</strong> button (highlighted in teal when custom guardrails are active).</p></div>
-          <div class="card"><h3>2 — Enable "Use guardrails"</h3><p style="margin-top:5px;font-size:0.88rem;">When on, only the guardrails you select here run for this connection key. The global set is ignored for this key.</p></div>
+          <div class="card"><h3>1 — Open the Guardrails panel</h3><p style="margin-top:5px;font-size:0.88rem;">In <strong>Dashboard → APIs</strong>, find the connection card and click the <strong>Guardrails</strong> button (highlighted in purple when custom guardrails are active).</p></div>
+          <div class="card"><h3>2 — Enable "Use custom guardrails"</h3><p style="margin-top:5px;font-size:0.88rem;">When on, only the guardrails you select here run for this connection key. The global set is ignored for this key.</p></div>
           <div class="card"><h3>3 — Toggle scanners on or off</h3><p style="margin-top:5px;font-size:0.88rem;">Use Input / Output tabs. Scanners marked <span class="badge red">globally off</span> can still be enabled per-connection — they override the global setting.</p></div>
           <div class="card"><h3>4 — Adjust thresholds per scanner</h3><p style="margin-top:5px;font-size:0.88rem;">For scanners with a numeric sensitivity (Toxicity, PromptInjection, BanTopics, etc.) you can override the threshold per connection without changing the global default.</p></div>
           <div class="card"><h3>5 — Test before saving</h3><p style="margin-top:5px;font-size:0.88rem;">The <strong>Test scan</strong> panel runs the exact guardrail set configured for this connection — no <code>ts_conn_</code> key needed. Type a prompt and click Run to verify.</p></div>
@@ -1143,8 +1461,8 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
             <p style="margin-top:6px;font-size:0.88rem;">If SKF Guard is unreachable, decide whether to let the message through (<em>fail open</em>) or reject it (<em>fail closed</em>). The reference chatbot defaults to fail-open for availability.</p>
           </div>
           <div class="card">
-            <h3>✓ Pass actual token counts for accurate billing</h3>
-            <p style="margin-top:6px;font-size:0.88rem;">Include <code>input_tokens</code> and <code>output_tokens</code> from your LLM's response for accurate monthly spend figures.</p>
+            <h3>✓ Pass actual token counts for spend tracking</h3>
+            <p style="margin-top:6px;font-size:0.88rem;">Include <code>input_tokens</code> and <code>output_tokens</code> from your LLM's response for accurate monthly spend figures in the dashboard.</p>
             <div class="code-wrap" style="margin-top:10px;"><div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div><pre>usage = completion.usage
 httpx.post(f<span class="s">"{API_URL}/api/scan/output"</span>, json={
     <span class="s">"text"</span>: ai_response, <span class="s">"prompt"</span>: user_message,
@@ -1155,6 +1473,10 @@ httpx.post(f<span class="s">"{API_URL}/api/scan/output"</span>, json={
           <div class="card">
             <h3>✓ Log <code>audit_log_id</code></h3>
             <p style="margin-top:6px;font-size:0.88rem;">Store it alongside your application logs to cross-reference scan decisions with user sessions in the SKF Guard audit dashboard.</p>
+          </div>
+          <div class="card">
+            <h3>✓ Self-hosting security</h3>
+            <p style="margin-top:6px;font-size:0.88rem;">Set a strong <code>SECRET_KEY</code> in <code>backend/.env</code>, configure <code>CORS_ORIGINS</code> to your frontend domain, run behind a reverse proxy with TLS, and back up <code>skfguard.db</code> regularly (or migrate to PostgreSQL).</p>
           </div>
         </div>
       </section>
@@ -1190,12 +1512,12 @@ flowchart TD
     D2 -- "false" --> B2
     D2 -- "true" --> R
 
-    style SP  fill:#0a2420,stroke:#14B8A6,color:#14B8A6
-    style SO  fill:#0a2420,stroke:#14B8A6,color:#14B8A6
-    style LLM fill:#1a1033,stroke:#a78bfa,color:#a78bfa
+    style SP  fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
+    style SO  fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
+    style LLM fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
     style B1  fill:#2a1010,stroke:#f87171,color:#f87171
     style B2  fill:#2a1010,stroke:#f87171,color:#f87171
-    style R   fill:#0a2420,stroke:#14B8A6,color:#14B8A6
+    style R   fill:#0f2820,stroke:#4ade80,color:#4ade80
           </div>
         </div>
 
@@ -1229,9 +1551,33 @@ sequenceDiagram
           </div>
         </div>
 
-        <!-- Diagram 3: Per-connection guardrail decision logic -->
+        <!-- Diagram 3: Integration patterns -->
         <div class="mermaid-wrap">
-          <div class="mermaid-sub-label">Diagram 3 — Per-connection guardrail selection (flowchart)</div>
+          <div class="mermaid-sub-label">Diagram 3 — Integration patterns (flowchart)</div>
+          <div class="mermaid">
+flowchart LR
+    App["Your App / Gateway"]
+
+    App -- "Pattern 1\nDirect Scan API" --> P1["/api/scan/prompt\n/api/scan/output"]
+    App -- "Pattern 2\nUniversal Hook" --> P2["/api/integrations/hook"]
+    App -- "Pattern 3\nTransparent Proxy" --> P3["/api/integrations/proxy"]
+    App -- "LiteLLM" --> P4["/api/integrations/litellm/\npre_call · post_call"]
+
+    P1 & P2 & P3 & P4 --> Guard["SKF Guard\nScanners"]
+    Guard --> Result["is_valid\nsanitized_text\nscanner_results"]
+
+    style Guard fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
+    style Result fill:#0f2820,stroke:#4ade80,color:#4ade80
+    style P1 fill:#0d1426,stroke:#515594,color:#8b8fc4
+    style P2 fill:#0d1426,stroke:#515594,color:#8b8fc4
+    style P3 fill:#0d1426,stroke:#515594,color:#8b8fc4
+    style P4 fill:#0d1426,stroke:#515594,color:#8b8fc4
+          </div>
+        </div>
+
+        <!-- Diagram 4: Per-connection guardrail decision logic -->
+        <div class="mermaid-wrap">
+          <div class="mermaid-sub-label">Diagram 4 — Per-connection guardrail selection (flowchart)</div>
           <div class="mermaid">
 flowchart TD
     R["Scan request arrives"] --> CK{"Has ts_conn_ key?"}
@@ -1246,10 +1592,10 @@ flowchart TD
     D -- "Yes" --> BL["Return is_valid: false\nviolation_scanners: [...]"]
     D -- "No" --> OK["Return is_valid: true\nsanitized_text (redacted)"]
 
-    style LC fill:#0a2420,stroke:#14B8A6,color:#14B8A6
-    style GA fill:#1a1033,stroke:#a78bfa,color:#a78bfa
+    style LC fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
+    style GA fill:#1a1b2e,stroke:#515594,color:#8b8fc4
     style BL fill:#2a1010,stroke:#f87171,color:#f87171
-    style OK fill:#0a2420,stroke:#14B8A6,color:#14B8A6
+    style OK fill:#0f2820,stroke:#4ade80,color:#4ade80
           </div>
         </div>
 
@@ -1271,34 +1617,34 @@ flowchart TD
     startOnLoad: true,
     theme: 'dark',
     themeVariables: {
-      primaryColor: '#14B8A6',
+      primaryColor: '#6b6fab',
       primaryTextColor: '#e2e8f0',
-      primaryBorderColor: 'rgba(20,184,166,0.3)',
+      primaryBorderColor: 'rgba(107,111,171,0.4)',
       lineColor: '#475569',
       secondaryColor: '#0d1426',
       tertiaryColor: '#111827',
       background: '#0A0F1F',
       mainBkg: '#0d1426',
-      nodeBorder: 'rgba(255,255,255,0.1)',
+      nodeBorder: 'rgba(107,111,171,0.3)',
       clusterBkg: '#111827',
       titleColor: '#e2e8f0',
       edgeLabelBackground: '#0d1426',
       noteBkgColor: 'rgba(251,191,36,0.05)',
       noteTextColor: '#fbbf24',
       noteBorderColor: 'rgba(251,191,36,0.3)',
-      activationBkgColor: 'rgba(20,184,166,0.08)',
-      activationBorderColor: 'rgba(20,184,166,0.4)',
+      activationBkgColor: 'rgba(107,111,171,0.08)',
+      activationBorderColor: 'rgba(107,111,171,0.4)',
       actorBkg: '#0d1426',
-      actorBorder: 'rgba(20,184,166,0.35)',
+      actorBorder: 'rgba(107,111,171,0.35)',
       actorTextColor: '#cbd5e1',
       actorLineColor: '#334155',
-      signalColor: '#14B8A6',
+      signalColor: '#6b6fab',
       signalTextColor: '#e2e8f0',
       labelBoxBkgColor: '#111827',
-      labelBoxBorderColor: 'rgba(255,255,255,0.1)',
+      labelBoxBorderColor: 'rgba(107,111,171,0.2)',
       labelTextColor: '#cbd5e1',
       loopTextColor: '#94a3b8',
-      sequenceNumberColor: '#14B8A6',
+      sequenceNumberColor: '#8b8fc4',
     }
   });
 
