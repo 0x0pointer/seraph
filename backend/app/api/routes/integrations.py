@@ -1,42 +1,50 @@
 """
-Gateway integration adapters — LiteLLM custom guardrail hooks.
+Gateway integration adapters.
 
-Provides compatibility endpoints for third-party LLM gateways so they can
-call SKF Guard using their native guardrail protocol, without any code
-changes on the SKF Guard scanner side.
+Three integration patterns, from simplest to most powerful:
 
-──────────────────────────────────────────────────────────────────────────────
-LiteLLM config (drop-in):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. UNIVERSAL HOOK  —  POST /api/integrations/hook
+   Works with ANY gateway that can make an HTTP callback (Nginx, Traefik,
+   Envoy, AWS API GW, Apigee, Tyk, custom middleware).
 
-    guardrails:
-      - guardrail_name: "skf-guard-input"
-        litellm_params:
-          guardrail: custom
-          mode: "pre_call"
-          guardrail_endpoint: "http://skf-guard:8000/api/integrations/litellm/pre_call"
+   Request:
+     Authorization: Bearer ts_conn_<key>
+     {"text": "...", "direction": "input|output", "prompt": "..."}
 
-      - guardrail_name: "skf-guard-output"
-        litellm_params:
-          guardrail: custom
-          mode: "post_call"
-          guardrail_endpoint: "http://skf-guard:8000/api/integrations/litellm/post_call"
+   Response:
+     200  → {"status": "allowed", "sanitized_text": "..."}
+     400  → {"error": "guardrail_violation", "detail": "..."}   ← block
 
-    Authentication: set the SKF Guard connection key in LiteLLM's environment:
-      LITELLM_SKF_GUARD_KEY=ts_conn_<your_key>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. TRANSPARENT PROXY  —  POST /api/integrations/proxy
+   OpenAI-compatible reverse proxy. Zero client-side changes — just point
+   your base_url at SKF Guard. SKF Guard scans both directions and forwards
+   to the real LLM upstream.
 
-    Then reference it in the guardrail params:
-      default_headers: {"Authorization": "Bearer ${LITELLM_SKF_GUARD_KEY}"}
+   Extra headers:
+     X-Upstream-URL:  https://api.openai.com    (where to forward)
+     X-Upstream-Auth: Bearer sk-...             (upstream credentials)
 
-──────────────────────────────────────────────────────────────────────────────
-Response contract (what LiteLLM expects):
-  - HTTP 200  → request/response is allowed through
-  - HTTP 4xx  → blocked; LiteLLM surfaces the `detail` field as the error
-──────────────────────────────────────────────────────────────────────────────
+   Works with:  OpenAI SDK, LangChain, anything using an OpenAI-compat API.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. LITELLM CUSTOM GUARDRAIL  —  pre_call / post_call / during_call
+   LiteLLM-native hook endpoints (see bottom of this file).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Gateway config examples live in: gateway-examples/
+  nginx.conf     traefik.yml     envoy.yaml     aws-lambda.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 from datetime import datetime, timezone
+from typing import Any
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -324,3 +332,171 @@ async def litellm_during_call(
         return {"status": "allowed", "detail": "No user message to scan"}
 
     return await _run_input(request, session, current_user, text)
+
+
+# ── Universal Hook ─────────────────────────────────────────────────────────────
+
+class HookRequest(BaseModel):
+    text: str
+    direction: str = "input"   # "input" | "output"
+    prompt: str | None = None  # original user prompt (required for output scans)
+
+
+@router.post("/hook")
+async def universal_hook(
+    request: Request,
+    data: HookRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Universal guardrail hook — works with ANY gateway.
+
+    The simplest possible integration: one endpoint, minimal payload.
+    Call it from Nginx (auth_request), Traefik (forwardAuth), Envoy
+    (ext_authz), AWS API Gateway (Lambda authorizer), Apigee, Tyk,
+    custom middleware — anything that can make an HTTP POST.
+
+    Request body:
+        {"text": "...", "direction": "input|output", "prompt": "..."}
+
+    Response:
+        200  {"status": "allowed", "sanitized_text": "..."}
+        400  {"error": "guardrail_violation", "detail": "..."}   <- gateway should block
+
+    See gateway-examples/ for ready-to-use configs for Nginx, Traefik, Envoy.
+    """
+    if data.direction == "output":
+        if not data.text:
+            return {"status": "allowed", "detail": "No output text to scan"}
+        return await _run_output(request, session, current_user, data.text, data.prompt or "")
+
+    # Default: input scan
+    if not data.text:
+        return {"status": "allowed", "detail": "No input text to scan"}
+    return await _run_input(request, session, current_user, data.text)
+
+
+# ── Transparent Proxy ──────────────────────────────────────────────────────────
+
+_PROXY_CLIENT = httpx.AsyncClient(timeout=120.0)
+
+# Headers we strip before forwarding to upstream
+_HOP_HEADERS = {
+    "host", "content-length", "transfer-encoding", "connection",
+    "x-upstream-url", "x-upstream-auth",
+    "authorization",  # replaced with X-Upstream-Auth value
+}
+
+
+@router.post("/proxy")
+@router.post("/proxy/{path:path}")
+async def transparent_proxy(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    x_upstream_url: str | None = Header(default=None, alias="X-Upstream-URL"),
+    x_upstream_auth: str | None = Header(default=None, alias="X-Upstream-Auth"),
+    path: str = "",
+):
+    """
+    Transparent OpenAI-compatible reverse proxy.
+
+    Zero client-side changes — just change your base_url:
+
+        # Before
+        client = OpenAI(base_url="https://api.openai.com/v1")
+
+        # After — SKF Guard scans every request/response transparently
+        client = OpenAI(
+            base_url="http://skf-guard:8000/api/integrations/proxy/v1",
+            default_headers={
+                "Authorization":  "Bearer ts_conn_<key>",
+                "X-Upstream-URL": "https://api.openai.com",
+                "X-Upstream-Auth": "Bearer sk-...",
+            }
+        )
+
+    Flow:
+        1. Scan input  → block/fix if needed
+        2. Forward to upstream LLM
+        3. Scan output → block/fix if needed
+        4. Return response (identical shape to upstream)
+    """
+    if not x_upstream_url:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "X-Upstream-URL header is required. "
+                "Set it to your LLM provider base URL, e.g. https://api.openai.com"
+            ),
+        )
+
+    # ── Parse request body ────────────────────────────────────────────────────
+    try:
+        body: dict[str, Any] = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Request body must be valid JSON.")
+
+    messages: list[dict] = body.get("messages") or []
+
+    # ── Step 1: Input scan ────────────────────────────────────────────────────
+    # Build lightweight message objects for the existing helper
+    class _Msg:
+        def __init__(self, role: str, content: str):
+            self.role = role
+            self.content = content
+
+    user_text = _last_user_message([_Msg(m.get("role", ""), m.get("content", "")) for m in messages])
+
+    if user_text:
+        scan_result = await _run_input(request, session, current_user, user_text)
+        # Replace message with sanitized text if a fix was applied
+        if scan_result.get("fix_applied") and scan_result.get("sanitized_text") != user_text:
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].get("role") == "user":
+                    messages[i] = {**messages[i], "content": scan_result["sanitized_text"]}
+                    break
+            body = {**body, "messages": messages}
+
+    # ── Step 2: Forward to upstream ───────────────────────────────────────────
+    upstream_path = path.lstrip("/")
+    forward_url   = f"{x_upstream_url.rstrip('/')}/{upstream_path}" if upstream_path else x_upstream_url.rstrip("/")
+
+    forward_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _HOP_HEADERS
+    }
+    if x_upstream_auth:
+        forward_headers["Authorization"] = x_upstream_auth
+
+    try:
+        upstream_resp = await _PROXY_CLIENT.post(forward_url, json=body, headers=forward_headers)
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
+
+    if upstream_resp.status_code != 200:
+        try:
+            err_body = upstream_resp.json()
+        except Exception:
+            err_body = {"error": upstream_resp.text}
+        return JSONResponse(content=err_body, status_code=upstream_resp.status_code)
+
+    # ── Step 3: Output scan ───────────────────────────────────────────────────
+    try:
+        upstream_body: dict[str, Any] = upstream_resp.json()
+    except Exception:
+        return JSONResponse(content={"error": "Non-JSON upstream response"}, status_code=502)
+
+    choices = upstream_body.get("choices") or []
+    assistant_text = ""
+    if choices:
+        assistant_text = (choices[0].get("message") or {}).get("content") or ""
+
+    if assistant_text:
+        out_result = await _run_output(request, session, current_user, assistant_text, user_text)
+        # Replace with sanitized content if a fix was applied
+        if out_result.get("fix_applied") and out_result.get("sanitized_text") != assistant_text:
+            upstream_body["choices"][0]["message"]["content"] = out_result["sanitized_text"]
+
+    return JSONResponse(content=upstream_body, status_code=200)

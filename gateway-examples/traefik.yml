@@ -1,0 +1,118 @@
+# gateway-examples/traefik.yml
+# Traefik v3 — SKF Guard universal hook integration
+#
+# Approach: forwardAuth middleware
+#
+# Traefik's forwardAuth middleware forwards the original request to an auth
+# service. We expose a dedicated Traefik-compatible endpoint on SKF Guard
+# that reads the body from a special header Traefik injects, or we use the
+# transparent proxy mode instead (simpler — see bottom of this file).
+#
+# ── Option A: forwardAuth + universal hook (header-based text extraction)
+#
+# Limitation: Traefik's forwardAuth only forwards HEADERS, not the request
+# body, to the auth service. So you must encode the text to scan in a header
+# that your upstream service (e.g. LiteLLM, your app) sets before the route
+# reaches Traefik, OR use Option B below.
+#
+# ── Option B: Transparent proxy (RECOMMENDED for most cases)
+#
+# Point the route at SKF Guard's /api/integrations/proxy endpoint.
+# SKF Guard reads the full body, scans, and forwards to the real LLM.
+# Zero Traefik plugin needed.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Option B — Transparent Proxy (recommended)
+# Clients point at Traefik → Traefik routes to SKF Guard proxy → LLM
+# ─────────────────────────────────────────────────────────────────────────────
+
+http:
+  routers:
+    # All LLM traffic arrives at Traefik on /llm/...
+    llm-with-guardrails:
+      rule: "PathPrefix(`/llm`)"
+      service: skf-guard-proxy
+      middlewares:
+        - inject-skf-headers
+        - strip-llm-prefix
+
+  middlewares:
+    # Inject the SKF Guard auth key and upstream destination
+    inject-skf-headers:
+      headers:
+        customRequestHeaders:
+          # SKF Guard connection key — use Traefik's env var substitution
+          Authorization:    "Bearer {{ env \"SKF_GUARD_KEY\" }}"
+          # Where SKF Guard should forward to after scanning
+          X-Upstream-URL:   "https://api.openai.com"
+          # OpenAI credentials — SKF Guard passes this as the upstream auth
+          X-Upstream-Auth:  "Bearer {{ env \"OPENAI_API_KEY\" }}"
+
+    # Strip /llm prefix before forwarding to SKF Guard proxy
+    strip-llm-prefix:
+      stripPrefix:
+        prefixes:
+          - "/llm"
+
+  services:
+    # SKF Guard transparent proxy endpoint
+    skf-guard-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://skf-guard:8000/api/integrations/proxy"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Option A — forwardAuth (for gateways that set X-SKF-Text header upstream)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# http:
+#   routers:
+#     llm-guarded:
+#       rule: "PathPrefix(`/v1`)"
+#       service: llm-provider
+#       middlewares:
+#         - skf-guard-auth
+#
+#   middlewares:
+#     skf-guard-auth:
+#       forwardAuth:
+#         address: "http://skf-guard:8000/api/integrations/hook"
+#         # Traefik passes these request headers to the auth service
+#         authRequestHeaders:
+#           - "X-SKF-Text"        # Your app sets this to the user message
+#           - "X-SKF-Direction"   # "input" or "output"
+#           - "Authorization"     # SKF Guard connection key
+#         # Headers from auth response to add to the upstream request
+#         authResponseHeaders:
+#           - "X-SKF-Audit-ID"
+#           - "X-SKF-Sanitized"
+#         # Treat these status codes as "allow" (anything else = deny)
+#         trustForwardHeader: true
+#
+#   services:
+#     llm-provider:
+#       loadBalancer:
+#         servers:
+#           - url: "https://api.openai.com"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose snippet to add Traefik alongside SKF Guard
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# traefik:
+#   image: traefik:v3.0
+#   command:
+#     - "--providers.docker=true"
+#     - "--entrypoints.web.address=:80"
+#     - "--providers.file.filename=/etc/traefik/traefik.yml"
+#   ports:
+#     - "80:80"
+#     - "8082:8080"   # Traefik dashboard
+#   volumes:
+#     - /var/run/docker.sock:/var/run/docker.sock:ro
+#     - ./gateway-examples/traefik.yml:/etc/traefik/traefik.yml:ro
+#   environment:
+#     SKF_GUARD_KEY: ${SKF_GUARD_KEY}
+#     OPENAI_API_KEY: ${OPENAI_API_KEY}
+#   depends_on:
+#     - backend

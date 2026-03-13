@@ -1,0 +1,137 @@
+# gateway-examples/envoy.yaml
+# Envoy — SKF Guard universal hook via ext_authz HTTP filter
+#
+# Approach: External Authorization (ext_authz) HTTP filter
+#
+# Envoy's ext_authz filter calls an external authorization service before
+# forwarding the request to the upstream. We expose SKF Guard's universal
+# hook endpoint as the authorization service.
+#
+# Note: ext_authz by default only forwards headers to the auth service, not
+# the request body. To forward the body, set with_request_body: true (shown
+# below). This requires Envoy >= 1.14.
+#
+# Quick start:
+#   docker run -v $(pwd)/envoy.yaml:/etc/envoy/envoy.yaml envoyproxy/envoy:v1.30.0
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+static_resources:
+
+  listeners:
+    - name: llm_listener
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_llm
+                codec_type: AUTO
+
+                route_config:
+                  name: llm_route
+                  virtual_hosts:
+                    - name: llm_backend
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/v1/chat/completions"
+                          route:
+                            cluster: llm_provider
+                            timeout: 120s
+
+                http_filters:
+
+                  # ── SKF Guard ext_authz filter ────────────────────────────
+                  - name: envoy.filters.http.ext_authz
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+                      http_service:
+                        server_uri:
+                          uri: http://skf-guard:8000
+                          cluster: skf_guard
+                          timeout: 10s
+
+                        # Path to SKF Guard's universal hook endpoint
+                        path_prefix: /api/integrations/hook
+
+                        # Forward the Authorization header so SKF Guard can
+                        # authenticate via the connection key
+                        authorization_request:
+                          headers_to_add:
+                            - header:
+                                key: Content-Type
+                                value: application/json
+                          allowed_headers:
+                            patterns:
+                              - exact: authorization
+                              - exact: x-skf-direction
+
+                        # Pass these response headers back to the upstream request
+                        authorization_response:
+                          allowed_upstream_headers:
+                            patterns:
+                              - exact: x-skf-audit-id
+                              - exact: x-skf-sanitized
+
+                      # Forward the request body to the auth service
+                      # Required so SKF Guard can read the user message
+                      with_request_body:
+                        max_request_bytes: 65536      # 64 KB limit
+                        allow_partial_message: false
+                        pack_as_bytes: false
+
+                      # Fail-closed: deny request if SKF Guard is unreachable
+                      failure_mode_allow: false
+
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+
+    # ── SKF Guard cluster ─────────────────────────────────────────────────────
+    - name: skf_guard
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      connect_timeout: 5s
+      load_assignment:
+        cluster_name: skf_guard
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: skf-guard
+                      port_value: 8000
+
+    # ── LLM provider cluster ──────────────────────────────────────────────────
+    - name: llm_provider
+      type: LOGICAL_DNS
+      lb_policy: ROUND_ROBIN
+      connect_timeout: 10s
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          sni: api.openai.com
+      load_assignment:
+        cluster_name: llm_provider
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: api.openai.com   # Replace with your LLM provider
+                      port_value: 443
+
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901
