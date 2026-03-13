@@ -31,5 +31,32 @@ services:
       - backend
     restart: unless-stopped
 
+  # ── Kong API Gateway (optional — enables gateway-level guardrail enforcement)
+  # Uncomment this service to route LLM traffic through Kong + SKF Guard.
+  # Clients send requests to Kong (:8080) instead of the LLM provider directly.
+  #
+  # kong:
+  #   image: kong:3.7-ubuntu
+  #   environment:
+  #     KONG_DATABASE: "off"
+  #     KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+  #     KONG_PROXY_ACCESS_LOG: /dev/stdout
+  #     KONG_ADMIN_ACCESS_LOG: /dev/stdout
+  #     KONG_PROXY_ERROR_LOG: /dev/stderr
+  #     KONG_ADMIN_ERROR_LOG: /dev/stderr
+  #     KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+  #     SKF_GUARD_URL: http://backend:8000
+  #     SKF_GUARD_KEY: ${SKF_GUARD_KEY:-ts_conn_replace_me}
+  #   volumes:
+  #     - ./kong/kong.yml:/etc/kong/kong.yml:ro
+  #     - ./kong/skf_guard_pre.lua:/usr/local/kong/skf_guard_pre.lua:ro
+  #     - ./kong/skf_guard_post.lua:/usr/local/kong/skf_guard_post.lua:ro
+  #   ports:
+  #     - "8080:8000"   # Kong proxy — point your LLM clients here
+  #     - "8081:8001"   # Kong Admin API
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+
 volumes:
   backend_data:

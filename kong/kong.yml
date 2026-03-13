@@ -1,0 +1,90 @@
+# kong/kong.yml
+# Kong declarative configuration — SKF Guard integration
+#
+# This config adds SKF Guard guardrails to any LLM provider route.
+# Kong acts as the outer API gateway; SKF Guard scans every request/response.
+#
+# Architecture:
+#   Client → Kong (pre-function: scan input) → LLM Provider
+#          ← Kong (post-function: scan output) ←
+#
+# Deploy:
+#   1. Set environment variables in Kong's runtime environment:
+#        SKF_GUARD_URL=http://skf-guard:8000
+#        SKF_GUARD_KEY=ts_conn_<your_connection_key>
+#
+#   2. Mount the Lua scripts into the Kong container:
+#        volumes:
+#          - ./kong/skf_guard_pre.lua:/usr/local/kong/skf_guard_pre.lua
+#          - ./kong/skf_guard_post.lua:/usr/local/kong/skf_guard_post.lua
+#
+#   3. Apply this config:
+#        kong config db_import kong.yml          # DB mode
+#        KONG_DECLARATIVE_CONFIG=kong.yml kong   # DB-less mode
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+_format_version: "3.0"
+_transform: true
+
+services:
+
+  # ── OpenAI-compatible LLM provider ─────────────────────────────────────────
+  # Replace the url with your actual LLM endpoint (OpenAI, Azure, LiteLLM, etc.)
+  - name: llm-provider
+    url: https://api.openai.com
+    connect_timeout: 10000
+    read_timeout:    60000
+    write_timeout:   10000
+
+    routes:
+      - name: llm-chat-completions
+        paths:
+          - /v1/chat/completions
+        methods:
+          - POST
+        strip_path: false
+
+    plugins:
+
+      # ── Input scan — runs in the access phase, before forwarding ────────────
+      - name: pre-function
+        config:
+          access:
+            - |
+              local f = io.open("/usr/local/kong/skf_guard_pre.lua", "r")
+              if f then
+                local code = f:read("*a")
+                f:close()
+                local fn, err = load(code)
+                if fn then fn() else kong.log.err("SKF pre-function load error: ", err) end
+              else
+                kong.log.err("SKF Guard pre-function script not found")
+              end
+
+      # ── Output scan — runs in body_filter phase, after LLM responds ─────────
+      - name: post-function
+        config:
+          body_filter:
+            - |
+              local f = io.open("/usr/local/kong/skf_guard_post.lua", "r")
+              if f then
+                local code = f:read("*a")
+                f:close()
+                local fn, err = load(code)
+                if fn then fn() else kong.log.err("SKF post-function load error: ", err) end
+              else
+                kong.log.err("SKF Guard post-function script not found")
+              end
+
+      # ── Optional: rate limiting ─────────────────────────────────────────────
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+
+      # ── Optional: key-auth for your own API clients ─────────────────────────
+      # - name: key-auth
+      #   config:
+      #     key_names:
+      #       - X-API-Key

@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.database import create_tables
-from app.api.routes import auth, guardrails, scan, audit, analytics, public, connections, admin, org, teams, support, notifications, announcements, billing
+from app.api.routes import auth, guardrails, scan, audit, analytics, public, connections, admin, org, teams, support, notifications, announcements, billing, integrations
 import app.models.system_event  # noqa: F401 — ensure table is registered before create_all
 import app.models.platform_setting  # noqa: F401
 import app.models.organization  # noqa: F401
@@ -121,6 +121,7 @@ app.include_router(support.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(announcements.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+app.include_router(integrations.router, prefix="/api")
 
 
 @app.on_event("startup")
