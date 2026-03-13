@@ -46,8 +46,11 @@ async def _get_conn(
     - personal     → connection where user_id == user.id and no org/team
     """
     from sqlalchemy import or_, and_
-    result = await session.execute(
-        select(ApiConnection).where(
+    if user.role == "admin":
+        # Platform admin — can access any connection they own
+        filter_clause = and_(ApiConnection.id == conn_id, ApiConnection.user_id == user.id)
+    else:
+        filter_clause = and_(
             ApiConnection.id == conn_id,
             or_(
                 # Team connection
@@ -60,7 +63,7 @@ async def _get_conn(
                      ApiConnection.user_id == user.id),
             ),
         )
-    )
+    result = await session.execute(select(ApiConnection).where(filter_clause))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
@@ -73,7 +76,10 @@ async def list_connections(
     session: AsyncSession = Depends(get_session),
 ):
     from sqlalchemy import or_, and_
-    if current_user.team_id is not None:
+    if current_user.role == "admin":
+        # Platform admin — all connections they own, regardless of org/team state
+        where_clause = ApiConnection.user_id == current_user.id
+    elif current_user.team_id is not None:
         # Team member — see only team connections
         where_clause = ApiConnection.team_id == current_user.team_id
     elif current_user.role == "org_admin" and current_user.org_id is not None:
