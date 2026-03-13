@@ -13,7 +13,7 @@ interface Guardrail {
 
 // ── Param schema definitions ──────────────────────────────────────────────────
 
-type FieldType = "slider" | "number" | "boolean" | "tags" | "select";
+type FieldType = "slider" | "number" | "boolean" | "tags" | "select" | "multiselect";
 
 interface FieldDef {
   key: string;
@@ -99,11 +99,41 @@ const SCANNER_PARAMS: Record<string, FieldDef[]> = {
   ],
   Code: [
     { key: "languages", label: "Blocked programming languages", type: "tags", default: [],
-      description: "Languages whose code should be detected (e.g. python, javascript, bash). Leave empty to detect all code." },
+      description: "Programming languages to detect and block (e.g. Python, JavaScript, Shell). At least one language must be specified — the scanner uses these to identify code snippets in the text." },
+    { key: "threshold", label: "Detection threshold", type: "slider", default: 0.5, min: 0, max: 1, step: 0.05,
+      description: "Confidence score required to classify a snippet as code in the specified language. Lower values catch more code but may flag natural-language text that resembles code." },
   ],
   BanCode: [
-    { key: "languages", label: "Blocked programming languages", type: "tags", default: [],
-      description: "Languages whose code snippets should be blocked in prompts." },
+    { key: "languages", label: "Blocked programming languages", type: "multiselect", default: [],
+      description: "Select languages to block. Leave all unselected to block every programming language regardless of type.",
+      options: [
+        { label: "Python",       value: "Python"       },
+        { label: "JavaScript",   value: "JavaScript"   },
+        { label: "TypeScript",   value: "JavaScript"   },
+        { label: "Java",         value: "Java"         },
+        { label: "C",            value: "C"            },
+        { label: "C++",          value: "C++"          },
+        { label: "C#",           value: "C#"           },
+        { label: "Go",           value: "Go"           },
+        { label: "Rust",         value: "Rust"         },
+        { label: "PHP",          value: "PHP"          },
+        { label: "Ruby",         value: "Ruby"         },
+        { label: "Kotlin",       value: "Kotlin"       },
+        { label: "Swift",        value: "Swift"        },
+        { label: "Scala",        value: "Scala"        },
+        { label: "Perl",         value: "Perl"         },
+        { label: "PowerShell / Shell", value: "PowerShell" },
+        { label: "R",            value: "R"            },
+        { label: "Lua",          value: "Lua"          },
+        { label: "COBOL",        value: "COBOL"        },
+        { label: "Fortran",      value: "Fortran"      },
+        { label: "Erlang",       value: "Erlang"       },
+        { label: "Pascal",       value: "Pascal"       },
+        { label: "ARM Assembly", value: "ARM Assembly" },
+      ]
+    },
+    { key: "threshold", label: "Detection threshold", type: "slider", default: 0.4, min: 0, max: 1, step: 0.05,
+      description: "Confidence score required to classify a snippet as code. Lower values (0.3–0.5) are recommended when blocking code embedded in conversational responses." },
   ],
   Regex: [
     { key: "patterns", label: "Regular expression patterns", type: "tags", default: [],
@@ -320,6 +350,50 @@ function TagsField({ field, value, onChange }: { field: FieldDef; value: string[
   );
 }
 
+function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: string[]; onChange: (v: string[]) => void }) {
+  function toggle(opt: string) {
+    if (value.includes(opt)) onChange(value.filter((v) => v !== opt));
+    else onChange([...value, opt]);
+  }
+
+  return (
+    <div>
+      <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">{field.label}</label>
+      <div className="flex flex-wrap gap-2">
+        {field.options?.map((opt) => {
+          const active = value.includes(opt.value);
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => toggle(opt.value)}
+              className="text-xs px-3 py-1.5 rounded border transition-all"
+              style={{
+                background: active ? "rgba(81,85,148,0.18)" : "var(--bg)",
+                borderColor: active ? "#515594" : "rgba(255,255,255,0.06)",
+                color: active ? "#8b8fc4" : "var(--text-muted)",
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {value.length === 0 && (
+        <p className="text-xs mt-2" style={{ color: "#fbbf24" }}>
+          No languages selected — all code will be blocked.
+        </p>
+      )}
+      {value.length > 0 && (
+        <p className="text-xs mt-2 font-mono" style={{ color: "#515594" }}>
+          {value.length} language{value.length !== 1 ? "s" : ""} selected
+        </p>
+      )}
+      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+    </div>
+  );
+}
+
 function SelectField({ field, value, onChange }: { field: FieldDef; value: string; onChange: (v: string) => void }) {
   return (
     <div>
@@ -355,6 +429,7 @@ function ParamField({ field, params, setParams }: {
   if (field.type === "boolean") return <BooleanField field={field} value={Boolean(raw)} onChange={set} />;
   if (field.type === "tags") return <TagsField field={field} value={Array.isArray(raw) ? (raw as string[]) : []} onChange={set} />;
   if (field.type === "select") return <SelectField field={field} value={String(raw ?? "")} onChange={set} />;
+  if (field.type === "multiselect") return <MultiSelectField field={field} value={Array.isArray(raw) ? (raw as string[]) : []} onChange={set} />;
   return null;
 }
 

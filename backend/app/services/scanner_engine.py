@@ -100,6 +100,76 @@ def _import_custom_scanner(direction: str, params: dict) -> Any:
     return CustomRuleScanner(direction=direction, **params)
 
 
+# Exact language names accepted by the llm-guard Code scanner.
+_CODE_SCANNER_LANGUAGES = [
+    "ARM Assembly", "AppleScript", "C", "C#", "C++", "COBOL", "Erlang", "Fortran",
+    "Go", "Java", "JavaScript", "Kotlin", "Lua", "Mathematica/Wolfram Language",
+    "PHP", "Pascal", "Perl", "PowerShell", "Python", "R", "Ruby", "Rust", "Scala",
+    "Swift", "Visual Basic .NET", "jq",
+]
+# Lowercase lookup so user-entered values like "javascript" → "JavaScript"
+_LANG_NORMALIZE: dict[str, str] = {l.lower(): l for l in _CODE_SCANNER_LANGUAGES}
+# Extra aliases for common shorthand
+_LANG_NORMALIZE.update({
+    "js": "JavaScript",
+    "ts": "JavaScript",      # TypeScript maps to JS detection
+    "typescript": "JavaScript",
+    "bash": "PowerShell",    # closest shell equivalent
+    "shell": "PowerShell",
+    "sh": "PowerShell",
+    "csharp": "C#",
+    "cpp": "C++",
+    "vb.net": "Visual Basic .NET",
+    "vb": "Visual Basic .NET",
+    "wolfram": "Mathematica/Wolfram Language",
+    "mathematica": "Mathematica/Wolfram Language",
+})
+
+
+def _normalize_languages(languages: list) -> list[str]:
+    """Normalize user-entered language names to exact llm-guard names."""
+    result = []
+    for lang in languages:
+        if not lang:
+            continue
+        normalized = _LANG_NORMALIZE.get(lang.strip().lower(), lang.strip())
+        if normalized not in result:
+            result.append(normalized)
+    return result
+
+
+def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
+    """
+    Instantiate a scanner, with smart routing for BanCode:
+    - BanCode + languages list → route to Code scanner (supports per-language blocking)
+    - BanCode with no languages → use BanCode as-is (blocks all code)
+    - All other scanners → instantiate directly
+    """
+    if scanner_type == "CustomRule":
+        return _import_custom_scanner(direction, params)
+
+    if scanner_type == "BanCode":
+        languages = params.get("languages")
+        if languages:
+            normalized = _normalize_languages(languages)
+            if not normalized:
+                # All entries were invalid — fall back to BanCode (block all)
+                clean = {k: v for k, v in params.items() if k not in ("languages", "is_blocked")}
+                return _import_scanner("BanCode", direction, clean)
+            code_params = {
+                "languages": normalized,
+                "is_blocked": True,
+                "threshold": params.get("threshold", 0.4),
+            }
+            logger.info(f"BanCode with languages={normalized} → routing to Code scanner")
+            return _import_scanner("Code", direction, code_params)
+        # No languages — BanCode detects all code; strip any invalid keys
+        clean = {k: v for k, v in params.items() if k not in ("languages", "is_blocked")}
+        return _import_scanner("BanCode", direction, clean)
+
+    return _import_scanner(scanner_type, direction, params)
+
+
 async def _load_scanners(
     session: AsyncSession, direction: str
 ) -> list[tuple[Any, str, list[str], int, dict, str]]:
@@ -129,10 +199,7 @@ async def _load_scanners(
         on_fail_action = getattr(config, "on_fail_action", None) or "block"
 
         try:
-            if config.scanner_type == "CustomRule":
-                scanner = _import_custom_scanner(direction, scanner_params)
-            else:
-                scanner = _import_scanner(config.scanner_type, direction, scanner_params)
+            scanner = _build_scanner(config.scanner_type, direction, scanner_params)
             entries.append((scanner, config.scanner_type, custom_phrases, config.id, scanner_params, on_fail_action))
             logger.info(f"Loaded scanner: {config.scanner_type} (id={config.id}, on_fail={on_fail_action})")
         except Exception as e:
@@ -173,10 +240,7 @@ async def _load_scanners_by_ids(
         scanner_params = {k: v for k, v in raw_params.items() if k not in _META_PARAMS}
         on_fail_action = getattr(config, "on_fail_action", None) or "block"
         try:
-            if config.scanner_type == "CustomRule":
-                scanner = _import_custom_scanner(direction, scanner_params)
-            else:
-                scanner = _import_scanner(config.scanner_type, direction, scanner_params)
+            scanner = _build_scanner(config.scanner_type, direction, scanner_params)
             entries.append((scanner, config.scanner_type, custom_phrases, config.id, scanner_params, on_fail_action))
             logger.info(f"Loaded per-connection scanner: {config.scanner_type} (id={config.id}, active={config.is_active}, on_fail={on_fail_action})")
         except Exception as e:

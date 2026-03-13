@@ -139,9 +139,17 @@ const CATALOG: ScannerTemplate[] = [
     scanner_type: "BanCode",
     direction: "input",
     tagline: "Block prompts containing code snippets",
-    description: "Blocks prompts that contain or explicitly request code in restricted programming languages.",
+    description: "Blocks prompts that contain code. Add specific languages to only block those — leave empty to block all code.",
     defaultName: "Code Block",
-    defaultParams: { languages: [] },
+    defaultParams: { languages: [], threshold: 0.4 },
+  },
+  {
+    scanner_type: "Code",
+    direction: "input",
+    tagline: "Block specific programming languages in prompts",
+    description: "Detects and blocks code written in specific programming languages. More targeted than BanCode — configure exactly which languages to deny.",
+    defaultName: "Code Detector (Input)",
+    defaultParams: { languages: ["Python", "JavaScript", "Shell"], is_blocked: true, threshold: 0.5 },
   },
   // ─── Output ──────────────────────────────────────────────────────────────
   {
@@ -247,6 +255,22 @@ const CATALOG: ScannerTemplate[] = [
     description: "Blocks model responses that match one or more custom regular expression patterns.",
     defaultName: "Output Regex Filter",
     defaultParams: { patterns: [], is_blocked: true },
+  },
+  {
+    scanner_type: "BanCode",
+    direction: "output",
+    tagline: "Block model responses that contain code",
+    description: "Detects code in model responses. Add specific languages to only block those — leave empty to block all code.",
+    defaultName: "Ban Code (Output)",
+    defaultParams: { languages: [], threshold: 0.4 },
+  },
+  {
+    scanner_type: "Code",
+    direction: "output",
+    tagline: "Block specific programming languages in responses",
+    description: "Detects and blocks code written in specific programming languages. Configure exactly which languages to deny — at least one language must be specified.",
+    defaultName: "Code Detector (Output)",
+    defaultParams: { languages: ["Python", "JavaScript", "Shell"], is_blocked: true, threshold: 0.5 },
   },
 ];
 
