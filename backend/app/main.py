@@ -239,7 +239,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v11")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v12")
         )).scalar_one_or_none()
         if marker:
             return
@@ -253,18 +253,18 @@ async def _sync_guardrail_defaults():
                 None,
             )
             if entry:
-                # v11: remove false-positive output BanSubstrings ("access granted", "authorization confirmed")
+                # v12: add dangerous content BanSubstrings phrases; expand BanTopics with explosives/bomb making; lower BanTopics threshold to 0.4
                 g.params = entry["params"]
                 if entry.get("on_fail_action"):
                     g.on_fail_action = entry["on_fail_action"]
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v11", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v12", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
-            logger.info("Synced %d guardrail configs to v11 defaults (false-positive fix for output BanSubstrings).", updated)
+            logger.info("Synced %d guardrail configs to v12 defaults (dangerous content phrases + BanTopics expansions).", updated)
 
 
 async def _seed_org_memberships():
