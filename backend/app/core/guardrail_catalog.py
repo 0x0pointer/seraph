@@ -254,7 +254,7 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\bif\s+you'?re\s+an\s+(?:llm|ai|language\s+model|assistant)\b.{0,60}\b(?:ignore|disregard|forget|override)\b",
          # ── LangSmith CTF: manager approval note / fake escalation ──────────
          r"(?i)\bmanager\s+approval\s+note\b",
-         r"(?i)\bauthoriz(?:ed|ation)\s+(?:confirmed|granted|approved)\b",
+         r"(?i)\bauthoriz(?:ed|ation)\s+(?:confirmed|granted|approved)\b.{0,40}\b(?:ignore|bypass|override|disable|no\s+restriction)\b",
          # ── LangSmith CTF: SQL injection via prompt (shop level) ─────────────
          r"(?i)\bselect\s+\*\s+from\s+\w+",
          r"(?i)\bor\s+['\"]\s*1\s*'\s*=\s*'\s*1",
@@ -289,16 +289,17 @@ GUARDRAIL_CATALOG: list[dict] = [
          "operating without restrictions",
          "i will comply without restrictions",
          # LangSmith CTF traces — LLM confirming false authority was accepted
-         "authorization confirmed",
-         "access granted",
+         # Note: "access granted" and "authorization confirmed" removed — too generic,
+         # causes false positives on legitimate responses about permissions/OAuth/IT topics.
+         # Kept only phrases that are unambiguous jailbreak confirmation signals.
          "admin access confirmed",
-         "i am now authorized",
+         "i am now authorized to ignore",
          "i have been freed",
          "safety filters disabled",
          "acting without restrictions",
          "jailbreak confirmed",
-         "i can now ignore",
-         "i will now ignore my",
+         "i can now ignore my previous",
+         "i will now ignore my guidelines",
      ]}, "order": 6},
     {"name": "Ban Topics (Output)",        "scanner_type": "BanTopics",         "direction": "output",
      "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
