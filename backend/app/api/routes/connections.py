@@ -100,35 +100,6 @@ async def create_connection(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    # Enforce per-plan connection limit (admin and impersonation sessions exempt)
-    is_impersonation = getattr(request.state, "is_impersonation", False)
-    if current_user.role != "admin" and not is_impersonation:
-        from app.core.plan_limits import get_effective_plan, get_limits
-        from sqlalchemy import and_
-        effective_plan = await get_effective_plan(current_user, session)
-        conn_limit = get_limits(effective_plan)["connection_limit"]
-        if conn_limit is not None:
-            # Use same scoping logic as list_connections so orphaned/invisible
-            # connections from a different org context don't block the limit.
-            if current_user.role == "org_admin" and current_user.org_id is not None:
-                count_clause = and_(ApiConnection.org_id == current_user.org_id, ApiConnection.status == "active")
-            elif current_user.org_id is not None:
-                count_clause = and_(ApiConnection.user_id == current_user.id, ApiConnection.org_id == current_user.org_id, ApiConnection.status == "active")
-            else:
-                count_clause = and_(ApiConnection.user_id == current_user.id, ApiConnection.org_id.is_(None), ApiConnection.status == "active")
-
-            existing_count = (
-                await session.execute(select(func.count(ApiConnection.id)).where(count_clause))
-            ).scalar_one()
-            if existing_count >= conn_limit:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        f"Connection limit of {conn_limit} reached for the '{effective_plan}' plan. "
-                        "Upgrade your plan to create more connections."
-                    ),
-                )
-
     conn = ApiConnection(
         user_id=current_user.id,
         org_id=current_user.org_id,

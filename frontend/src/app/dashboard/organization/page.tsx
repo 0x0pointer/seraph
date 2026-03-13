@@ -10,7 +10,7 @@ import { format } from "date-fns";
 interface Me { id: number; username: string; role: string; org_id: number | null; team_id: number | null; }
 
 interface OrgInfo {
-  id: number; name: string; plan: string; user_limit: number | null;
+  id: number; name: string;
   created_at: string | null;
   owner_id: number | null; owner_username: string | null; member_count: number;
 }
@@ -422,8 +422,9 @@ export default function OrganizationPage() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [cancellingInvite, setCancellingInvite] = useState<number | null>(null);
   const [expandedInvite, setExpandedInvite] = useState<number | null>(null);
-  const [changingPlan, setChangingPlan] = useState(false);
-  const [planError, setPlanError] = useState("");
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [createOrgErr, setCreateOrgErr] = useState("");
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
@@ -437,14 +438,15 @@ export default function OrganizationPage() {
     }
   }
 
-  async function handlePlanChange(newPlan: string) {
-    setPlanError(""); setChangingPlan(true);
+  async function handleCreateOrg(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateOrgErr(""); setCreatingOrg(true);
     try {
-      await api.patch("/org/plan", { plan: newPlan });
-      await mutateOrg();
+      await api.post("/org", { name: newOrgName.trim() });
+      window.location.reload();
     } catch (err) {
-      setPlanError(err instanceof Error ? err.message : "Failed to change plan");
-    } finally { setChangingPlan(false); }
+      setCreateOrgErr(err instanceof Error ? err.message : "Failed to create organization");
+    } finally { setCreatingOrg(false); }
   }
 
   async function handleRoleChange(member: OrgMember, newRole: string) {
@@ -479,7 +481,7 @@ export default function OrganizationPage() {
 
   if (!hasOrg) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
+      <div className="flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto">
         <div className="w-14 h-14 rounded-full flex items-center justify-center"
           style={{ background: "rgba(81,85,148,0.08)" }}>
           <svg className="w-7 h-7" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -487,10 +489,28 @@ export default function OrganizationPage() {
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         </div>
-        <p className="text-white font-semibold">No organization</p>
-        <p className="text-xs text-slate-500 max-w-xs text-center leading-relaxed">
-          You are not part of any organization yet. Ask a super admin to assign you to one, or accept an invite link.
-        </p>
+        <div className="text-center">
+          <p className="text-white font-semibold mb-1">No organization yet</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Create one to manage members, teams, and shared connections — or accept an invite link from an existing org.
+          </p>
+        </div>
+        <form onSubmit={handleCreateOrg} className="w-full space-y-3">
+          <input
+            value={newOrgName}
+            onChange={(e) => setNewOrgName(e.target.value)}
+            placeholder="Organization name"
+            required
+            className="w-full rounded px-3 py-2 text-sm outline-none"
+            style={inputStyle}
+          />
+          {createOrgErr && <p className="text-xs" style={{ color: "#f87171" }}>{createOrgErr}</p>}
+          <button type="submit" disabled={creatingOrg || !newOrgName.trim()}
+            className="w-full py-2 rounded text-sm font-medium disabled:opacity-40 transition-opacity"
+            style={{ background: "#515594", color: "#fff" }}>
+            {creatingOrg ? "Creating…" : "Create Organization"}
+          </button>
+        </form>
       </div>
     );
   }
@@ -541,43 +561,13 @@ export default function OrganizationPage() {
                 )}
               </div>
               <div className="flex items-center gap-4 text-xs text-slate-500 font-mono pl-12">
-                <span>{org?.member_count ?? 0}{org?.user_limit != null ? ` / ${org.user_limit}` : ""} member{(org?.member_count ?? 0) !== 1 ? "s" : ""}</span>
+                <span>{org?.member_count ?? 0} member{(org?.member_count ?? 0) !== 1 ? "s" : ""}</span>
                 {org?.owner_username && <span>Owner: <span className="text-slate-400">{org.owner_username}</span></span>}
                 {org?.created_at && <span>Created {timeAgo(org.created_at)}</span>}
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
               <RolePill role={me.role} />
-              {/* Plan badge */}
-              {org && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                    style={
-                      (org.plan ?? "free") === "enterprise" ? { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }
-                      : (org.plan ?? "free") === "pro"       ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
-                      :                                        { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" }
-                    }>
-                    {org.plan ?? "free"}
-                  </span>
-                  {canManage && (
-                    <div className="relative">
-                      <select
-                        value={org.plan ?? "free"}
-                        onChange={(e) => handlePlanChange(e.target.value)}
-                        disabled={changingPlan}
-                        className="text-xs rounded px-2 py-1 outline-none appearance-none pr-5 disabled:opacity-40"
-                        style={{ background: "var(--bg)", border: "1px solid var(--border-input)", color: "var(--text-dim)", fontSize: "11px" }}
-                      >
-                        <option value="free">Free</option>
-                        <option value="pro">Pro</option>
-                        <option value="enterprise">Enterprise</option>
-                      </select>
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" style={{ fontSize: 9 }}>▾</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {planError && <p className="text-xs" style={{ color: "#f87171" }}>{planError}</p>}
             </div>
           </div>
         )}
@@ -587,15 +577,8 @@ export default function OrganizationPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Members</p>
-          <p className="text-xs text-slate-600 font-mono">{members?.length ?? 0}{org?.user_limit != null ? ` / ${org.user_limit}` : ""} total</p>
+          <p className="text-xs text-slate-600 font-mono">{members?.length ?? 0} total</p>
         </div>
-        {org?.user_limit != null && (org.member_count ?? 0) >= org.user_limit && (
-          <div className="rounded px-3 py-2 text-xs flex items-center gap-2"
-            style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
-            <span>▲</span>
-            User limit reached ({org.member_count} / {org.user_limit}). Upgrade your plan to invite more members.
-          </div>
-        )}
         <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
           <table className="w-full text-sm">
             <thead>

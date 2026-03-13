@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 
-interface UserInfo { id: number; username: string; full_name: string | null; email: string | null; role: string; org_id: number | null; team_id: number | null; plan?: string; }
+interface UserInfo { id: number; username: string; full_name: string | null; email: string | null; role: string; org_id: number | null; team_id: number | null; }
 interface ApiTokenInfo { api_token: string; created: boolean; }
 
 const inputStyle = {
@@ -241,7 +241,6 @@ const data = await res.json();`,
               { label: "Full name", value: user.full_name ?? "—", color: "var(--text)" },
               { label: "Email", value: user.email ?? "—", color: "var(--text)" },
               { label: "Role", value: user.role, color: "#515594" },
-              { label: "Plan", value: user.plan ?? "free", color: "#a78bfa" },
               { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">

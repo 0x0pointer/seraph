@@ -303,39 +303,6 @@ async def change_user_role(
     return {"id": user.id, "role": user.role}
 
 
-class ChangePlanRequest(BaseModel):
-    plan: str
-
-
-@router.patch("/users/{user_id}/plan")
-async def change_user_plan(
-    user_id: int,
-    data: ChangePlanRequest,
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_admin),
-):
-    if data.plan not in ("free", "starter", "pro", "enterprise"):
-        raise HTTPException(status_code=422, detail="Plan must be one of: free, starter, pro, enterprise")
-
-    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    old_plan = user.plan or "free"
-    user.plan = data.plan
-    # Reset monthly counter on upgrade/downgrade
-    user.month_scan_count = 0
-    user.month_started_at = datetime.now(timezone.utc)
-    await log_event(session, event_type="user.plan_changed",
-        actor_id=current_user.id, actor_username=current_user.username,
-        target_type="user", target_id=user.id, target_name=user.username,
-        details={"old_plan": old_plan, "new_plan": data.plan},
-        ip_address=_ip(request))
-    await session.commit()
-    return {"id": user.id, "plan": user.plan}
-
-
 @router.patch("/users/{user_id}/password")
 async def reset_user_password(
     user_id: int,
@@ -1017,36 +984,6 @@ async def create_org(
     await session.commit()
     await session.refresh(org)
     return {"id": org.id, "name": org.name, "created_at": org.created_at.isoformat(), "member_count": 0}
-
-
-class ChangeOrgPlanRequest(BaseModel):
-    plan: str  # "free" | "pro" | "enterprise"
-
-
-@router.patch("/orgs/{org_id}/plan")
-async def admin_change_org_plan(
-    org_id: int,
-    data: ChangeOrgPlanRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_admin),
-):
-    """Admin: change an organization's plan."""
-    from app.core.plan_limits import get_limits
-    if data.plan not in ("free", "starter", "pro", "enterprise"):
-        raise HTTPException(status_code=422, detail="Plan must be one of: free, starter, pro, enterprise")
-
-    org = (await session.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
-    old_plan = org.plan
-    org.plan = data.plan
-    await log_event(session, event_type="org.plan_changed",
-        actor_id=current_user.id, actor_username=current_user.username,
-        target_type="org", target_id=org.id, target_name=org.name,
-        details={"old_plan": old_plan, "new_plan": data.plan, "by": "admin"})
-    await session.commit()
-    return {"id": org.id, "name": org.name, "plan": org.plan}
 
 
 @router.delete("/orgs/{org_id}", status_code=204)

@@ -1,12 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.auth import get_current_user
 from app.core.database import get_session
-from app.core.plan_limits import get_effective_plan, get_limits, is_same_month
 from app.models.user import User
 from app.schemas.scan import ScanRequest, ScanResponse, GuardRequest, GuardResponse, DetectorResult
 from app.models.connection_guardrail import ConnectionGuardrail
@@ -15,43 +14,11 @@ from app.services import audit_service, scanner_engine
 router = APIRouter(prefix="/scan", tags=["scan"])
 
 
+from fastapi import HTTPException
+
+
 def _is_same_month(dt: datetime | None, now: datetime) -> bool:
     return dt is not None and dt.year == now.year and dt.month == now.month
-
-
-async def _enforce_plan_and_count(user: User, session: AsyncSession, now: datetime) -> str:
-    """
-    For non-admin users:
-    1. Resolve effective plan (org plan if user is in an org).
-    2. Reset monthly counter if we're in a new month.
-    3. Reject if the user has hit their plan's scan limit.
-    4. Increment the counter.
-    Returns the effective plan string.
-    """
-    if user.role == "admin":
-        return "enterprise"
-
-    plan = await get_effective_plan(user, session)
-    limits = get_limits(plan)
-    scan_limit = limits["scan_limit"]
-
-    # Monthly reset
-    if not is_same_month(user.month_started_at, now):
-        user.month_scan_count = 0
-        user.month_started_at = now
-
-    if scan_limit is not None and user.month_scan_count >= scan_limit:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Monthly scan limit of {scan_limit:,} reached for the '{plan}' plan. "
-                "Upgrade your plan to continue scanning."
-            ),
-        )
-
-    user.month_scan_count = (user.month_scan_count or 0) + 1
-    session.add(user)
-    return plan
 
 
 def _enforce_spend_limit(conn) -> None:
@@ -142,23 +109,15 @@ async def scan_prompt(
 ):
     ip = request.client.host if request.client else None
     conn = getattr(request.state, "api_connection", None)
-    now = datetime.now(timezone.utc)
 
-    # Enforce hard spend cap before doing any work
     if conn is not None:
         _enforce_spend_limit(conn)
 
-    # Enforce plan scan limit and increment counter
-    effective_plan = await _enforce_plan_and_count(current_user, session, now)
-
-    # Determine allowed scanners based on effective plan
-    limits = get_limits(effective_plan)
-    allowed_input = None if current_user.role == "admin" else limits["input_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
     is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
         await scanner_engine.run_input_scan(
-            session, data.text, allowed_types=allowed_input,
+            session, data.text,
             allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
         )
     )
@@ -223,23 +182,15 @@ async def scan_output(
     ip = request.client.host if request.client else None
     conn = getattr(request.state, "api_connection", None)
     prompt = data.prompt or ""
-    now = datetime.now(timezone.utc)
 
-    # Enforce hard spend cap before doing any work
     if conn is not None:
         _enforce_spend_limit(conn)
 
-    # Enforce plan scan limit and increment counter
-    effective_plan = await _enforce_plan_and_count(current_user, session, now)
-
-    # Determine allowed scanners based on effective plan
-    limits = get_limits(effective_plan)
-    allowed_output = None if current_user.role == "admin" else limits["output_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
     is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
         await scanner_engine.run_output_scan(
-            session, prompt, data.text, allowed_types=allowed_output,
+            session, prompt, data.text,
             allowed_guardrail_ids=allowed_ids, threshold_overrides=threshold_overrides,
         )
     )
@@ -302,22 +253,15 @@ async def scan_guard(
 ):
     ip   = request.client.host if request.client else None
     conn = getattr(request.state, "api_connection", None)
-    now  = datetime.now(timezone.utc)
 
     if conn is not None:
         _enforce_spend_limit(conn)
 
-    effective_plan = await _enforce_plan_and_count(current_user, session, now)
-    limits = get_limits(effective_plan)
-    allowed_input  = None if current_user.role == "admin" else limits["input_scanners"]
-    allowed_output = None if current_user.role == "admin" else limits["output_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
     messages_dicts = [{"role": m.role, "content": m.content} for m in data.messages]
     flagged, results, violations = await scanner_engine.run_guard_scan(
         session, messages_dicts,
-        allowed_input_types=allowed_input,
-        allowed_output_types=allowed_output,
         allowed_guardrail_ids=allowed_ids,
         threshold_overrides=threshold_overrides,
     )

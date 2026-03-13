@@ -72,17 +72,57 @@ async def get_my_org(
             select(User).where(User.id == org.owner_id)
         )).scalar_one_or_none()
 
-    from app.core.plan_limits import get_limits
-    limits = get_limits(org.plan or "free")
     return {
         "id": org.id,
         "name": org.name,
-        "plan": org.plan or "free",
-        "user_limit": limits["user_limit"],
         "created_at": org.created_at.isoformat() if org.created_at else None,
         "owner_id": org.owner_id,
         "owner_username": owner.username if owner else None,
         "member_count": member_count,
+    }
+
+
+class CreateOrgRequest(BaseModel):
+    name: str
+
+
+@router.post("", status_code=201)
+async def create_my_org(
+    data: CreateOrgRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Any authenticated user without an org can create one and become its admin."""
+    if current_user.org_id:
+        raise HTTPException(status_code=400, detail="You are already part of an organization")
+
+    name = data.name.strip()
+    if len(name) < 2:
+        raise HTTPException(status_code=422, detail="Organization name must be at least 2 characters")
+
+    from app.models.user_org_membership import UserOrgMembership
+
+    org = Organization(name=name, owner_id=current_user.id)
+    session.add(org)
+    await session.flush()
+
+    current_user.org_id = org.id
+    current_user.role = "org_admin"
+    session.add(UserOrgMembership(user_id=current_user.id, org_id=org.id, role="org_admin"))
+
+    await log_event(session, event_type="org.created",
+        actor_id=current_user.id, actor_username=current_user.username,
+        target_type="org", target_id=org.id, target_name=org.name,
+        details={"self_service": True})
+    await session.commit()
+    await session.refresh(org)
+    return {
+        "id": org.id,
+        "name": org.name,
+        "created_at": org.created_at.isoformat() if org.created_at else None,
+        "owner_id": org.owner_id,
+        "owner_username": current_user.username,
+        "member_count": 1,
     }
 
 
@@ -136,52 +176,6 @@ async def list_org_members(
         }
         for u in members
     ]
-
-
-class ChangePlanRequest(BaseModel):
-    plan: str  # "free" | "pro" | "enterprise"
-
-
-@router.patch("/plan")
-async def update_org_plan(
-    data: ChangePlanRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
-):
-    """Update the organization's plan (org_admin or super admin only)."""
-    from app.core.plan_limits import get_limits
-    if data.plan not in ("free", "pro", "enterprise"):
-        raise HTTPException(status_code=422, detail="Plan must be 'free', 'pro', or 'enterprise'")
-
-    org_id = _org_id_for(current_user)
-    org = (await session.execute(
-        select(Organization).where(Organization.id == org_id)
-    )).scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
-    # Validate: new plan must support current member count
-    member_count = (await session.execute(
-        select(func.count(User.id)).where(User.org_id == org_id)
-    )).scalar_one()
-    user_limit = get_limits(data.plan)["user_limit"]
-    if user_limit is not None and member_count > user_limit:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Cannot downgrade to '{data.plan}': your org has {member_count} members "
-                f"but that plan only allows {user_limit}. Remove members first."
-            ),
-        )
-
-    old_plan = org.plan
-    org.plan = data.plan
-    await log_event(session, event_type="org.plan_changed",
-        actor_id=current_user.id, actor_username=current_user.username,
-        target_type="org", target_id=org.id, target_name=org.name,
-        details={"old_plan": old_plan, "new_plan": data.plan})
-    await session.commit()
-    return {"id": org.id, "name": org.name, "plan": org.plan}
 
 
 class ChangeMemberRoleRequest(BaseModel):
@@ -315,26 +309,6 @@ async def create_invite(
         raise HTTPException(status_code=422, detail="Invalid email address")
 
     org_id = _org_id_for(current_user)
-
-    # Enforce user limit for the org's plan
-    from app.core.plan_limits import get_limits
-    org = (await session.execute(
-        select(Organization).where(Organization.id == org_id)
-    )).scalar_one_or_none()
-    if org:
-        user_limit = get_limits(org.plan or "free")["user_limit"]
-        if user_limit is not None:
-            member_count = (await session.execute(
-                select(func.count(User.id)).where(User.org_id == org_id)
-            )).scalar_one()
-            if member_count >= user_limit:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"User limit of {user_limit} reached for the '{org.plan or 'free'}' plan. "
-                        "Upgrade your plan to add more members."
-                    ),
-                )
 
     # Check not already a member
     existing_user = (await session.execute(

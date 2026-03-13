@@ -38,7 +38,6 @@ Gateway config examples live in: gateway-examples/
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-from datetime import datetime, timezone
 from typing import Any
 import logging
 
@@ -50,13 +49,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.auth import get_current_user
 from app.api.routes.scan import (
-    _enforce_plan_and_count,
     _enforce_spend_limit,
     _get_guardrail_overrides,
     _update_connection_metrics,
 )
 from app.core.database import get_session
-from app.core.plan_limits import get_effective_plan, get_limits
 from app.models.user import User
 from app.services import audit_service, scanner_engine
 
@@ -120,20 +117,16 @@ async def _run_input(
     """
     ip   = request.client.host if request.client else None
     conn = getattr(request.state, "api_connection", None)
-    now  = datetime.now(timezone.utc)
 
     if conn is not None:
         _enforce_spend_limit(conn)
 
-    effective_plan = await _enforce_plan_and_count(current_user, session, now)
-    limits         = get_limits(effective_plan)
-    allowed_input  = None if current_user.role == "admin" else limits["input_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
     is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
         await scanner_engine.run_input_scan(
             session, text,
-            allowed_types=allowed_input,
+            allowed_types=None,
             allowed_guardrail_ids=allowed_ids,
             threshold_overrides=threshold_overrides,
         )
@@ -199,20 +192,16 @@ async def _run_output(
     """
     ip   = request.client.host if request.client else None
     conn = getattr(request.state, "api_connection", None)
-    now  = datetime.now(timezone.utc)
 
     if conn is not None:
         _enforce_spend_limit(conn)
 
-    effective_plan = await _enforce_plan_and_count(current_user, session, now)
-    limits         = get_limits(effective_plan)
-    allowed_output = None if current_user.role == "admin" else limits["output_scanners"]
     allowed_ids, threshold_overrides = await _get_guardrail_overrides(session, conn)
 
     is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
         await scanner_engine.run_output_scan(
             session, prompt_text, assistant_text,
-            allowed_types=allowed_output,
+            allowed_types=None,
             allowed_guardrail_ids=allowed_ids,
             threshold_overrides=threshold_overrides,
         )

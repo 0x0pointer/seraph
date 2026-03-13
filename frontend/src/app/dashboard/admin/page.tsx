@@ -23,7 +23,7 @@ interface AdminStats {
 
 interface AdminUser {
   id: number; username: string; full_name: string | null; email: string | null;
-  role: string; plan?: string; org_id: number | null; org_name: string | null;
+  role: string; org_id: number | null; org_name: string | null;
   created_at: string | null;
   connection_count: number; total_requests: number; last_active_at: string | null;
 }
@@ -52,21 +52,12 @@ interface GuardrailEntry {
 
 interface TopViolation { scanner: string; count: number; }
 
-interface BillingStats {
-  plan_counts: Record<string, number>;
-  mrr: number;
-  total_invoiced: number;
-  total_paid: number;
-  total_open: number;
-  invoice_stats: Record<string, { count: number; total: number }>;
-}
-
 interface AdminInvoice {
   id: number; invoice_number: string; amount: number; currency: string;
   status: string; description: string | null;
   period_start: string | null; period_end: string | null;
   paid_at: string | null; created_at: string | null;
-  user_id: number; username: string; user_plan: string;
+  user_id: number; username: string;
 }
 
 interface AdminInvoicePage {
@@ -99,7 +90,7 @@ interface SystemEventsPage {
   total: number; page: number; limit: number; items: SystemEventEntry[];
 }
 
-type AdminTab = "overview" | "users" | "connections" | "guardrails" | "audits" | "orgs" | "billing" | "settings" | "activity";
+type AdminTab = "overview" | "users" | "connections" | "guardrails" | "audits" | "orgs" | "settings" | "activity";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -441,23 +432,14 @@ const ALL_ROLES: { value: string; label: string }[] = [
   { value: "admin",    label: "Admin" },
 ];
 
-const ALL_PLANS = [
-  { value: "free",       label: "Free",       color: "var(--text-muted)" },
-  { value: "starter",    label: "Starter",    color: "#38bdf8" },
-  { value: "pro",        label: "Pro",        color: "#515594" },
-  { value: "enterprise", label: "Enterprise", color: "#a78bfa" },
-];
-
-function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, onImpersonate, onAssignOrg, roleLoading }: {
-  user: AdminUser; onRoleChange: (role: string) => void; onPlanChange: (plan: string) => void;
+function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, onAssignOrg, roleLoading }: {
+  user: AdminUser; onRoleChange: (role: string) => void;
   onResetPw: () => void; onDelete: () => void; onImpersonate: () => void; onAssignOrg: () => void; roleLoading: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
-  const [showPlans, setShowPlans] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const btnRef = useRef<HTMLButtonElement>(null);
-  const currentPlan = user.plan ?? "free";
   const handleToggle = () => {
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
@@ -480,10 +462,10 @@ function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, on
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setShowRoles(false); setShowPlans(false); }} />
+          <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setShowRoles(false); }} />
           <div className="w-52 rounded border z-20 py-1"
             style={{ ...menuStyle, background: "var(--bg)", borderColor: "var(--border-input)" }}>
-            <button onClick={() => { setShowRoles(!showRoles); setShowPlans(false); }} disabled={roleLoading}
+            <button onClick={() => { setShowRoles(!showRoles); }} disabled={roleLoading}
               className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40">
               {roleLoading ? "Updating…" : `Change role (${user.role}) ▾`}
             </button>
@@ -491,17 +473,6 @@ function UserActions({ user, onRoleChange, onPlanChange, onResetPw, onDelete, on
               <button key={r.value} onClick={() => { onRoleChange(r.value); setOpen(false); setShowRoles(false); }}
                 className="w-full text-left px-6 py-1.5 text-xs text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
                 → Set as {r.label}
-              </button>
-            ))}
-            <button onClick={() => { setShowPlans(!showPlans); setShowRoles(false); }} disabled={roleLoading}
-              className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40">
-              {roleLoading ? "Updating…" : `Change plan (${currentPlan}) ▾`}
-            </button>
-            {showPlans && ALL_PLANS.filter((p) => p.value !== currentPlan).map((p) => (
-              <button key={p.value} onClick={() => { onPlanChange(p.value); setOpen(false); setShowPlans(false); }}
-                className="w-full text-left px-6 py-1.5 text-xs hover:bg-white/5 transition-colors"
-                style={{ color: p.color }}>
-                → Set as {p.label}
               </button>
             ))}
             <button onClick={() => { onResetPw(); setOpen(false); }}
@@ -1421,198 +1392,6 @@ async function downloadCSV(path: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// ── Billing admin tab ─────────────────────────────────────────────────────────
-
-function BillingAdminTab() {
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [markingPaid, setMarkingPaid] = useState<number | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newInv, setNewInv] = useState({ user_id: "", amount: "", currency: "USD", description: "", status: "open" });
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  const { data: billing } = useSWR<BillingStats>(
-    "/admin/billing/stats",
-    () => api.get<BillingStats>("/admin/billing/stats"),
-  );
-  const { data: invoicePage, mutate: mutateInvoices } = useSWR<AdminInvoicePage>(
-    `/admin/billing/invoices?status_filter=${statusFilter}&limit=50`,
-    () => api.get<AdminInvoicePage>(`/admin/billing/invoices?status_filter=${statusFilter}&limit=50`),
-  );
-
-  const PLAN_COLOR: Record<string, string> = { free: "#64748b", pro: "#515594", enterprise: "#a78bfa" };
-  const STATUS_COLOR: Record<string, string> = { paid: "#515594", open: "#fbbf24", failed: "#f87171", void: "#475569" };
-
-  async function markPaid(inv: AdminInvoice) {
-    setMarkingPaid(inv.id);
-    try {
-      await api.patch(`/billing/admin/invoices/${inv.id}`, { status: "paid" });
-      await mutateInvoices();
-    } finally { setMarkingPaid(null); }
-  }
-
-  async function handleCreate() {
-    if (!newInv.user_id || !newInv.amount) return;
-    setCreating(true);
-    setCreateError("");
-    try {
-      await api.post("/billing/admin/invoices", {
-        user_id: parseInt(newInv.user_id),
-        amount: parseFloat(newInv.amount),
-        currency: newInv.currency,
-        description: newInv.description || null,
-        status: newInv.status,
-      });
-      await mutateInvoices();
-      setShowCreate(false);
-      setNewInv({ user_id: "", amount: "", currency: "USD", description: "", status: "open" });
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to create invoice");
-    } finally { setCreating(false); }
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Revenue stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {!billing ? <Sk h="h-20" cols={4} /> : (
-          <>
-            <StatCard label="Est. MRR" value={`$${billing.mrr.toLocaleString()}`} color="#515594" sub="based on Pro seats" />
-            <StatCard label="Total Invoiced" value={`$${billing.total_invoiced.toFixed(2)}`} color="#e2e8f0" sub="all time" />
-            <StatCard label="Total Paid" value={`$${billing.total_paid.toFixed(2)}`} color="#515594" sub="collected" />
-            <StatCard label="Open / Unpaid" value={`$${billing.total_open.toFixed(2)}`} color={billing.total_open > 0 ? "#fbbf24" : "#64748b"} sub="outstanding" />
-          </>
-        )}
-      </div>
-
-      {/* Plan distribution */}
-      {billing && (
-        <Section title="Plan Distribution">
-          <div className="flex flex-wrap gap-4 px-1">
-            {Object.entries(billing.plan_counts).map(([plan, count]) => (
-              <div key={plan} className="rounded border border-white/5 px-5 py-4 flex items-center gap-4" style={{ background: "var(--card)" }}>
-                <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                  style={{ background: `${PLAN_COLOR[plan] || "#64748b"}18`, color: PLAN_COLOR[plan] || "#64748b" }}>
-                  {plan}
-                </span>
-                <span className="text-2xl font-bold text-white">{count}</span>
-                <span className="text-xs text-slate-600">users</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* Invoice management */}
-      <Section
-        title="All Invoices"
-        action={
-          <div className="flex gap-2">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-xs rounded px-2 py-1 outline-none" style={inputStyle}>
-              {["all", "open", "paid", "failed", "void"].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <button onClick={() => setShowCreate(true)}
-              className="text-xs px-3 py-1 rounded font-medium" style={{ background: "#515594", color: "#fff" }}>
-              + Create invoice
-            </button>
-          </div>
-        }
-      >
-        {showCreate && (
-          <div className="mx-5 mb-4 rounded border border-white/10 p-4 space-y-3" style={{ background: "var(--bg)" }}>
-            <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">New invoice</p>
-            <div className="grid grid-cols-2 gap-3">
-              <input placeholder="User ID" value={newInv.user_id} onChange={(e) => setNewInv({ ...newInv, user_id: e.target.value })}
-                className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} />
-              <input placeholder="Amount (e.g. 129.00)" value={newInv.amount} onChange={(e) => setNewInv({ ...newInv, amount: e.target.value })}
-                className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} />
-              <input placeholder="Description" value={newInv.description} onChange={(e) => setNewInv({ ...newInv, description: e.target.value })}
-                className="rounded px-3 py-2 text-sm outline-none col-span-2" style={inputStyle} />
-              <select value={newInv.status} onChange={(e) => setNewInv({ ...newInv, status: e.target.value })}
-                className="rounded px-3 py-2 text-sm outline-none" style={inputStyle}>
-                {["open", "paid", "failed", "void"].map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select value={newInv.currency} onChange={(e) => setNewInv({ ...newInv, currency: e.target.value })}
-                className="rounded px-3 py-2 text-sm outline-none" style={inputStyle}>
-                {["USD", "EUR", "GBP"].map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={handleCreate} disabled={creating}
-                className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50" style={{ background: "#515594", color: "#fff" }}>
-                {creating ? "Creating…" : "Create"}
-              </button>
-              <button onClick={() => { setShowCreate(false); setCreateError(""); }} className="text-sm px-4 py-2 rounded text-slate-500 hover:text-white transition-colors">
-                Cancel
-              </button>
-            </div>
-            {createError && (
-              <p className="text-xs text-red-400 font-mono">{createError}</p>
-            )}
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/5">
-                {["Invoice #", "User", "Plan", "Amount", "Status", "Created", ""].map((h) => (
-                  <th key={h} className="text-left px-5 py-2.5 text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {!invoicePage ? (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-slate-600 text-xs">Loading…</td></tr>
-              ) : invoicePage.items.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-slate-600 text-xs">No invoices found.</td></tr>
-              ) : invoicePage.items.map((inv) => (
-                <tr key={inv.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
-                  <td className="px-5 py-3 font-mono text-xs text-slate-400">{inv.invoice_number}</td>
-                  <td className="px-5 py-3 text-slate-300 text-xs">{inv.username}</td>
-                  <td className="px-5 py-3">
-                    <span className="text-xs font-mono px-1.5 py-0.5 rounded capitalize"
-                      style={{ background: `${PLAN_COLOR[inv.user_plan]}18`, color: PLAN_COLOR[inv.user_plan] || "#64748b" }}>
-                      {inv.user_plan}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-white font-medium text-xs">${inv.amount.toFixed(2)} {inv.currency}</td>
-                  <td className="px-5 py-3">
-                    <span className="text-xs font-mono px-1.5 py-0.5 rounded capitalize"
-                      style={{ background: `${STATUS_COLOR[inv.status] || "#64748b"}18`, color: STATUS_COLOR[inv.status] || "#64748b" }}>
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-slate-600 text-xs font-mono">
-                    {inv.created_at ? format(new Date(inv.created_at), "MMM d, yyyy") : "—"}
-                  </td>
-                  <td className="px-5 py-3">
-                    {inv.status === "open" && (
-                      <button onClick={() => markPaid(inv)} disabled={markingPaid === inv.id}
-                        className="text-xs px-2.5 py-1 rounded font-mono disabled:opacity-50"
-                        style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
-                        {markingPaid === inv.id ? "…" : "Mark paid"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {invoicePage && (
-          <p className="px-5 py-3 text-xs text-slate-700 font-mono border-t border-white/5">
-            {invoicePage.total} invoice{invoicePage.total !== 1 ? "s" : ""} total
-          </p>
-        )}
-      </Section>
-    </div>
-  );
-}
-
 // ── Settings tab ──────────────────────────────────────────────────────────────
 
 function SettingsTab({ platformSettings, mutatePlatform }: {
@@ -2163,7 +1942,6 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: "audits", label: "Audits" },
   { key: "activity", label: "Activity" },
   { key: "orgs", label: "Organizations" },
-  { key: "billing", label: "Billing" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -2248,12 +2026,6 @@ export default function AdminPage() {
   async function handleRoleChange(user: AdminUser, newRole: string) {
     setRoleLoading(user.id);
     try { await api.patch(`/admin/users/${user.id}/role`, { role: newRole }); await mutateUsers(); }
-    finally { setRoleLoading(null); }
-  }
-
-  async function handlePlanChange(user: AdminUser, newPlan: string) {
-    setRoleLoading(user.id);
-    try { await api.patch(`/admin/users/${user.id}/plan`, { plan: newPlan }); await mutateUsers(); }
     finally { setRoleLoading(null); }
   }
 
@@ -2621,7 +2393,7 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/5">
-                  {["User", "Email", "Role", "Plan", "Org", "Connections", "Last Active", "Joined", "Actions"].map((h) => (
+                  {["User", "Email", "Role", "Org", "Connections", "Last Active", "Joined", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -2629,7 +2401,7 @@ export default function AdminPage() {
               <tbody>
                 {!users ? Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td colSpan={9} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
+                    <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                   </tr>
                 )) : filteredUsers?.length === 0 ? (
                   <tr><td colSpan={9} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No users found.</td></tr>
@@ -2655,16 +2427,6 @@ export default function AdminPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                        style={
-                          (u.plan ?? "free") === "enterprise" ? { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }
-                          : (u.plan ?? "free") === "pro"        ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
-                          :                                       { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" }
-                        }>
-                        {u.plan ?? "free"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
                       {u.org_name ? (
                         <span className="text-xs font-mono px-2 py-0.5 rounded truncate max-w-[100px] block"
                           style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
@@ -2683,7 +2445,6 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3">
                       <UserActions user={u} onRoleChange={(role) => handleRoleChange(u, role)}
-                        onPlanChange={(plan) => handlePlanChange(u, plan)}
                         onResetPw={() => setResetPwTarget(u)} onDelete={() => setDeleteTarget(u)}
                         onImpersonate={() => handleImpersonate(u)}
                         onAssignOrg={() => setAssignOrgTarget(u)}
@@ -2910,9 +2671,6 @@ export default function AdminPage() {
       {tab === "orgs" && (
         <OrgsTab />
       )}
-
-      {/* ── Billing ─────────────────────────────────────────────── */}
-      {tab === "billing" && <BillingAdminTab />}
 
       {/* ── Settings ────────────────────────────────────────────── */}
       {tab === "settings" && (

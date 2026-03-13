@@ -353,46 +353,6 @@ async def update_profile(
     return current_user
 
 
-@router.get("/plan")
-async def get_plan(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    """Return the effective plan (org plan if in an org), monthly usage, and limits."""
-    from app.core.plan_limits import get_effective_plan, get_limits
-    from sqlalchemy import func, select as _select
-    from app.models.user import User as _User
-
-    effective_plan = await get_effective_plan(current_user, session)
-    limits = get_limits(effective_plan)
-    scan_limit = limits["scan_limit"]
-    used = current_user.month_scan_count or 0
-
-    # Member count for orgs (to show user limit usage)
-    member_count: int | None = None
-    if current_user.org_id:
-        member_count = (await session.execute(
-            _select(func.count(_User.id)).where(_User.org_id == current_user.org_id)
-        )).scalar_one()
-
-    return {
-        "plan": effective_plan,
-        "is_org_plan": current_user.org_id is not None,
-        "scan_limit": scan_limit,
-        "scans_used": used,
-        "scans_remaining": max(0, scan_limit - used) if scan_limit is not None else None,
-        "scan_pct": round(used / scan_limit * 100, 1) if scan_limit else 0,
-        "audit_days": limits["audit_days"],
-        "connection_limit": limits["connection_limit"],
-        "user_limit": limits["user_limit"],
-        "member_count": member_count,
-        "allowed_input_scanners": sorted(limits["input_scanners"]) if limits["input_scanners"] else None,
-        "allowed_output_scanners": sorted(limits["output_scanners"]) if limits["output_scanners"] else None,
-        "subscription_status": getattr(current_user, "subscription_status", "inactive"),
-        "has_stripe": bool(getattr(current_user, "stripe_customer_id", None)),
-    }
-
-
 @router.get("/api-token", response_model=ApiTokenResponse)
 async def get_api_token(
     current_user: User = Depends(get_current_user),
