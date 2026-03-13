@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { format } from "date-fns";
@@ -713,9 +713,8 @@ export default function AuditPage() {
                     : null;
 
                   return (
-                    <>
+                    <Fragment key={item.id}>
                       <tr
-                        key={item.id}
                         className="border-b border-white/5 cursor-pointer hover:bg-white/[0.01] transition-colors"
                         style={{ background: expanded === item.id ? "rgba(255,255,255,0.02)" : undefined }}
                         onClick={() => setExpanded(expanded === item.id ? null : item.id)}
@@ -794,7 +793,7 @@ export default function AuditPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
           </tbody>
