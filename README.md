@@ -2,7 +2,9 @@
 
 **Open-source, production-ready guardrails for Large Language Models**
 
-SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard.
+**SKF** stands for **Secure Knowledge Framework** — a set of principles for building AI systems that are safe, observable, and controllable.
+
+SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard. It can be integrated as a standalone API gateway or wired into any existing gateway (Kong, Nginx, Traefik, Envoy, AWS API Gateway, LiteLLM) using a single HTTP hook.
 
 > **Status:** Beta · MIT License
 
@@ -52,6 +54,7 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 | **Table controls** | Adjustable page size and show/hide columns on all dashboard tables; search and outcome/risk filters on audit log and abuse cases |
 | **Light / dark mode** | Full theme support across dashboard and chatbot demo |
 | **Chatbot demo** | Embedded Flask chatbot showing guardrails in action |
+| **Gateway integrations** | Universal HTTP hook + transparent OpenAI-compatible proxy + native adapters for LiteLLM, Kong, Nginx, Traefik, Envoy, and AWS API Gateway |
 
 ---
 
@@ -86,6 +89,12 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 ┌─────────────────────────────────────────────────────────────┐
 │              Chatbot Demo  (Flask — port 3001)               │
 │  Proxies user messages through /api/scan before OpenAI call  │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│           Gateway Integrations  (/api/integrations/*)        │
+│  Universal Hook · Transparent Proxy · LiteLLM · Kong         │
+│  Nginx · Traefik · Envoy · AWS API Gateway                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -131,7 +140,20 @@ skf-guard/
 │   ├── index.html             # Chat UI with light/dark mode
 │   └── run.sh                 # Start script
 ├── docs/
-│   └── integration-guide.html # Full integration guide (Mermaid diagrams)
+│   ├── integration-guide.md       # SDK integration (Python, Node.js, full pipeline)
+│   ├── gateway-integrations.md    # Gateway integrations (Kong, Nginx, Traefik, Envoy, AWS, LiteLLM)
+│   ├── api.md                     # Full API reference
+│   ├── scanners.md                # Scanner reference
+│   └── deployment.md              # Production deployment guide
+├── gateway-examples/
+│   ├── nginx.conf                 # OpenResty config with lua_block hook
+│   ├── traefik.yml                # Traefik v3 proxy route + forwardAuth
+│   ├── envoy.yaml                 # Envoy ext_authz filter
+│   └── aws-lambda.py              # AWS Lambda REQUEST authorizer
+├── kong/
+│   ├── kong.yml                   # Kong declarative config
+│   ├── skf_guard_pre.lua          # Input scan Lua plugin (access phase)
+│   └── skf_guard_post.lua         # Output scan Lua plugin (body_filter phase)
 └── docker-compose.yml
 ```
 
@@ -240,6 +262,55 @@ SKF_GUARD_CONNECTION_KEY=<connection key from Dashboard → Connections>
 OPENAI_MODEL=gpt-4o-mini
 PORT=3001
 ```
+
+---
+
+## Gateway Integrations
+
+SKF Guard can be wired into any API gateway or proxy at the infrastructure level — no application code changes required.
+
+### Universal Hook
+
+One endpoint, works with every gateway that supports HTTP callbacks:
+
+```bash
+curl -X POST http://skf-guard:8000/api/integrations/hook \
+  -H "Authorization: Bearer ts_conn_<key>" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "user message", "direction": "input"}'
+# 200 = allow · 400 = block
+```
+
+### Transparent Proxy
+
+Drop-in OpenAI-compatible proxy — just change `base_url`, zero other changes:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://skf-guard:8000/api/integrations/proxy/v1",
+    default_headers={
+        "Authorization":   "Bearer ts_conn_<key>",
+        "X-Upstream-URL":  "https://api.openai.com",
+        "X-Upstream-Auth": "Bearer sk-...",
+    }
+)
+```
+
+### Supported Gateways
+
+| Gateway | Method | Config |
+|---|---|---|
+| **LiteLLM** | `pre_call` + `post_call` guardrail hooks | [docs/gateway-integrations.md](docs/gateway-integrations.md#3-litellm) |
+| **Kong** | Lua `pre-function` + `post-function` plugins | [docs/gateway-integrations.md](docs/gateway-integrations.md#4-kong-api-gateway) |
+| **Nginx** | `access_by_lua_block` calling `/hook` | [gateway-examples/nginx.conf](gateway-examples/nginx.conf) |
+| **Traefik** | Transparent proxy route or `forwardAuth` | [gateway-examples/traefik.yml](gateway-examples/traefik.yml) |
+| **Envoy** | `ext_authz` HTTP filter | [gateway-examples/envoy.yaml](gateway-examples/envoy.yaml) |
+| **AWS API Gateway** | Lambda REQUEST authorizer | [gateway-examples/aws-lambda.py](gateway-examples/aws-lambda.py) |
+| **Any other** | Universal Hook — HTTP POST, 200 = allow, 4xx = deny | [docs/gateway-integrations.md](docs/gateway-integrations.md) |
+
+Full guide: **[docs/gateway-integrations.md](docs/gateway-integrations.md)**
 
 ---
 
