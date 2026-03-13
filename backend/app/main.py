@@ -20,7 +20,6 @@ import app.models.team  # noqa: F401
 import app.models.support_ticket  # noqa: F401
 import app.models.notification  # noqa: F401
 import app.models.announcement  # noqa: F401
-import app.models.billing  # noqa: F401
 import app.models.user_org_membership  # noqa: F401
 import app.models.connection_guardrail  # noqa: F401
 
@@ -202,16 +201,6 @@ async def _run_migrations():
         "ALTER TABLE audit_logs ADD COLUMN on_fail_actions JSON",
         "ALTER TABLE audit_logs ADD COLUMN fix_applied BOOLEAN DEFAULT 0",
         "ALTER TABLE audit_logs ADD COLUMN reask_context JSON",
-        # Stripe billing columns
-        "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)",
-        "ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)",
-        "ALTER TABLE users ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'inactive'",
-        "ALTER TABLE organizations ADD COLUMN stripe_customer_id VARCHAR(255)",
-        "ALTER TABLE organizations ADD COLUMN stripe_subscription_id VARCHAR(255)",
-        "ALTER TABLE organizations ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'inactive'",
-        "ALTER TABLE invoices ADD COLUMN stripe_invoice_id VARCHAR(255)",
-        "ALTER TABLE invoices ADD COLUMN stripe_subscription_id VARCHAR(255)",
-        "ALTER TABLE invoices ADD COLUMN hosted_invoice_url TEXT",
     ]
     async with async_session_maker() as session:
         for stmt in migrations:
@@ -238,7 +227,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v15")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v16")
         )).scalar_one_or_none()
         if marker:
             return
@@ -259,11 +248,11 @@ async def _sync_guardrail_defaults():
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v15", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v16", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
-            logger.info("Synced %d guardrail configs to v15 defaults (BanCode threshold lowered to 0.4 — catches code in mixed prose+code responses).", updated)
+            logger.info("Synced %d guardrail configs to v16 defaults (Augustus + Spikee training: grandma attack, policy puppetry, payload splitting, threat coercion, guilt attack, system error impersonation).", updated)
 
 
 async def _seed_org_memberships():

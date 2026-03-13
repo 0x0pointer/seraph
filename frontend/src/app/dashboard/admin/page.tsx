@@ -52,18 +52,6 @@ interface GuardrailEntry {
 
 interface TopViolation { scanner: string; count: number; }
 
-interface AdminInvoice {
-  id: number; invoice_number: string; amount: number; currency: string;
-  status: string; description: string | null;
-  period_start: string | null; period_end: string | null;
-  paid_at: string | null; created_at: string | null;
-  user_id: number; username: string;
-}
-
-interface AdminInvoicePage {
-  total: number; page: number; limit: number; items: AdminInvoice[];
-}
-
 interface AuditEntry {
   id: number; direction: string; is_valid: boolean;
   raw_text: string; scanner_results: Record<string, number>;
