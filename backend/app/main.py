@@ -238,7 +238,7 @@ async def _sync_guardrail_defaults():
     async with async_session_maker() as session:
         # Check for the latest migration marker (bump version to re-run after catalog changes)
         marker = (await session.execute(
-            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v12")
+            _select(PlatformSetting).where(PlatformSetting.key == "guardrails_defaults_v13")
         )).scalar_one_or_none()
         if marker:
             return
@@ -259,11 +259,11 @@ async def _sync_guardrail_defaults():
                 session.add(g)
                 updated += 1
 
-        session.add(PlatformSetting(key="guardrails_defaults_v12", value="applied"))
+        session.add(PlatformSetting(key="guardrails_defaults_v13", value="applied"))
         await session.commit()
         invalidate_cache()
         if updated:
-            logger.info("Synced %d guardrail configs to v12 defaults (dangerous content phrases + BanTopics expansions).", updated)
+            logger.info("Synced %d guardrail configs to v13 defaults (heuristic expansion: roleplay bypass, zero-width unicode, template injection, PII output, InvisibleText enabled).", updated)
 
 
 async def _seed_org_memberships():
