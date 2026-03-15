@@ -50,3 +50,9 @@ logs/
 # Misc
 *.bak
 *.tmp
+
+# Local assets — not part of the project source
+langsmith_traces/
+backend/docs/
+frontend/docs/
+FullLogo_Transparent.png
