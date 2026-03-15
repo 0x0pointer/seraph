@@ -243,7 +243,7 @@ Point your LLM clients at `http://localhost:8080` instead of the LLM provider di
 2. POSTs to `/api/scan/prompt` on Seraph
 3. If blocked → returns `400` to the caller, request never reaches the LLM
 4. If `fix_applied` → rewrites the request body with `sanitized_text` before forwarding
-5. Adds `X-SKF-Audit-ID` header to the upstream request
+5. Adds `X-Seraph-Audit-ID` header to the upstream request
 
 **`seraph_post.lua` (output):**
 1. Buffers the full LLM response across chunks
@@ -322,10 +322,10 @@ http:
     llm-with-guardrails:
       rule: "PathPrefix(`/llm`)"
       service: seraph-proxy
-      middlewares: [inject-skf-headers, strip-llm-prefix]
+      middlewares: [inject-seraph-headers, strip-llm-prefix]
 
   middlewares:
-    inject-skf-headers:
+    inject-seraph-headers:
       headers:
         customRequestHeaders:
           Authorization:   "Bearer {{ env \"SERAPH_KEY\" }}"
@@ -347,7 +347,7 @@ Clients call `http://traefik/llm/v1/chat/completions` — Traefik strips the pre
 
 ### Option A — forwardAuth
 
-Traefik's `forwardAuth` middleware forwards the original request to an auth service. **Limitation:** Traefik only forwards headers, not the request body. Use this only if your upstream service sets an `X-SKF-Text` header with the content to scan.
+Traefik's `forwardAuth` middleware forwards the original request to an auth service. **Limitation:** Traefik only forwards headers, not the request body. Use this only if your upstream service sets an `X-Seraph-Text` header with the content to scan.
 
 Full config: [`gateway-examples/traefik.yml`](../gateway-examples/traefik.yml)
 

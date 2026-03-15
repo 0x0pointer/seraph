@@ -71,12 +71,12 @@ curl -X POST http://localhost:8000/api/scan/prompt \
 ```python
 import requests
 
-SKFGUARD_URL = "http://localhost:8000"
+SERAPH_URL = "http://localhost:8000"
 CONNECTION_KEY = "YOUR_CONNECTION_KEY"
 
 def scan_input(user_message: str) -> dict:
     resp = requests.post(
-        f"{SKFGUARD_URL}/api/scan/prompt",
+        f"{SERAPH_URL}/api/scan/prompt",
         json={"text": user_message},
         headers={"Authorization": f"Bearer {CONNECTION_KEY}"},
         timeout=30,
@@ -96,11 +96,11 @@ else:
 ### Node.js / TypeScript
 
 ```typescript
-const SKFGUARD_URL = "http://localhost:8000";
+const SERAPH_URL = "http://localhost:8000";
 const CONNECTION_KEY = "YOUR_CONNECTION_KEY";
 
 async function scanInput(userMessage: string) {
-  const res = await fetch(`${SKFGUARD_URL}/api/scan/prompt`, {
+  const res = await fetch(`${SERAPH_URL}/api/scan/prompt`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${CONNECTION_KEY}`,
@@ -156,7 +156,7 @@ After receiving the model's response, scan it before returning to the user:
 ```python
 def scan_output(ai_response: str, original_prompt: str) -> dict:
     resp = requests.post(
-        f"{SKFGUARD_URL}/api/scan/output",
+        f"{SERAPH_URL}/api/scan/output",
         json={"text": ai_response, "prompt": original_prompt},
         headers={"Authorization": f"Bearer {CONNECTION_KEY}"},
         timeout=30,
@@ -176,7 +176,7 @@ final_response = output_result["sanitized_text"]
 
 ```typescript
 async function scanOutput(aiResponse: string, originalPrompt: string) {
-  const res = await fetch(`${SKFGUARD_URL}/api/scan/output`, {
+  const res = await fetch(`${SERAPH_URL}/api/scan/output`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${CONNECTION_KEY}`,
@@ -209,19 +209,19 @@ import os
 import requests
 from openai import OpenAI
 
-SKFGUARD_URL = os.getenv("SERAPH_API_URL", "http://localhost:8000")
+SERAPH_URL  = os.getenv("SERAPH_API_URL", "http://localhost:8000")
 CONNECTION_KEY = os.getenv("SERAPH_CONNECTION_KEY", "")
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def _skf_headers():
+def _seraph_headers():
     return {"Authorization": f"Bearer {CONNECTION_KEY}", "Content-Type": "application/json"}
 
 def chat(user_message: str) -> dict:
     # 1. Scan input
     input_result = requests.post(
-        f"{SKFGUARD_URL}/api/scan/prompt",
+        f"{SERAPH_URL}/api/scan/prompt",
         json={"text": user_message},
-        headers=_skf_headers(),
+        headers=_seraph_headers(),
         timeout=30,
     ).json()
 
@@ -247,9 +247,9 @@ def chat(user_message: str) -> dict:
 
     # 3. Scan output
     output_result = requests.post(
-        f"{SKFGUARD_URL}/api/scan/output",
+        f"{SERAPH_URL}/api/scan/output",
         json={"text": ai_response, "prompt": safe_input},
-        headers=_skf_headers(),
+        headers=_seraph_headers(),
         timeout=30,
     ).json()
 
@@ -276,7 +276,7 @@ const SERAPH_URL = process.env.SERAPH_API_URL ?? "http://localhost:8000";
 const CONNECTION_KEY = process.env.SERAPH_CONNECTION_KEY ?? "";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const skfHeaders = {
+const seraphHeaders = {
   "Authorization": `Bearer ${CONNECTION_KEY}`,
   "Content-Type": "application/json",
 };
@@ -284,7 +284,7 @@ const skfHeaders = {
 async function chat(userMessage: string) {
   // 1. Scan input
   const inputRes = await fetch(`${SERAPH_URL}/api/scan/prompt`, {
-    method: "POST", headers: skfHeaders,
+    method: "POST", headers: seraphHeaders,
     body: JSON.stringify({ text: userMessage }),
   });
   const inputResult = await inputRes.json();
@@ -307,7 +307,7 @@ async function chat(userMessage: string) {
 
   // 3. Scan output
   const outputRes = await fetch(`${SERAPH_URL}/api/scan/output`, {
-    method: "POST", headers: skfHeaders,
+    method: "POST", headers: seraphHeaders,
     body: JSON.stringify({ text: aiResponse, prompt: safeInput }),
   });
   const outputResult = await outputRes.json();

@@ -827,7 +827,7 @@ headers = {
             <pre><span class="k">const</span> API_URL = process.env.SERAPH_API_URL!;
 <span class="k">const</span> KEY   = process.env.SERAPH_CONNECTION_KEY!;
 
-<span class="k">const</span> <span class="kw">skf</span> = <span class="k">async</span> (path: string, body: object) => {
+<span class="k">const</span> <span class="kw">seraph</span> = <span class="k">async</span> (path: string, body: object) => {
   <span class="k">const</span> res = <span class="k">await</span> fetch(`${API_URL}${path}`, {
     method: <span class="s">"POST"</span>,
     headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span>, Authorization: `Bearer ${KEY}` },
@@ -838,12 +838,12 @@ headers = {
 };
 
 <span class="k">async function</span> <span class="kw">chat</span>(userMessage: string): Promise&lt;string&gt; {
-  <span class="k">const</span> scan = <span class="k">await</span> skf(<span class="s">"/api/scan/prompt"</span>, { text: userMessage });
+  <span class="k">const</span> scan = <span class="k">await</span> seraph(<span class="s">"/api/scan/prompt"</span>, { text: userMessage });
   <span class="k">if</span> (!scan.is_valid) <span class="k">return</span> <span class="s">"Sorry, I can't help with that."</span>;
 
   <span class="k">const</span> llmResponse = <span class="k">await</span> callYourLLM(scan.sanitized_text);
 
-  <span class="k">const</span> out = <span class="k">await</span> skf(<span class="s">"/api/scan/output"</span>, {
+  <span class="k">const</span> out = <span class="k">await</span> seraph(<span class="s">"/api/scan/output"</span>, {
     text: llmResponse, prompt: userMessage,
   });
   <span class="k">if</span> (!out.is_valid) <span class="k">return</span> <span class="s">"Sorry, I can't provide that response."</span>;

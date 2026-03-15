@@ -70,14 +70,14 @@ static_resources:
                           allowed_headers:
                             patterns:
                               - exact: authorization
-                              - exact: x-skf-direction
+                              - exact: x-seraph-direction
 
                         # Pass these response headers back to the upstream request
                         authorization_response:
                           allowed_upstream_headers:
                             patterns:
-                              - exact: x-skf-audit-id
-                              - exact: x-skf-sanitized
+                              - exact: x-seraph-audit-id
+                              - exact: x-seraph-sanitized
 
                       # Forward the request body to the auth service
                       # Required so Seraph can read the user message

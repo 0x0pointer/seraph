@@ -5,7 +5,7 @@ cd "$SCRIPT_DIR"
 
 echo ""
 echo "  ┌─────────────────────────────────────────────┐"
-echo "  │           SKF Guard — starting up           │"
+echo "  │              Seraph — starting up            │"
 echo "  └─────────────────────────────────────────────┘"
 echo ""
 
@@ -28,17 +28,17 @@ pip install -q flask requests openai python-dotenv
 if [ ! -f ".env" ]; then
   echo "  ⚠  No .env file found. Copying from .env.example..."
   cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-  echo "  → Edit chatbot/.env and set SKF_GUARD_CONNECTION_KEY and OPENAI_API_KEY, then re-run."
+  echo "  → Edit chatbot/.env and set SERAPH_CONNECTION_KEY and OPENAI_API_KEY, then re-run."
   echo ""
   exit 1
 fi
 
-# ── Check SKF Guard backend ────────────────────────────────────────────────────
-SKF_GUARD_URL="${SKF_GUARD_API_URL:-http://localhost:8000}"
-if curl -sf "$SKF_GUARD_URL/health" > /dev/null 2>&1; then
-  echo "  ✓ SKF Guard backend detected at $SKF_GUARD_URL"
+# ── Check Seraph backend ───────────────────────────────────────────────────────
+SERAPH_URL="${SERAPH_API_URL:-http://localhost:8000}"
+if curl -sf "$SERAPH_URL/health" > /dev/null 2>&1; then
+  echo "  ✓ Seraph backend detected at $SERAPH_URL"
 else
-  echo "  ⚠  WARNING: SKF Guard backend not reachable at $SKF_GUARD_URL"
+  echo "  ⚠  WARNING: Seraph backend not reachable at $SERAPH_URL"
   echo "     Start it first:  cd ../backend && source venv/bin/activate && uvicorn app.main:app --reload"
   echo "     The chatbot will still start but scans will fail open."
   echo ""

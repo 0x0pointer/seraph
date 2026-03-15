@@ -24,7 +24,7 @@ local chunk    = ngx.arg[1]
 local is_last  = ngx.arg[2]
 
 -- Accumulate chunks in context
-ngx.ctx.skf_response_buf = (ngx.ctx.skf_response_buf or "") .. (chunk or "")
+ngx.ctx.seraph_response_buf = (ngx.ctx.seraph_response_buf or "") .. (chunk or "")
 
 -- Only scan + decide on the final chunk
 if not is_last then
@@ -32,7 +32,7 @@ if not is_last then
     return
 end
 
-local full_body = ngx.ctx.skf_response_buf
+local full_body = ngx.ctx.seraph_response_buf
 
 -- ── Extract assistant content ──────────────────────────────────────────────────
 local function assistant_content(raw)
@@ -51,7 +51,7 @@ end
 
 -- Retrieve the original prompt from the header set by the pre-function
 -- (so we can pass it to the output scanner for relevance/consistency checks).
-local prompt_text = kong.request.get_header("X-SKF-Original-Prompt") or ""
+local prompt_text = kong.request.get_header("X-Seraph-Original-Prompt") or ""
 
 -- ── Call Seraph output scan ─────────────────────────────────────────────────
 local httpc = http.new()
@@ -84,7 +84,7 @@ if res.status == 200 then
 
     -- Propagate audit log ID to caller in a response header
     if result.audit_log_id then
-        kong.response.set_header("X-SKF-Output-Audit-ID", tostring(result.audit_log_id))
+        kong.response.set_header("X-Seraph-Output-Audit-ID", tostring(result.audit_log_id))
     end
 
     -- If Seraph applied a fix, swap the assistant content in the response body

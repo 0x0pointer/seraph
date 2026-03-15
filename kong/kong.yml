@@ -57,7 +57,7 @@ services:
                 local code = f:read("*a")
                 f:close()
                 local fn, err = load(code)
-                if fn then fn() else kong.log.err("SKF pre-function load error: ", err) end
+                if fn then fn() else kong.log.err("Seraph pre-function load error: ", err) end
               else
                 kong.log.err("Seraph pre-function script not found")
               end
@@ -72,7 +72,7 @@ services:
                 local code = f:read("*a")
                 f:close()
                 local fn, err = load(code)
-                if fn then fn() else kong.log.err("SKF post-function load error: ", err) end
+                if fn then fn() else kong.log.err("Seraph post-function load error: ", err) end
               else
                 kong.log.err("Seraph post-function script not found")
               end

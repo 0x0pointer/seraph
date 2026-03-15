@@ -33,12 +33,12 @@ http:
       rule: "PathPrefix(`/llm`)"
       service: seraph-proxy
       middlewares:
-        - inject-skf-headers
+        - inject-seraph-headers
         - strip-llm-prefix
 
   middlewares:
     # Inject the Seraph auth key and upstream destination
-    inject-skf-headers:
+    inject-seraph-headers:
       headers:
         customRequestHeaders:
           # Seraph connection key — use Traefik's env var substitution
@@ -62,7 +62,7 @@ http:
           - url: "http://seraph:8000/api/integrations/proxy"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Option A — forwardAuth (for gateways that set X-SKF-Text header upstream)
+# Option A — forwardAuth (for gateways that set X-Seraph-Text header upstream)
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # http:
@@ -79,13 +79,13 @@ http:
 #         address: "http://seraph:8000/api/integrations/hook"
 #         # Traefik passes these request headers to the auth service
 #         authRequestHeaders:
-#           - "X-SKF-Text"        # Your app sets this to the user message
-#           - "X-SKF-Direction"   # "input" or "output"
+#           - "X-Seraph-Text"        # Your app sets this to the user message
+#           - "X-Seraph-Direction"   # "input" or "output"
 #           - "Authorization"     # Seraph connection key
 #         # Headers from auth response to add to the upstream request
 #         authResponseHeaders:
-#           - "X-SKF-Audit-ID"
-#           - "X-SKF-Sanitized"
+#           - "X-Seraph-Audit-ID"
+#           - "X-Seraph-Sanitized"
 #         # Treat these status codes as "allow" (anything else = deny)
 #         trustForwardHeader: true
 #

@@ -95,7 +95,7 @@ if res.status == 200 then
     -- Pass the Seraph audit log ID downstream as a request header
     -- so it can be correlated in application logs.
     if result.audit_log_id then
-        kong.service.request.set_header("X-SKF-Audit-ID", tostring(result.audit_log_id))
+        kong.service.request.set_header("X-Seraph-Audit-ID", tostring(result.audit_log_id))
     end
 
     return  -- allow request through

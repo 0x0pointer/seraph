@@ -39,7 +39,7 @@ def _last_user_message(messages: list[dict]) -> str:
     return ""
 
 
-def _call_skf_hook(text: str, direction: str = "input", prompt: str = "") -> dict:
+def _call_seraph_hook(text: str, direction: str = "input", prompt: str = "") -> dict:
     """Call Seraph's universal hook. Returns the parsed JSON response."""
     payload = json.dumps({
         "text": text,
@@ -131,7 +131,7 @@ def lambda_handler(event: dict, context) -> dict:
         return _allow_policy(principal_id, method_arn)
 
     # Call Seraph
-    result = _call_skf_hook(user_text, direction="input")
+    result = _call_seraph_hook(user_text, direction="input")
 
     if result["status_code"] == 503:
         # Fail-closed: scanner unreachable → deny
@@ -146,8 +146,8 @@ def lambda_handler(event: dict, context) -> dict:
 
     # Allowed — pass audit log ID through as context (visible in API GW access logs)
     ctx = {
-        "skf_audit_log_id": str(result["body"].get("audit_log_id", "")),
-        "skf_fix_applied":  str(result["body"].get("fix_applied", False)),
+        "seraph_audit_log_id": str(result["body"].get("audit_log_id", "")),
+        "seraph_fix_applied":  str(result["body"].get("fix_applied", False)),
     }
     return _allow_policy(principal_id, method_arn, context=ctx)
 

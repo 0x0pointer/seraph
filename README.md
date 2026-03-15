@@ -2,8 +2,6 @@
 
 **Open-source, production-ready guardrails for Large Language Models**
 
-**SKF** stands for **Secure Knowledge Framework** — a set of principles for building AI systems that are safe, observable, and controllable.
-
 Seraph wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard. It can be integrated as a standalone API gateway or wired into any existing gateway (Kong, Nginx, Traefik, Envoy, AWS API Gateway, LiteLLM) using a single HTTP hook.
 
 > **Status:** Beta · MIT License
