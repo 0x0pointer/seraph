@@ -167,7 +167,7 @@ export default function DashboardOverview() {
           },
         ].map(({ label, value, sub, color }) => (
           <div key={label} className="rounded border border-white/5 p-4" style={{ background: "var(--card)" }}>
-            <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-1">{label}</p>
+            <p className="text-xs uppercase tracking-wider mb-1 truncate" style={{ color: "var(--text-dim)" }}>{label}</p>
             <p className="text-2xl font-bold tracking-tight" style={{ color }}>{value}</p>
             <p className="text-xs text-slate-600 mt-1">{sub}</p>
           </div>

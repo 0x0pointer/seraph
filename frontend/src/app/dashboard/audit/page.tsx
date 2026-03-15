@@ -592,7 +592,7 @@ export default function AuditPage() {
           placeholder="Search text, scanner, connection…"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="text-sm rounded px-3 py-2 outline-none w-56"
+          className="text-sm rounded px-3 py-2 outline-none w-72 min-w-0"
           style={inputStyle}
         />
         <select

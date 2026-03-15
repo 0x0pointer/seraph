@@ -220,9 +220,9 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-slate-500 uppercase tracking-wider">{field.label}</label>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4 mb-1.5">
+        <label className="text-xs text-slate-500 uppercase tracking-wider leading-tight">{field.label}</label>
+        <div className="flex items-center gap-2 shrink-0">
           {isThresholdSlider && (
             <span className="text-xs font-mono capitalize" style={{ color: strictColor }}>{strictLabel}</span>
           )}
@@ -259,7 +259,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
           <span className="text-xs text-slate-700 font-mono">{field.max ?? 1}</span>
         </div>
       )}
-      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
     </div>
   );
 }
@@ -276,7 +276,7 @@ function NumberField({ field, value, onChange }: { field: FieldDef; value: numbe
         className="w-full rounded px-3 py-2 text-sm outline-none"
         style={fieldBg}
       />
-      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
     </div>
   );
 }
@@ -295,7 +295,7 @@ function BooleanField({ field, value, onChange }: { field: FieldDef; value: bool
       </button>
       <div>
         <p className="text-sm text-white leading-tight">{field.label}</p>
-        <p className="text-xs text-slate-600 mt-1 leading-relaxed">{field.description}</p>
+        <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
       </div>
     </div>
   );
@@ -345,7 +345,7 @@ function TagsField({ field, value, onChange }: { field: FieldDef; value: string[
           className="flex-1 min-w-[140px] bg-transparent text-sm outline-none text-slate-300 placeholder-slate-700"
         />
       </div>
-      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
     </div>
   );
 }
@@ -389,7 +389,7 @@ function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: 
           {value.length} language{value.length !== 1 ? "s" : ""} selected
         </p>
       )}
-      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
     </div>
   );
 }
@@ -411,7 +411,7 @@ function SelectField({ field, value, onChange }: { field: FieldDef; value: strin
         </select>
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none text-xs">▾</span>
       </div>
-      <p className="text-xs text-slate-600 mt-2 leading-relaxed">{field.description}</p>
+      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>
     </div>
   );
 }
@@ -472,7 +472,7 @@ function CustomBlockedPhrases({
         <p className="text-xs text-slate-400 uppercase tracking-widest font-mono mb-1">
           Custom blocked keywords &amp; phrases
         </p>
-        <p className="text-xs text-slate-600 leading-relaxed">
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-dim)" }}>
           Any prompt or response containing these words or phrases will always be blocked — regardless of what the scanner's model decides.
           Matching is case-insensitive. Add each entry separately.
         </p>
@@ -556,7 +556,7 @@ function ScannerIntelCard({ scannerType }: { scannerType: string }) {
         {/* Model */}
         {intel.model && (
           <div className="rounded px-4 py-3 space-y-1" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-            <p className="text-xs text-slate-600 uppercase tracking-wider">
+            <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
               {intel.modelType === "rule" ? "Library" : "Model"}
             </p>
             <p className="text-sm font-mono" style={{ color: "#5CF097" }}>{intel.model}</p>
@@ -566,7 +566,7 @@ function ScannerIntelCard({ scannerType }: { scannerType: string }) {
         {/* Trained on — summary */}
         {intel.trainedOn && !intel.trainingDatasets && (
           <div className="space-y-1.5">
-            <p className="text-xs text-slate-600 uppercase tracking-wider font-mono">
+            <p className="text-xs uppercase tracking-wider font-mono" style={{ color: "var(--text-dim)" }}>
               {intel.modelType === "rule" ? "Rule sources" : "Trained on"}
             </p>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-dim)" }}>
@@ -579,7 +579,7 @@ function ScannerIntelCard({ scannerType }: { scannerType: string }) {
         {intel.trainingDatasets && intel.trainingDatasets.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-600 uppercase tracking-wider font-mono">Training datasets</p>
+              <p className="text-xs uppercase tracking-wider font-mono" style={{ color: "var(--text-dim)" }}>Training datasets</p>
               <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
                 {intel.trainingDatasets.reduce((s, d) => s + d.count, 0)} {intel.trainingDatasets[0].unit} total
               </p>
@@ -622,6 +622,20 @@ function ScannerIntelCard({ scannerType }: { scannerType: string }) {
     </div>
   );
 }
+
+// ── No-params explanations ────────────────────────────────────────────────────
+
+const NO_PARAMS_EXPLANATION: Record<string, { title: string; body: string }> = {
+  InvisibleText: {
+    title: "Rule-based — no threshold needed",
+    body: "This scanner detects hidden Unicode characters (zero-width spaces, bidirectional overrides, and similar invisible glyphs) that are commonly used to smuggle covert instructions into prompts. Detection is deterministic — either the character is present or it isn't — so there is nothing to tune. Any prompt containing such characters is flagged automatically.",
+  },
+};
+
+const DEFAULT_NO_PARAMS: { title: string; body: string } = {
+  title: "No configurable settings",
+  body: "This scanner runs with fixed internal logic and does not expose any tuneable parameters. It will apply its detection rules to every prompt or response as-is. If you need to adjust its behaviour, consider pairing it with a Custom Rule guardrail.",
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -690,7 +704,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
   const fields = SCANNER_PARAMS[guardrail.scanner_type] ?? [];
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-4xl">
       <button onClick={() => router.push("/dashboard/guardrails")}
         className="text-xs text-slate-500 hover:text-white transition-colors mb-8 block">
         ← Guardrails
@@ -703,7 +717,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
             <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>
               {guardrail.scanner_type}
             </span>
-            <span className="text-xs text-slate-600">{DIRECTION_LABEL[guardrail.direction] ?? guardrail.direction}</span>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>{DIRECTION_LABEL[guardrail.direction] ?? guardrail.direction}</span>
           </div>
 
           <div className="space-y-5">
@@ -749,7 +763,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
                 <p className="text-sm text-white leading-tight">
                   {isActive ? "Scanner is active" : "Scanner is inactive"}
                 </p>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-dim)" }}>
                   {isActive
                     ? "All prompts are being scanned by this guardrail."
                     : "This guardrail is disabled and will not scan any prompts."}
@@ -760,7 +774,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
             {/* On-fail action */}
             <div>
               <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">On violation</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {([
                   { value: "block",   label: "Block",   desc: "Reject the request immediately.",                          color: "#f87171", bg: "rgba(248,113,113,0.08)" },
                   { value: "fix",     label: "Fix",     desc: "Use the scanner's sanitized output instead of blocking.",  color: "#34d399", bg: "rgba(52,211,153,0.08)"  },
@@ -778,7 +792,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
                     }}
                   >
                     <p className="text-xs font-mono font-semibold mb-0.5" style={{ color: opt.color }}>{opt.label}</p>
-                    <p className="text-xs text-slate-600 leading-snug">{opt.desc}</p>
+                    <p className="text-xs leading-snug" style={{ color: "var(--text-dim)" }}>{opt.desc}</p>
                   </button>
                 ))}
               </div>
@@ -799,11 +813,15 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {fields.length === 0 && (
-          <div className="rounded border border-white/5 px-6 py-5" style={{ background: "var(--card)" }}>
-            <p className="text-xs text-slate-600">This scanner has no configurable settings.</p>
-          </div>
-        )}
+        {fields.length === 0 && (() => {
+          const exp = NO_PARAMS_EXPLANATION[guardrail.scanner_type] ?? DEFAULT_NO_PARAMS;
+          return (
+            <div className="rounded border border-white/5 px-6 py-5 space-y-2" style={{ background: "var(--card)" }}>
+              <p className="text-xs uppercase tracking-wider font-mono" style={{ color: "var(--text-dim)" }}>{exp.title}</p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>{exp.body}</p>
+            </div>
+          );
+        })()}
 
         {/* Custom blocked phrases — universal, works on top of any scanner */}
         <CustomBlockedPhrases params={editParams} setParams={setEditParams} />

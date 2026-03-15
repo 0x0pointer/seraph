@@ -47,9 +47,9 @@ const ChartTip = ({ active, payload, label }: {
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="rounded border border-white/5 p-4" style={{ background: "var(--card)" }}>
-      <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-xs uppercase tracking-wider mb-1 truncate" style={{ color: "var(--text-dim)" }}>{label}</p>
       <p className="text-2xl font-bold tracking-tight" style={{ color: color ?? "#e2e8f0" }}>{value}</p>
-      {sub && <p className="text-xs text-slate-600 mt-1">{sub}</p>}
+      {sub && <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{sub}</p>}
     </div>
   );
 }

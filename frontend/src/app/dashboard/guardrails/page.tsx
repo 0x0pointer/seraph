@@ -329,7 +329,7 @@ function ScannerCatalog({
       </div>
 
       {/* Scanner grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {visible.filter((t) => t.scanner_type !== "CustomRule").map((tpl) => (
           <button
             key={`${tpl.direction}-${tpl.scanner_type}`}
@@ -344,7 +344,7 @@ function ScannerCatalog({
               <span className="text-xs font-mono font-medium text-white">{tpl.scanner_type}</span>
               <span className="text-xs text-slate-700 group-hover:text-[#5CF097] transition-colors shrink-0">Select →</span>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">{tpl.tagline}</p>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>{tpl.tagline}</p>
           </button>
         ))}
       </div>
@@ -529,7 +529,7 @@ function NewGuardrailForm({
         {!isCustom && <span className="text-xs text-slate-600 capitalize">{template.direction} scanner</span>}
       </div>
 
-      <p className="text-xs text-slate-500 leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(92,240,151,0.3)" }}>
+      <p className="text-xs leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(92,240,151,0.3)", color: "var(--text-muted)" }}>
         {template.description}
       </p>
 
@@ -672,7 +672,7 @@ export default function GuardrailsPage() {
   const existingCount = data?.length ?? 0;
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-5xl">
       {/* Tabs + add button */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1 p-1 rounded" style={{ background: "var(--card)" }}>
@@ -685,21 +685,19 @@ export default function GuardrailsPage() {
           ))}
         </div>
         {addStep === "closed" && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const tpl = CATALOG.find(
-                  (t) => t.scanner_type === "CustomRule" && t.direction === tab
-                )!;
-                setSelectedTemplate(tpl);
-                setAddStep("configure");
-              }}
-              className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-              style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097", border: "1px solid rgba(92,240,151,0.2)" }}
-            >
-              + Build custom rule
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              const tpl = CATALOG.find(
+                (t) => t.scanner_type === "CustomRule" && t.direction === tab
+              )!;
+              setSelectedTemplate(tpl);
+              setAddStep("configure");
+            }}
+            className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
+            style={{ background: "#5CF097", color: "#0A0F1F" }}
+          >
+            + Add custom guardrail
+          </button>
         )}
       </div>
 
@@ -737,9 +735,10 @@ export default function GuardrailsPage() {
           </p>
         ) : filtered.map((g, idx) => {
           const customDesc = typeof g.params?._description === "string" ? g.params._description : null;
-          const autoDesc = CATALOG.find(
-            (t) => t.scanner_type === g.scanner_type && t.direction === g.direction
-          )?.description ?? "No description available.";
+          const autoDesc =
+            CATALOG.find((t) => t.scanner_type === g.scanner_type && t.direction === g.direction)?.description ??
+            CATALOG.find((t) => t.scanner_type === g.scanner_type)?.description ??
+            "No description added yet — open this guardrail to add one.";
           const intel = SCANNER_INTEL[g.scanner_type];
           const typeMeta = intel ? MODEL_TYPE_META[intel.modelType] : null;
 
@@ -773,7 +772,7 @@ export default function GuardrailsPage() {
                     );
                   })()}
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed mb-1">
+                <p className="text-xs leading-relaxed mb-1" style={{ color: "var(--text-muted)" }}>
                   {customDesc ?? autoDesc}
                 </p>
                 {intel?.model && (
