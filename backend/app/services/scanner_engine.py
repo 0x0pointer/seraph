@@ -22,6 +22,7 @@ import concurrent.futures
 import hashlib
 import importlib
 import logging
+import re
 from collections import OrderedDict
 from typing import Any
 
@@ -138,6 +139,35 @@ def _normalize_languages(languages: list) -> list[str]:
     return result
 
 
+# Matches triple-backtick fenced code blocks (``` or ```lang\n...\n```)
+_MARKDOWN_CODE_FENCE_RE = re.compile(r"```[\w]*\n[\s\S]*?```", re.DOTALL)
+
+
+class BanCode:
+    """
+    Wraps llm_guard's BanCode output scanner to correctly detect markdown-fenced code.
+
+    llm_guard's BanCode calls remove_markdown() before ML inference, which strips the
+    content inside ``` fences so the model never sees the code — producing false-negatives
+    for every LLM that wraps its code in ```python ... ```.
+
+    This wrapper short-circuits to a guaranteed block when a fenced code block is present,
+    then falls through to the normal BanCode ML scan for raw (un-fenced) code.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
+        if _MARKDOWN_CODE_FENCE_RE.search(output):
+            logger.warning("BanCode: markdown code fence detected in output — blocked")
+            return output, False, 1.0
+        return self._inner.scan(prompt, output)
+
+
+_BanCodeOutputWrapper = BanCode  # alias kept for backwards-compat with cached entries
+
+
 def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
     """
     Instantiate a scanner, with smart routing for BanCode:
@@ -165,7 +195,11 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
             return _import_scanner("Code", direction, code_params)
         # No languages — BanCode detects all code; strip any invalid keys
         clean = {k: v for k, v in params.items() if k not in ("languages", "is_blocked")}
-        return _import_scanner("BanCode", direction, clean)
+        scanner = _import_scanner("BanCode", direction, clean)
+        # Wrap output scanner to catch markdown-fenced code (llm_guard strips fences before ML)
+        if direction == "output":
+            return BanCode(scanner)
+        return scanner
 
     return _import_scanner(scanner_type, direction, params)
 
