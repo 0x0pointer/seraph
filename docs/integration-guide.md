@@ -1,6 +1,6 @@
-# SKF Guard — Integration Guide
+# Seraph — Integration Guide
 
-This guide walks you through integrating SKF Guard into any application that uses an LLM. You will scan user input before it reaches the model, and scan the model's output before it reaches the user.
+This guide walks you through integrating Seraph into any application that uses an LLM. You will scan user input before it reaches the model, and scan the model's output before it reaches the user.
 
 ---
 
@@ -11,7 +11,7 @@ User Input
     │
     ▼
 ┌──────────────────────────┐
-│  POST /api/scan/prompt   │  ← SKF Guard input scan
+│  POST /api/scan/prompt   │  ← Seraph input scan
 │  Authorization: Bearer   │
 │  <connection key>        │
 └──────────┬───────────────┘
@@ -22,7 +22,7 @@ User Input
            │
            ▼
 ┌──────────────────────────┐
-│  POST /api/scan/output   │  ← SKF Guard output scan
+│  POST /api/scan/output   │  ← Seraph output scan
 │  Authorization: Bearer   │
 │  <connection key>        │
 └──────────┬───────────────┘
@@ -36,7 +36,7 @@ User Input
 
 ## Prerequisites
 
-1. SKF Guard backend running (`uvicorn app.main:app --port 8000`)
+1. Seraph backend running (`uvicorn app.main:app --port 8000`)
 2. A connection API key — create one in the dashboard under **Connections**
 
 ---
@@ -55,7 +55,7 @@ This key is used as the `Authorization: Bearer` header for all scan calls. Each 
 
 ## Step 2 — Scan User Input
 
-Before sending the user's message to your LLM, send it to SKF Guard:
+Before sending the user's message to your LLM, send it to Seraph:
 
 ### cURL
 
@@ -109,7 +109,7 @@ async function scanInput(userMessage: string) {
     body: JSON.stringify({ text: userMessage }),
   });
 
-  if (!res.ok) throw new Error(`SKF Guard error: ${res.status}`);
+  if (!res.ok) throw new Error(`Seraph error: ${res.status}`);
   return res.json();
 }
 
@@ -185,7 +185,7 @@ async function scanOutput(aiResponse: string, originalPrompt: string) {
     body: JSON.stringify({ text: aiResponse, prompt: originalPrompt }),
   });
 
-  if (!res.ok) throw new Error(`SKF Guard error: ${res.status}`);
+  if (!res.ok) throw new Error(`Seraph error: ${res.status}`);
   return res.json();
 }
 
@@ -209,8 +209,8 @@ import os
 import requests
 from openai import OpenAI
 
-SKFGUARD_URL = os.getenv("SKF_GUARD_API_URL", "http://localhost:8000")
-CONNECTION_KEY = os.getenv("SKF_GUARD_CONNECTION_KEY", "")
+SKFGUARD_URL = os.getenv("SERAPH_API_URL", "http://localhost:8000")
+CONNECTION_KEY = os.getenv("SERAPH_CONNECTION_KEY", "")
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def _skf_headers():
@@ -272,8 +272,8 @@ def chat(user_message: str) -> dict:
 ```typescript
 import OpenAI from "openai";
 
-const SKF_GUARD_URL = process.env.SKF_GUARD_API_URL ?? "http://localhost:8000";
-const CONNECTION_KEY = process.env.SKF_GUARD_CONNECTION_KEY ?? "";
+const SERAPH_URL = process.env.SERAPH_API_URL ?? "http://localhost:8000";
+const CONNECTION_KEY = process.env.SERAPH_CONNECTION_KEY ?? "";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const skfHeaders = {
@@ -283,7 +283,7 @@ const skfHeaders = {
 
 async function chat(userMessage: string) {
   // 1. Scan input
-  const inputRes = await fetch(`${SKF_GUARD_URL}/api/scan/prompt`, {
+  const inputRes = await fetch(`${SERAPH_URL}/api/scan/prompt`, {
     method: "POST", headers: skfHeaders,
     body: JSON.stringify({ text: userMessage }),
   });
@@ -306,7 +306,7 @@ async function chat(userMessage: string) {
   const aiResponse = completion.choices[0].message.content ?? "";
 
   // 3. Scan output
-  const outputRes = await fetch(`${SKF_GUARD_URL}/api/scan/output`, {
+  const outputRes = await fetch(`${SERAPH_URL}/api/scan/output`, {
     method: "POST", headers: skfHeaders,
     body: JSON.stringify({ text: aiResponse, prompt: safeInput }),
   });
@@ -400,13 +400,13 @@ Or browse it in the dashboard under **Audit Log**. Each entry contains:
 - [ ] Set up SMTP for password-reset emails
 - [ ] Run behind a reverse proxy (nginx/Caddy) with TLS in production
 - [ ] Rotate connection keys periodically
-- [ ] Back up `skfguard.db` regularly (or migrate to PostgreSQL for production)
+- [ ] Back up `seraph.db` regularly (or migrate to PostgreSQL for production)
 
 ---
 
 ## SDK / Library Wrappers
 
-SKF Guard uses a plain HTTP API — no SDK required. Use any HTTP client:
+Seraph uses a plain HTTP API — no SDK required. Use any HTTP client:
 
 | Language | Recommended client |
 |---|---|

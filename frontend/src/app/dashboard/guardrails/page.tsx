@@ -281,7 +281,7 @@ function Toggle({ active, onToggle }: { active: boolean; onToggle: () => void })
     <button
       onClick={onToggle}
       className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0"
-      style={{ background: active ? "#515594" : "#1a2236" }}
+      style={{ background: active ? "#5CF097" : "#1a2236" }}
     >
       <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
         style={{ transform: active ? "translateX(18px)" : "translateX(2px)" }} />
@@ -322,7 +322,7 @@ function ScannerCatalog({
         {(["input", "output"] as const).map((d) => (
           <button key={d} onClick={() => setDirTab(d)}
             className="px-4 py-1.5 rounded text-xs font-medium transition-colors capitalize"
-            style={dirTab === d ? { background: "#515594", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
+            style={dirTab === d ? { background: "#5CF097", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
             {d === "input" ? "Input — scan prompts" : "Output — scan responses"}
           </button>
         ))}
@@ -337,12 +337,12 @@ function ScannerCatalog({
             onClick={() => onSelect(tpl)}
             className="text-left rounded border px-4 py-3.5 transition-all group"
             style={{ background: "var(--bg)", borderColor: "var(--border)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(81,85,148,0.3)")}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(92,240,151,0.3)")}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
           >
             <div className="flex items-start justify-between gap-2 mb-1">
               <span className="text-xs font-mono font-medium text-white">{tpl.scanner_type}</span>
-              <span className="text-xs text-slate-700 group-hover:text-[#515594] transition-colors shrink-0">Select →</span>
+              <span className="text-xs text-slate-700 group-hover:text-[#5CF097] transition-colors shrink-0">Select →</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">{tpl.tagline}</p>
           </button>
@@ -355,7 +355,7 @@ function ScannerCatalog({
 // ── Code reference panel (Custom Rule) ───────────────────────────────────────
 
 const CODE_TAB_STYLES = {
-  active: { background: "#515594", color: "#0A0F1F" },
+  active: { background: "#5CF097", color: "#0A0F1F" },
   inactive: { color: "var(--text-dim)" },
 };
 
@@ -523,13 +523,13 @@ function NewGuardrailForm({
     <form onSubmit={handleCreate} className="rounded border border-white/5 p-6 space-y-5" style={{ background: "var(--card)" }}>
       <div className="flex items-center gap-3">
         <button type="button" onClick={onBack} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">← Back</button>
-        <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
+        <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>
           {template.scanner_type}
         </span>
         {!isCustom && <span className="text-xs text-slate-600 capitalize">{template.direction} scanner</span>}
       </div>
 
-      <p className="text-xs text-slate-500 leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(81,85,148,0.3)" }}>
+      <p className="text-xs text-slate-500 leading-relaxed border-l-2 pl-3" style={{ borderColor: "rgba(92,240,151,0.3)" }}>
         {template.description}
       </p>
 
@@ -573,7 +573,7 @@ function NewGuardrailForm({
                     className="flex-1 py-2 rounded text-xs font-medium transition-colors capitalize"
                     style={
                       direction === d
-                        ? { background: "#515594", color: "#0A0F1F" }
+                        ? { background: "#5CF097", color: "#0A0F1F" }
                         : { background: "var(--bg)", color: "var(--text-dim)", border: "1px solid rgba(255,255,255,0.06)" }
                     }
                   >
@@ -592,7 +592,7 @@ function NewGuardrailForm({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Detection threshold</label>
-                <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#515594" }}>{threshold.toFixed(2)}</span>
+                <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#5CF097" }}>{threshold.toFixed(2)}</span>
               </div>
               <input
                 type="range" min={0} max={1} step={0.05}
@@ -600,7 +600,7 @@ function NewGuardrailForm({
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
                 className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, #515594 ${threshold * 100}%, #1a2236 ${threshold * 100}%)`,
+                  background: `linear-gradient(to right, #5CF097 ${threshold * 100}%, #1a2236 ${threshold * 100}%)`,
                   outline: "none",
                 }}
               />
@@ -629,7 +629,7 @@ function NewGuardrailForm({
       <div className="flex gap-3">
         <button type="submit" disabled={saving}
           className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50"
-          style={{ background: "#515594", color: "#0A0F1F" }}>
+          style={{ background: "#5CF097", color: "#0A0F1F" }}>
           {saving ? "Creating…" : "Create guardrail →"}
         </button>
         <button type="button" onClick={onBack} className="text-xs px-4 py-2 rounded border border-white/10 text-slate-400">
@@ -679,7 +679,7 @@ export default function GuardrailsPage() {
           {(["input", "output"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className="px-4 py-1.5 rounded text-xs font-medium transition-colors capitalize"
-              style={tab === t ? { background: "#515594", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
+              style={tab === t ? { background: "#5CF097", color: "#0A0F1F" } : { color: "var(--text-dim)" }}>
               {t}
             </button>
           ))}
@@ -695,7 +695,7 @@ export default function GuardrailsPage() {
                 setAddStep("configure");
               }}
               className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-              style={{ background: "rgba(81,85,148,0.1)", color: "#515594", border: "1px solid rgba(81,85,148,0.2)" }}
+              style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097", border: "1px solid rgba(92,240,151,0.2)" }}
             >
               + Build custom rule
             </button>
@@ -753,7 +753,7 @@ export default function GuardrailsPage() {
                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <p className="text-sm text-white truncate">{g.name}</p>
                   <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                    style={{ background: "rgba(81,85,148,0.08)", color: "#515594" }}>
+                    style={{ background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
                     {g.scanner_type}
                   </span>
                   {typeMeta && (

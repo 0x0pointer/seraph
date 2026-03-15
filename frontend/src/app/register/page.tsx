@@ -27,7 +27,7 @@ function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
   const color =
-    passed <= 2 ? "#f87171" : passed <= 3 ? "#fb923c" : passed === 4 ? "#facc15" : "#515594";
+    passed <= 2 ? "#f87171" : passed <= 3 ? "#fb923c" : passed === 4 ? "#facc15" : "#5CF097";
   const label = ["", "Weak", "Weak", "Fair", "Good", "Strong"][passed];
 
   return (
@@ -46,7 +46,7 @@ function PasswordStrength({ password }: { password: string }) {
           const ok = rule.test(password);
           return (
             <div key={rule.label} className="flex items-center gap-1.5">
-              <span className="text-xs" style={{ color: ok ? "#515594" : "#475569" }}>
+              <span className="text-xs" style={{ color: ok ? "#5CF097" : "#475569" }}>
                 {ok ? "✓" : "○"}
               </span>
               <span className="text-xs" style={{ color: ok ? "#94a3b8" : "#475569" }}>
@@ -142,8 +142,8 @@ export default function RegisterPage() {
         style={{ background: "#0d1426" }}
       >
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-sm" style={{ background: "#515594" }} />
-          <span className="text-white font-semibold text-sm tracking-tight">SKF Guard</span>
+          <span className="w-5 h-5 rounded-sm" style={{ background: "#5CF097" }} />
+          <span className="text-white font-semibold text-sm tracking-tight">Seraph</span>
         </Link>
         <div>
           <p className="text-2xl font-bold text-white tracking-tight leading-snug mb-4">
@@ -153,7 +153,7 @@ export default function RegisterPage() {
             One API. Full audit trail. Real-time monitoring.
           </p>
         </div>
-        <p className="text-xs text-slate-700">© 2026 SKF Guard</p>
+        <p className="text-xs text-slate-700">© 2026 Seraph</p>
       </div>
 
       {/* Right panel */}
@@ -163,7 +163,7 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Create an account</h1>
             <p className="text-sm text-slate-500">
               Already have one?{" "}
-              <Link href="/login" className="transition-colors hover:text-white" style={{ color: "#515594" }}>
+              <Link href="/login" className="transition-colors hover:text-white" style={{ color: "#5CF097" }}>
                 Sign in
               </Link>
             </p>
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                 placeholder="Jane Smith"
                 className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "#515594")}
+                onFocus={(e) => (e.target.style.borderColor = "#5CF097")}
                 onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               />
             </div>
@@ -204,7 +204,7 @@ export default function RegisterPage() {
                 placeholder="jane@example.com"
                 className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "#515594")}
+                onFocus={(e) => (e.target.style.borderColor = "#5CF097")}
                 onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               />
             </div>
@@ -223,7 +223,7 @@ export default function RegisterPage() {
                 placeholder="janesmith"
                 className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "#515594")}
+                onFocus={(e) => (e.target.style.borderColor = "#5CF097")}
                 onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               />
             </div>
@@ -242,7 +242,7 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "#515594")}
+                onFocus={(e) => (e.target.style.borderColor = "#5CF097")}
                 onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
               />
               <PasswordStrength password={password} />
@@ -267,18 +267,18 @@ export default function RegisterPage() {
                     confirm && password !== confirm
                       ? "rgba(248,113,113,0.5)"
                       : confirm && password === confirm
-                      ? "rgba(81,85,148,0.5)"
+                      ? "rgba(92,240,151,0.5)"
                       : "rgba(255,255,255,0.08)",
                 }}
                 onFocus={(e) => {
-                  if (!confirm || password === confirm) e.target.style.borderColor = "#515594";
+                  if (!confirm || password === confirm) e.target.style.borderColor = "#5CF097";
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor =
                     confirm && password !== confirm
                       ? "rgba(248,113,113,0.5)"
                       : confirm && password === confirm
-                      ? "rgba(81,85,148,0.5)"
+                      ? "rgba(92,240,151,0.5)"
                       : "rgba(255,255,255,0.08)";
                 }}
               />
@@ -312,7 +312,7 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading || !turnstileToken || !allRulesPassed || password !== confirm}
               className="w-full py-2.5 rounded text-sm font-medium transition-opacity disabled:opacity-40"
-              style={{ background: "#515594", color: "#fff" }}
+              style={{ background: "#5CF097", color: "#fff" }}
             >
               {loading ? "Creating account…" : "Create account"}
             </button>

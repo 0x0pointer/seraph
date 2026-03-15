@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SKF Guard</title>
+  <title>Seraph</title>
   <script>
     // Apply saved theme before paint to prevent flash
     try {
@@ -306,7 +306,7 @@
       display: flex; align-items: center; justify-content: space-between;
       margin-top: 8px; font-size: 11.5px; color: var(--muted);
     }
-    .input-footer .skfguard-note {
+    .input-footer .seraph-note {
       display: flex; align-items: center; gap: 5px;
       color: var(--purple); opacity: 0.8; font-weight: 500;
     }
@@ -352,8 +352,8 @@
       </svg>
     </div>
     <div class="header-title">
-      <h1>SKF Guard</h1>
-      <p>Powered by GPT-4o mini · Guarded by SKF Guard</p>
+      <h1>Seraph</h1>
+      <p>Powered by GPT-4o mini · Guarded by Seraph</p>
     </div>
     <div class="header-right">
       <div class="shield-badge">
@@ -396,7 +396,7 @@
         </svg>
       </div>
       <h2>How can I help you?</h2>
-      <p>Every message is scanned by SKF Guard guardrails before it reaches the AI — and before the response reaches you.</p>
+      <p>Every message is scanned by Seraph guardrails before it reaches the AI — and before the response reaches you.</p>
       <div class="suggestion-grid">
         <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
         <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>
@@ -424,12 +424,12 @@
       </button>
     </div>
     <div class="input-footer">
-      <div class="skfguard-note">
+      <div class="seraph-note">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z"
                 fill="none" stroke="#515594" stroke-width="2"/>
         </svg>
-        Protected by SKF Guard
+        Protected by Seraph
       </div>
       <button class="clear-btn" onclick="clearChat()">Clear chat</button>
     </div>
@@ -592,7 +592,7 @@
               <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-width="2"/>
               <path d="M4.93 4.93L19.07 19.07" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            ${esc(dirLabel)} blocked by SKF Guard
+            ${esc(dirLabel)} blocked by Seraph
           </div>
           ${esc(data.message || 'This content was blocked by guardrails.')}
           ${pillsHtml ? `<div class="violation-pills">${pillsHtml}</div>` : ''}
@@ -643,7 +643,7 @@
       }
     } catch (err) {
       removeTyping();
-      appendBlocked({ direction: 'output', violations: [], message: `Network error: ${err.message}. Is the SKF Guard server running?` });
+      appendBlocked({ direction: 'output', violations: [], message: `Network error: ${err.message}. Is the Seraph server running?` });
     } finally {
       sendBtn.disabled = false;
       inputEl.focus();
@@ -665,7 +665,7 @@
         </svg>
       </div>
       <h2>How can I help you?</h2>
-      <p>Every message is scanned by SKF Guard guardrails before it reaches the AI — and before the response reaches you.</p>
+      <p>Every message is scanned by Seraph guardrails before it reaches the AI — and before the response reaches you.</p>
       <div class="suggestion-grid">
         <button class="suggestion-btn" onclick="suggest(this)">What is prompt injection?</button>
         <button class="suggestion-btn" onclick="suggest(this)">Explain zero-day vulnerabilities</button>

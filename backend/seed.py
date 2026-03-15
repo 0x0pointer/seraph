@@ -45,7 +45,7 @@ async def seed():
             admin = User(
                 username="admin",
                 full_name="Administrator",
-                email="admin@skfguard.io",
+                email="admin@seraph.io",
                 hashed_password=hash_password(admin_password),
                 role="admin",
             )
@@ -55,7 +55,7 @@ async def seed():
         else:
             if not existing_admin.full_name:
                 existing_admin.full_name = "Administrator"
-                existing_admin.email = "admin@skfguard.io"
+                existing_admin.email = "admin@seraph.io"
                 await session.commit()
             print("Admin user already exists, skipping.")
 

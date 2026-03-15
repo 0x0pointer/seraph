@@ -191,10 +191,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="px-5 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
           <Link href="/" className="flex items-center gap-2.5">
             <span className="w-5 h-5 rounded-sm" style={{ background: "var(--purple)" }} />
-            <span className="font-semibold text-sm tracking-tight" style={{ color: "var(--text)" }}>SKF Guard</span>
+            <span className="font-semibold text-sm tracking-tight" style={{ color: "var(--text)" }}>Seraph</span>
             <span
               className="font-mono font-bold tracking-widest px-1 py-0.5 rounded"
-              style={{ background: "rgba(81,85,148,0.15)", color: "var(--purple)", fontSize: "0.55rem", letterSpacing: "0.1em" }}
+              style={{ background: "rgba(92,240,151,0.15)", color: "var(--purple)", fontSize: "0.55rem", letterSpacing: "0.1em" }}
             >BETA</span>
           </Link>
           {user && user.orgs && user.orgs.length > 0 && (
@@ -215,7 +215,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.href}
                 className="flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors"
                 style={{
-                  background: active ? "rgba(81,85,148,0.1)" : "transparent",
+                  background: active ? "rgba(92,240,151,0.1)" : "transparent",
                   color: active ? "var(--purple)" : "var(--text-muted)",
                   borderLeft: active ? "2px solid var(--purple)" : "2px solid transparent",
                   fontWeight: active ? 500 : 400,
@@ -241,7 +241,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.href}
                 className="flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors"
                 style={{
-                  background: active ? "rgba(81,85,148,0.1)" : "transparent",
+                  background: active ? "rgba(92,240,151,0.1)" : "transparent",
                   color: active ? "var(--purple)" : "var(--text-muted)",
                   borderLeft: active ? "2px solid var(--purple)" : "2px solid transparent",
                 }}
@@ -301,7 +301,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div
                   className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                   style={{
-                    background: user.role === "admin" ? "rgba(248,113,113,0.2)" : "rgba(81,85,148,0.15)",
+                    background: user.role === "admin" ? "rgba(248,113,113,0.2)" : "rgba(92,240,151,0.15)",
                     color: user.role === "admin" ? "#f87171" : "var(--purple)",
                   }}
                 >
@@ -317,7 +317,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   style={
                     user.role === "admin"
                       ? { background: "rgba(248,113,113,0.1)", color: "#f87171" }
-                      : { background: "rgba(81,85,148,0.1)", color: "var(--purple)" }
+                      : { background: "rgba(92,240,151,0.1)", color: "var(--purple)" }
                   }
                 >
                   {user.role}

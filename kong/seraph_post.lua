@@ -1,5 +1,5 @@
--- skf_guard_post.lua
--- Kong post-function plugin — scans the LLM response through SKF Guard
+-- seraph_post.lua
+-- Kong post-function plugin — scans the LLM response through Seraph
 -- before returning it to the caller.
 --
 -- Phase: body_filter
@@ -8,14 +8,14 @@
 -- in ngx.ctx and scan it on the final chunk (ngx.arg[2] == true).
 --
 -- Environment variables (same as pre-function):
---   SKF_GUARD_URL  — base URL of SKF Guard
---   SKF_GUARD_KEY  — connection key
+--   SERAPH_URL  — base URL of Seraph
+--   SERAPH_KEY  — connection key
 
 local http  = require("resty.http")
 local cjson = require("cjson.safe")
 
-local SKF_GUARD_URL = os.getenv("SKF_GUARD_URL") or "http://skf-guard:8000"
-local SKF_GUARD_KEY = os.getenv("SKF_GUARD_KEY") or ""
+local SERAPH_URL = os.getenv("SERAPH_URL") or "http://seraph:8000"
+local SERAPH_KEY = os.getenv("SERAPH_KEY") or ""
 local TIMEOUT_MS    = 10000
 
 -- ── Buffer chunks ──────────────────────────────────────────────────────────────
@@ -53,25 +53,25 @@ end
 -- (so we can pass it to the output scanner for relevance/consistency checks).
 local prompt_text = kong.request.get_header("X-SKF-Original-Prompt") or ""
 
--- ── Call SKF Guard output scan ─────────────────────────────────────────────────
+-- ── Call Seraph output scan ─────────────────────────────────────────────────
 local httpc = http.new()
 httpc:set_timeout(TIMEOUT_MS)
 
-local res, req_err = httpc:request_uri(SKF_GUARD_URL .. "/api/scan/output", {
+local res, req_err = httpc:request_uri(SERAPH_URL .. "/api/scan/output", {
     method  = "POST",
     body    = cjson.encode({ text = assistant_text, prompt = prompt_text }),
     headers = {
         ["Content-Type"]  = "application/json",
-        ["Authorization"] = "Bearer " .. SKF_GUARD_KEY,
+        ["Authorization"] = "Bearer " .. SERAPH_KEY,
     },
 })
 
 -- Fail-closed on unreachable scanner
 if req_err or not res then
-    kong.log.err("SKF Guard output scan unreachable: ", req_err or "no response")
+    kong.log.err("Seraph output scan unreachable: ", req_err or "no response")
     ngx.arg[1] = cjson.encode({
         error  = "safety_scanner_unavailable",
-        detail = "SKF Guard did not respond. Response blocked (fail-closed).",
+        detail = "Seraph did not respond. Response blocked (fail-closed).",
     })
     kong.response.set_header("Content-Type", "application/json")
     kong.response.set_status(503)
@@ -87,7 +87,7 @@ if res.status == 200 then
         kong.response.set_header("X-SKF-Output-Audit-ID", tostring(result.audit_log_id))
     end
 
-    -- If SKF Guard applied a fix, swap the assistant content in the response body
+    -- If Seraph applied a fix, swap the assistant content in the response body
     if result.fix_applied and result.sanitized_text and result.sanitized_text ~= assistant_text then
         local parsed = cjson.decode(full_body)
         if parsed and parsed.choices and parsed.choices[1] then
@@ -102,9 +102,9 @@ end
 
 -- Blocked by output guardrail
 local result = cjson.decode(res.body) or {}
-local detail = result.detail or "Response blocked by SKF Guard output guardrail"
+local detail = result.detail or "Response blocked by Seraph output guardrail"
 
-kong.log.warn("SKF Guard blocked output — status: ", res.status, " detail: ", detail)
+kong.log.warn("Seraph blocked output — status: ", res.status, " detail: ", detail)
 
 ngx.arg[1] = cjson.encode({
     error  = "output_guardrail_violation",

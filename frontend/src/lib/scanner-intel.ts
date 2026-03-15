@@ -372,8 +372,8 @@ export const SCANNER_INTEL: Record<string, ScannerIntel> = {
 export const MODEL_TYPE_META: Record<ModelType, { label: string; color: string; bg: string }> = {
   ml: {
     label: "ML Model",
-    color: "#6b6fab",
-    bg: "rgba(81,85,148,0.12)",
+    color: "#80F5B3",
+    bg: "rgba(92,240,151,0.12)",
   },
   rule: {
     label: "Rule-based",

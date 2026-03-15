@@ -1,6 +1,6 @@
-# SKF Guard — REST API Reference
+# Seraph — REST API Reference
 
-Base URL: `https://skfguard.io/api`
+Base URL: `https://seraph.io/api`
 
 All protected endpoints require a JWT Bearer token (obtained from `/auth/login`) or a static API key (from `/auth/api-token`):
 
@@ -316,7 +316,7 @@ Returns public platform info — no authentication required.
 
 **Response:**
 ```json
-{ "company_name": "SKF Guard", "chatbot_enabled": true }
+{ "company_name": "Seraph", "chatbot_enabled": true }
 ```
 
 ---

@@ -1,17 +1,17 @@
 """
 gateway-examples/aws-lambda.py
-AWS API Gateway + Lambda Authorizer — SKF Guard universal hook integration
+AWS API Gateway + Lambda Authorizer — Seraph universal hook integration
 
 Approach: Lambda Authorizer (REQUEST type)
-  Client → API Gateway → Lambda Authorizer → SKF Guard hook → Allow/Deny
+  Client → API Gateway → Lambda Authorizer → Seraph hook → Allow/Deny
          ↓ (if allowed)
          LLM backend (OpenAI / Bedrock / SageMaker endpoint)
 
 Setup:
   1. Deploy this Lambda function (Python 3.12 runtime)
   2. Set environment variables:
-       SKF_GUARD_URL  = https://your-skfguard.example.com
-       SKF_GUARD_KEY  = ts_conn_your_connection_key
+       SERAPH_URL  = https://your-seraph.example.com
+       SERAPH_KEY  = ts_conn_your_connection_key
   3. In API Gateway → Authorizers → create a REQUEST authorizer:
        - Lambda function: this function
        - Identity sources: method.request.body (for payload-based auth)
@@ -28,8 +28,8 @@ import os
 import urllib.request
 import urllib.error
 
-SKF_GUARD_URL = os.environ.get("SKF_GUARD_URL", "http://skf-guard:8000")
-SKF_GUARD_KEY = os.environ.get("SKF_GUARD_KEY", "")
+SERAPH_URL = os.environ.get("SERAPH_URL", "http://seraph:8000")
+SERAPH_KEY = os.environ.get("SERAPH_KEY", "")
 
 
 def _last_user_message(messages: list[dict]) -> str:
@@ -40,7 +40,7 @@ def _last_user_message(messages: list[dict]) -> str:
 
 
 def _call_skf_hook(text: str, direction: str = "input", prompt: str = "") -> dict:
-    """Call SKF Guard's universal hook. Returns the parsed JSON response."""
+    """Call Seraph's universal hook. Returns the parsed JSON response."""
     payload = json.dumps({
         "text": text,
         "direction": direction,
@@ -48,11 +48,11 @@ def _call_skf_hook(text: str, direction: str = "input", prompt: str = "") -> dic
     }).encode()
 
     req = urllib.request.Request(
-        f"{SKF_GUARD_URL}/api/integrations/hook",
+        f"{SERAPH_URL}/api/integrations/hook",
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {SKF_GUARD_KEY}",
+            "Authorization": f"Bearer {SERAPH_KEY}",
         },
         method="POST",
     )
@@ -107,7 +107,7 @@ def lambda_handler(event: dict, context) -> dict:
     AWS Lambda Authorizer entry point.
 
     Returns an IAM policy that either allows or denies the API Gateway
-    request based on SKF Guard's scan result.
+    request based on Seraph's scan result.
     """
     method_arn   = event.get("methodArn", "*")
     principal_id = event.get("requestContext", {}).get("identity", {}).get("sourceIp", "unknown")
@@ -130,7 +130,7 @@ def lambda_handler(event: dict, context) -> dict:
     if not user_text:
         return _allow_policy(principal_id, method_arn)
 
-    # Call SKF Guard
+    # Call Seraph
     result = _call_skf_hook(user_text, direction="input")
 
     if result["status_code"] == 503:

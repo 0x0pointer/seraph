@@ -1,10 +1,10 @@
 # gateway-examples/traefik.yml
-# Traefik v3 — SKF Guard universal hook integration
+# Traefik v3 — Seraph universal hook integration
 #
 # Approach: forwardAuth middleware
 #
 # Traefik's forwardAuth middleware forwards the original request to an auth
-# service. We expose a dedicated Traefik-compatible endpoint on SKF Guard
+# service. We expose a dedicated Traefik-compatible endpoint on Seraph
 # that reads the body from a special header Traefik injects, or we use the
 # transparent proxy mode instead (simpler — see bottom of this file).
 #
@@ -17,13 +17,13 @@
 #
 # ── Option B: Transparent proxy (RECOMMENDED for most cases)
 #
-# Point the route at SKF Guard's /api/integrations/proxy endpoint.
-# SKF Guard reads the full body, scans, and forwards to the real LLM.
+# Point the route at Seraph's /api/integrations/proxy endpoint.
+# Seraph reads the full body, scans, and forwards to the real LLM.
 # Zero Traefik plugin needed.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Option B — Transparent Proxy (recommended)
-# Clients point at Traefik → Traefik routes to SKF Guard proxy → LLM
+# Clients point at Traefik → Traefik routes to Seraph proxy → LLM
 # ─────────────────────────────────────────────────────────────────────────────
 
 http:
@@ -31,35 +31,35 @@ http:
     # All LLM traffic arrives at Traefik on /llm/...
     llm-with-guardrails:
       rule: "PathPrefix(`/llm`)"
-      service: skf-guard-proxy
+      service: seraph-proxy
       middlewares:
         - inject-skf-headers
         - strip-llm-prefix
 
   middlewares:
-    # Inject the SKF Guard auth key and upstream destination
+    # Inject the Seraph auth key and upstream destination
     inject-skf-headers:
       headers:
         customRequestHeaders:
-          # SKF Guard connection key — use Traefik's env var substitution
-          Authorization:    "Bearer {{ env \"SKF_GUARD_KEY\" }}"
-          # Where SKF Guard should forward to after scanning
+          # Seraph connection key — use Traefik's env var substitution
+          Authorization:    "Bearer {{ env \"SERAPH_KEY\" }}"
+          # Where Seraph should forward to after scanning
           X-Upstream-URL:   "https://api.openai.com"
-          # OpenAI credentials — SKF Guard passes this as the upstream auth
+          # OpenAI credentials — Seraph passes this as the upstream auth
           X-Upstream-Auth:  "Bearer {{ env \"OPENAI_API_KEY\" }}"
 
-    # Strip /llm prefix before forwarding to SKF Guard proxy
+    # Strip /llm prefix before forwarding to Seraph proxy
     strip-llm-prefix:
       stripPrefix:
         prefixes:
           - "/llm"
 
   services:
-    # SKF Guard transparent proxy endpoint
-    skf-guard-proxy:
+    # Seraph transparent proxy endpoint
+    seraph-proxy:
       loadBalancer:
         servers:
-          - url: "http://skf-guard:8000/api/integrations/proxy"
+          - url: "http://seraph:8000/api/integrations/proxy"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Option A — forwardAuth (for gateways that set X-SKF-Text header upstream)
@@ -71,17 +71,17 @@ http:
 #       rule: "PathPrefix(`/v1`)"
 #       service: llm-provider
 #       middlewares:
-#         - skf-guard-auth
+#         - seraph-auth
 #
 #   middlewares:
-#     skf-guard-auth:
+#     seraph-auth:
 #       forwardAuth:
-#         address: "http://skf-guard:8000/api/integrations/hook"
+#         address: "http://seraph:8000/api/integrations/hook"
 #         # Traefik passes these request headers to the auth service
 #         authRequestHeaders:
 #           - "X-SKF-Text"        # Your app sets this to the user message
 #           - "X-SKF-Direction"   # "input" or "output"
-#           - "Authorization"     # SKF Guard connection key
+#           - "Authorization"     # Seraph connection key
 #         # Headers from auth response to add to the upstream request
 #         authResponseHeaders:
 #           - "X-SKF-Audit-ID"
@@ -96,7 +96,7 @@ http:
 #           - url: "https://api.openai.com"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# docker-compose snippet to add Traefik alongside SKF Guard
+# docker-compose snippet to add Traefik alongside Seraph
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # traefik:
@@ -112,7 +112,7 @@ http:
 #     - /var/run/docker.sock:/var/run/docker.sock:ro
 #     - ./gateway-examples/traefik.yml:/etc/traefik/traefik.yml:ro
 #   environment:
-#     SKF_GUARD_KEY: ${SKF_GUARD_KEY}
+#     SERAPH_KEY: ${SERAPH_KEY}
 #     OPENAI_API_KEY: ${OPENAI_API_KEY}
 #   depends_on:
 #     - backend

@@ -57,10 +57,10 @@ const ChartTip = ({ active, payload, label }: {
 };
 
 function passRateColor(r: number) {
-  return r >= 95 ? "#515594" : r >= 80 ? "#fbbf24" : "#f87171";
+  return r >= 95 ? "#5CF097" : r >= 80 ? "#fbbf24" : "#f87171";
 }
 function riskColor(r: number) {
-  return r < 0.3 ? "#515594" : r < 0.6 ? "#fbbf24" : "#f87171";
+  return r < 0.3 ? "#5CF097" : r < 0.6 ? "#fbbf24" : "#f87171";
 }
 
 export default function DashboardOverview() {
@@ -143,12 +143,12 @@ export default function DashboardOverview() {
           },
           {
             label: "Scans Today", value: summary.scans_today.toLocaleString(),
-            sub: "since midnight UTC", color: "#515594",
+            sub: "since midnight UTC", color: "#5CF097",
           },
           {
             label: "Violations Today", value: summary.violations_today.toLocaleString(),
             sub: `${summary.total_violations.toLocaleString()} all time`,
-            color: summary.violations_today > 0 ? "#f87171" : "#515594",
+            color: summary.violations_today > 0 ? "#f87171" : "#5CF097",
           },
           {
             label: "Pass Rate Today", value: `${summary.pass_rate_today.toFixed(1)}%`,
@@ -191,8 +191,8 @@ export default function DashboardOverview() {
                     <stop offset="95%" stopColor="rgba(255,255,255,0)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="violGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#515594" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#515594" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#5CF097" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#5CF097" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" />
@@ -202,7 +202,7 @@ export default function DashboardOverview() {
                 <Tooltip content={<ChartTip />} />
                 <Area type="monotone" dataKey="total" stroke="rgba(255,255,255,0.12)"
                   fill="url(#totalGrad)" name="Total" strokeWidth={1} dot={false} />
-                <Area type="monotone" dataKey="violations" stroke="#515594"
+                <Area type="monotone" dataKey="violations" stroke="#5CF097"
                   fill="url(#violGrad)" name="Violations" strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -215,7 +215,7 @@ export default function DashboardOverview() {
           {!summary ? <Sk h="h-36" /> : (
             <div className="space-y-4">
               {([
-                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#515594" },
+                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#5CF097" },
                 { label: "Output", count: summary.output_scans, pct: outputPct, color: "#a78bfa" },
               ] as const).map(({ label, count, pct, color }) => (
                 <div key={label}>
@@ -232,7 +232,7 @@ export default function DashboardOverview() {
               <div className="border-t border-white/5 pt-3 space-y-2">
                 {[
                   { label: "Total today", value: summary.scans_today.toLocaleString(), color: "var(--text)" },
-                  { label: "Clean today", value: (summary.scans_today - summary.violations_today).toLocaleString(), color: "#515594" },
+                  { label: "Clean today", value: (summary.scans_today - summary.violations_today).toLocaleString(), color: "#5CF097" },
                   { label: "Blocked today", value: summary.violations_today.toLocaleString(), color: summary.violations_today > 0 ? "#f87171" : "#64748b" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex items-center justify-between">
@@ -312,7 +312,7 @@ export default function DashboardOverview() {
                     <span
                       className="text-xs font-mono px-2 py-0.5 rounded"
                       style={item.is_valid
-                        ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
+                        ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" }
                         : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
                       }
                     >

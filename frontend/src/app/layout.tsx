@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SKF Guard — LLM Security Platform",
+  title: "Seraph — LLM Security Platform",
   description:
     "Protect your AI applications with production-ready LLM guardrails. Input/output scanning, audit logs, real-time dashboard.",
 };

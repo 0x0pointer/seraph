@@ -65,7 +65,7 @@ def _reset_password_email(username: str, token: str) -> str:
     <div style="font-family:sans-serif;max-width:480px;margin:40px auto;color:#e2e8f0;background:#0d1426;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:32px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;">
         <span style="width:16px;height:16px;border-radius:3px;background:#515594;display:inline-block;"></span>
-        <span style="font-weight:600;font-size:14px;color:#fff;">SKF Guard</span>
+        <span style="font-weight:600;font-size:14px;color:#fff;">Seraph</span>
       </div>
       <h2 style="margin:0 0 8px;font-size:18px;color:#fff;">Reset your password</h2>
       <p style="margin:0 0 24px;font-size:13px;color:#94a3b8;line-height:1.6;">
@@ -90,11 +90,11 @@ def _username_reminder_email(username: str) -> str:
     <div style="font-family:sans-serif;max-width:480px;margin:40px auto;color:#e2e8f0;background:#0d1426;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:32px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;">
         <span style="width:16px;height:16px;border-radius:3px;background:#515594;display:inline-block;"></span>
-        <span style="font-weight:600;font-size:14px;color:#fff;">SKF Guard</span>
+        <span style="font-weight:600;font-size:14px;color:#fff;">Seraph</span>
       </div>
       <h2 style="margin:0 0 8px;font-size:18px;color:#fff;">Your username</h2>
       <p style="margin:0 0 16px;font-size:13px;color:#94a3b8;line-height:1.6;">
-        You requested a reminder of your SKF Guard username.
+        You requested a reminder of your Seraph username.
       </p>
       <div style="background:#0A0F1F;border-radius:6px;padding:12px 16px;margin-bottom:24px;">
         <span style="font-family:monospace;font-size:16px;color:#515594;">{username}</span>
@@ -440,7 +440,7 @@ async def forgot_password(
         background_tasks.add_task(
             _send_email,
             user.email,
-            "Reset your SKF Guard password",
+            "Reset your Seraph password",
             _reset_password_email(user.username, raw_token),
         )
 
@@ -494,7 +494,7 @@ async def forgot_username(
         background_tasks.add_task(
             _send_email,
             user.email,
-            "Your SKF Guard username",
+            "Your Seraph username",
             _username_reminder_email(user.username),
         )
 

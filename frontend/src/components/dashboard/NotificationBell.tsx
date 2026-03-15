@@ -29,7 +29,7 @@ function timeAgo(iso: string) {
 }
 
 const TYPE_STYLE: Record<string, { icon: string; color: string; bg: string; label: string }> = {
-  ticket_new:      { icon: "✦", color: "#515594", bg: "rgba(81,85,148,0.12)",  label: "New ticket" },
+  ticket_new:      { icon: "✦", color: "#5CF097", bg: "rgba(92,240,151,0.12)",  label: "New ticket" },
   ticket_response: { icon: "↩", color: "#a78bfa", bg: "rgba(167,139,250,0.12)", label: "Reply" },
   ticket_followup: { icon: "↪", color: "#fbbf24", bg: "rgba(251,191,36,0.12)",  label: "Follow-up" },
   announcement:    { icon: "!",  color: "#f97316", bg: "rgba(249,115,22,0.12)",  label: "Announcement" },
@@ -206,7 +206,7 @@ export default function NotificationBell() {
                               </p>
                             </div>
                             {!n.is_read && (
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#515594" }} />
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#5CF097" }} />
                             )}
                           </div>
                           {n.body && (

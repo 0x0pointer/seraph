@@ -71,7 +71,7 @@ function JoinPageContent() {
         </div>
         <p className="text-white font-semibold">Invalid invite</p>
         <p className="text-xs text-slate-500">{loadError || "This invite link is missing or invalid."}</p>
-        <Link href="/login" className="text-xs font-mono" style={{ color: "#515594" }}>← Go to login</Link>
+        <Link href="/login" className="text-xs font-mono" style={{ color: "#5CF097" }}>← Go to login</Link>
       </div>
     );
   }
@@ -85,14 +85,14 @@ function JoinPageContent() {
       {/* Org invite info */}
       <div className="rounded border border-white/5 p-4 text-center" style={{ background: "#0A0F1F" }}>
         <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold mx-auto mb-3"
-          style={{ background: "rgba(81,85,148,0.12)", color: "#515594" }}>
+          style={{ background: "rgba(92,240,151,0.12)", color: "#5CF097" }}>
           {invite.org_name[0]?.toUpperCase()}
         </div>
         <p className="text-xs text-slate-500 mb-1">You&apos;ve been invited to join</p>
         <p className="text-white font-semibold">{invite.org_name}</p>
         <div className="flex items-center justify-center gap-3 mt-2">
           <span className="text-xs font-mono px-2 py-0.5 rounded"
-            style={{ background: "rgba(81,85,148,0.08)", color: "#515594" }}>
+            style={{ background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
             {ROLE_LABEL[invite.role] ?? invite.role}
           </span>
           {invite.invited_by && (
@@ -133,14 +133,14 @@ function JoinPageContent() {
         {error && <p className="text-xs text-red-400">{error}</p>}
         <button type="submit" disabled={saving}
           className="w-full py-2.5 rounded text-sm font-medium disabled:opacity-50 transition-opacity"
-          style={{ background: "#515594", color: "#fff" }}>
+          style={{ background: "#5CF097", color: "#fff" }}>
           {saving ? "Joining…" : `Join ${invite.org_name}`}
         </button>
       </form>
 
       <p className="text-center text-xs text-slate-600">
         Already have an account?{" "}
-        <Link href="/login" className="underline" style={{ color: "#515594" }}>Sign in</Link>
+        <Link href="/login" className="underline" style={{ color: "#5CF097" }}>Sign in</Link>
       </p>
     </div>
   );
@@ -153,8 +153,8 @@ export default function JoinPage() {
         {/* Header */}
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-6">
-            <span className="w-5 h-5 rounded-sm" style={{ background: "#515594" }} />
-            <span className="text-white font-semibold text-sm">SKF Guard</span>
+            <span className="w-5 h-5 rounded-sm" style={{ background: "#5CF097" }} />
+            <span className="text-white font-semibold text-sm">Seraph</span>
           </div>
           <h1 className="text-xl font-bold text-white">Join your team</h1>
           <p className="text-xs text-slate-500 mt-1">Create your account to get started</p>

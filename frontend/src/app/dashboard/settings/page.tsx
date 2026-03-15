@@ -198,7 +198,7 @@ const data = await res.json();`,
             ))}
             {/* Read-only fields */}
             {[
-              { label: "Role", value: user.role, color: "#515594" },
+              { label: "Role", value: user.role, color: "#5CF097" },
               { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
@@ -210,7 +210,7 @@ const data = await res.json();`,
               <p className="text-xs px-3 py-2.5 rounded border font-mono"
                 style={profileErr
                   ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
-                  : { color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
+                  : { color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
                 {profileMsg}
               </p>
             )}
@@ -219,7 +219,7 @@ const data = await res.json();`,
                 type="submit"
                 disabled={profileSaving}
                 className="text-xs font-medium px-4 py-2 rounded disabled:opacity-50"
-                style={{ background: "#515594", color: "#0A0F1F" }}
+                style={{ background: "#5CF097", color: "#0A0F1F" }}
               >
                 {profileSaving ? "Saving…" : "Save changes"}
               </button>
@@ -232,7 +232,7 @@ const data = await res.json();`,
           <div className="space-y-3">
             {profileMsg && !profileErr && (
               <p className="text-xs px-3 py-2.5 rounded border font-mono mb-2"
-                style={{ color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
+                style={{ color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
                 {profileMsg}
               </p>
             )}
@@ -240,7 +240,7 @@ const data = await res.json();`,
               { label: "Username", value: user.username, color: "var(--text)" },
               { label: "Full name", value: user.full_name ?? "—", color: "var(--text)" },
               { label: "Email", value: user.email ?? "—", color: "var(--text)" },
-              { label: "Role", value: user.role, color: "#515594" },
+              { label: "Role", value: user.role, color: "#5CF097" },
               { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
@@ -271,11 +271,11 @@ const data = await res.json();`,
             <p className="text-xs px-3 py-2.5 rounded border font-mono"
               style={msgErr
                 ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
-                : { color: "#515594", background: "rgba(81,85,148,0.05)", borderColor: "rgba(81,85,148,0.15)" }}>
+                : { color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
               {msg}
             </p>
           )}
-          <button type="submit" className="text-xs font-medium px-4 py-2 rounded" style={{ background: "#515594", color: "#0A0F1F" }}>
+          <button type="submit" className="text-xs font-medium px-4 py-2 rounded" style={{ background: "#5CF097", color: "#0A0F1F" }}>
             Update password
           </button>
         </form>
@@ -287,15 +287,15 @@ const data = await res.json();`,
           <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">API Token</p>
           <span
             className="text-xs font-mono px-2 py-0.5 rounded"
-            style={{ background: "rgba(81,85,148,0.08)", color: "#515594" }}
+            style={{ background: "rgba(92,240,151,0.08)", color: "#5CF097" }}
           >
             ts_live_…
           </span>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed mb-5">
           Use this token to authenticate requests from your application. Pass it as a{" "}
-          <code className="text-[#515594] font-mono">Bearer</code> token in the{" "}
-          <code className="text-[#515594] font-mono">Authorization</code> header.
+          <code className="text-[#5CF097] font-mono">Bearer</code> token in the{" "}
+          <code className="text-[#5CF097] font-mono">Authorization</code> header.
           It never expires — regenerate if compromised.
         </p>
 
@@ -315,7 +315,7 @@ const data = await res.json();`,
                 onClick={handleCopyToken}
                 disabled={!token}
                 className="text-xs font-mono transition-colors disabled:opacity-30"
-                style={{ color: copied ? "#515594" : "#475569" }}
+                style={{ color: copied ? "#5CF097" : "#475569" }}
               >
                 {copied ? "copied!" : "copy"}
               </button>
@@ -327,7 +327,7 @@ const data = await res.json();`,
             ) : (
               <code
                 className="text-xs font-mono break-all select-all"
-                style={{ color: revealed ? "#515594" : "#334155" }}
+                style={{ color: revealed ? "#5CF097" : "#334155" }}
               >
                 {display || "—"}
               </code>
@@ -376,7 +376,7 @@ const data = await res.json();`,
               className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
               style={
                 snippetTab === s.key
-                  ? { background: "#515594", color: "#0A0F1F" }
+                  ? { background: "#5CF097", color: "#0A0F1F" }
                   : { color: "var(--text-dim)" }
               }
             >
@@ -391,7 +391,7 @@ const data = await res.json();`,
               <button
                 onClick={() => handleCopySnippet(s.key, s.code)}
                 className="text-xs font-mono transition-colors"
-                style={{ color: copiedSnippet === s.key ? "#515594" : "#475569" }}
+                style={{ color: copiedSnippet === s.key ? "#5CF097" : "#475569" }}
               >
                 {copiedSnippet === s.key ? "copied!" : "copy"}
               </button>

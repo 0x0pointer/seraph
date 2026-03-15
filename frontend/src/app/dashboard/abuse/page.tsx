@@ -40,7 +40,7 @@ const inputStyle = {
 };
 
 const ENV_COLORS: Record<string, { background: string; color: string }> = {
-  production: { background: "rgba(81,85,148,0.1)", color: "#515594" },
+  production: { background: "rgba(92,240,151,0.1)", color: "#5CF097" },
   development: { background: "rgba(251,191,36,0.1)", color: "#fbbf24" },
   staging: { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
 };
@@ -147,7 +147,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span className="text-slate-500">Token cost:</span>
-          <span className="font-mono" style={{ color: "#515594" }}>
+          <span className="font-mono" style={{ color: "#5CF097" }}>
             ${item.token_cost < 0.01 ? item.token_cost.toFixed(6) : item.token_cost.toFixed(4)}
           </span>
           {item.input_tokens !== null && (
@@ -222,7 +222,7 @@ function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: str
                       className="h-1 rounded-full"
                       style={{
                         width: `${Math.round((typeof score === "number" ? score : 0) * 100)}%`,
-                        background: "#515594",
+                        background: "#5CF097",
                       }}
                     />
                   </div>

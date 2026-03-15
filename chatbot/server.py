@@ -8,8 +8,8 @@ import requests
 
 load_dotenv()
 
-API_URL = os.getenv("SKF_GUARD_API_URL", "http://localhost:8000")
-API_KEY = os.getenv("SKF_GUARD_CONNECTION_KEY", "")
+API_URL = os.getenv("SERAPH_API_URL", "http://localhost:8000")
+API_KEY = os.getenv("SERAPH_CONNECTION_KEY", "")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
@@ -22,7 +22,7 @@ openai_client = OpenAI(api_key=OPENAI_KEY)
 SYSTEM_PROMPT = (
     "You are a helpful, friendly AI assistant. "
     "Answer clearly and concisely. "
-    "All messages are screened by SKF Guard guardrails for safety."
+    "All messages are screened by Seraph guardrails for safety."
 )
 
 
@@ -45,7 +45,7 @@ def is_chatbot_enabled() -> bool:
 
 
 def scan_input(text: str) -> dict:
-    """Run the user message through SKF Guard input guardrails."""
+    """Run the user message through Seraph input guardrails."""
     try:
         resp = requests.post(
             f"{API_URL}/api/scan/prompt",
@@ -62,7 +62,7 @@ def scan_input(text: str) -> dict:
 
 
 def scan_output(text: str, prompt: str) -> dict:
-    """Run the AI response through SKF Guard output guardrails."""
+    """Run the AI response through Seraph output guardrails."""
     try:
         resp = requests.post(
             f"{API_URL}/api/scan/output",
@@ -109,7 +109,7 @@ def chat():
             "direction": "input",
             "violations": input_scan.get("violation_scanners", []),
             "scanner_results": input_scan.get("scanner_results", {}),
-            "message": "Your message was blocked by SKF Guard guardrails.",
+            "message": "Your message was blocked by Seraph guardrails.",
         })
 
     # Use sanitized text if it was modified
@@ -144,7 +144,7 @@ def chat():
             "direction": "output",
             "violations": output_scan.get("violation_scanners", []),
             "scanner_results": output_scan.get("scanner_results", {}),
-            "message": "The AI response was blocked by SKF Guard guardrails.",
+            "message": "The AI response was blocked by Seraph guardrails.",
         })
 
     final_response = output_scan.get("sanitized_text") or ai_response
@@ -168,5 +168,5 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3001))
-    logger.info("SKF Guard chatbot running on http://localhost:%d", port)
+    logger.info("Seraph chatbot running on http://localhost:%d", port)
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

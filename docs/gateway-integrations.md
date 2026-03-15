@@ -1,6 +1,6 @@
-# SKF Guard — Gateway Integration Guide
+# Seraph — Gateway Integration Guide
 
-This guide covers every way to connect SKF Guard to an external API gateway or proxy so that guardrails are enforced at the infrastructure level, without changing application code.
+This guide covers every way to connect Seraph to an external API gateway or proxy so that guardrails are enforced at the infrastructure level, without changing application code.
 
 ---
 
@@ -15,13 +15,13 @@ Three patterns are available. Pick the one that fits your stack.
 | **LiteLLM Guardrail** | `POST /api/integrations/litellm/*` | LiteLLM proxy deployments | Low |
 | **Kong Plugins** | Lua pre-function + post-function | Kong API Gateway | Medium |
 
-All patterns share the same authentication, the same `on_fail_action` lifecycle, and write to the same audit log. Every blocked or monitored request appears in the SKF Guard dashboard.
+All patterns share the same authentication, the same `on_fail_action` lifecycle, and write to the same audit log. Every blocked or monitored request appears in the Seraph dashboard.
 
 ---
 
 ## Authentication
 
-Every integration endpoint uses the same connection key as the core scan API. Create a dedicated connection in the SKF Guard dashboard for each gateway environment (prod, staging) to get isolated audit logs and per-connection guardrail configs.
+Every integration endpoint uses the same connection key as the core scan API. Create a dedicated connection in the Seraph dashboard for each gateway environment (prod, staging) to get isolated audit logs and per-connection guardrail configs.
 
 ```
 Authorization: Bearer ts_conn_<your_connection_key>
@@ -30,7 +30,7 @@ Authorization: Bearer ts_conn_<your_connection_key>
 Set it once in your gateway's environment:
 
 ```bash
-SKF_GUARD_KEY=ts_conn_<your_connection_key>
+SERAPH_KEY=ts_conn_<your_connection_key>
 ```
 
 ---
@@ -81,7 +81,7 @@ When `fix_applied: true`, `sanitized_text` contains the clean version (PII redac
 
 ## 2. Transparent Proxy
 
-An OpenAI-compatible reverse proxy. Zero changes to existing clients — just change `base_url`. SKF Guard scans the input, forwards to the upstream LLM, scans the output, and returns an identical response.
+An OpenAI-compatible reverse proxy. Zero changes to existing clients — just change `base_url`. Seraph scans the input, forwards to the upstream LLM, scans the output, and returns an identical response.
 
 ### Endpoint
 
@@ -93,7 +93,7 @@ POST /api/integrations/proxy/{path}
 
 | Header | Example | Purpose |
 |---|---|---|
-| `Authorization` | `Bearer ts_conn_<key>` | SKF Guard authentication |
+| `Authorization` | `Bearer ts_conn_<key>` | Seraph authentication |
 | `X-Upstream-URL` | `https://api.openai.com` | Where to forward the request |
 | `X-Upstream-Auth` | `Bearer sk-...` | Credentials for the upstream LLM |
 
@@ -103,7 +103,7 @@ POST /api/integrations/proxy/{path}
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://skf-guard:8000/api/integrations/proxy/v1",
+    base_url="http://seraph:8000/api/integrations/proxy/v1",
     default_headers={
         "Authorization":   "Bearer ts_conn_<key>",
         "X-Upstream-URL":  "https://api.openai.com",
@@ -124,7 +124,7 @@ response = client.chat.completions.create(
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "http://skf-guard:8000/api/integrations/proxy/v1",
+  baseURL: "http://seraph:8000/api/integrations/proxy/v1",
   defaultHeaders: {
     "Authorization":   "Bearer ts_conn_<key>",
     "X-Upstream-URL":  "https://api.openai.com",
@@ -170,29 +170,29 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
 
 guardrails:
-  - guardrail_name: skf-guard-input
+  - guardrail_name: seraph-input
     litellm_params:
       guardrail: custom
       mode: pre_call
-      guardrail_endpoint: http://skf-guard:8000/api/integrations/litellm/pre_call
+      guardrail_endpoint: http://seraph:8000/api/integrations/litellm/pre_call
       default_headers:
-        Authorization: "Bearer ${SKF_GUARD_KEY}"
+        Authorization: "Bearer ${SERAPH_KEY}"
 
-  - guardrail_name: skf-guard-output
+  - guardrail_name: seraph-output
     litellm_params:
       guardrail: custom
       mode: post_call
-      guardrail_endpoint: http://skf-guard:8000/api/integrations/litellm/post_call
+      guardrail_endpoint: http://seraph:8000/api/integrations/litellm/post_call
       default_headers:
-        Authorization: "Bearer ${SKF_GUARD_KEY}"
+        Authorization: "Bearer ${SERAPH_KEY}"
 ```
 
 ```bash
 # Environment variable
-SKF_GUARD_KEY=ts_conn_your_connection_key
+SERAPH_KEY=ts_conn_your_connection_key
 ```
 
-LiteLLM treats `HTTP 200` as allowed and any `4xx` as a guardrail block. The `detail` field from SKF Guard is surfaced directly to the caller.
+LiteLLM treats `HTTP 200` as allowed and any `4xx` as a guardrail block. The `detail` field from Seraph is surfaced directly to the caller.
 
 ---
 
@@ -204,8 +204,8 @@ Uses Kong's built-in `pre-function` and `post-function` serverless Lua plugins �
 
 | File | Purpose |
 |---|---|
-| `kong/skf_guard_pre.lua` | `access` phase — scans prompt, blocks or rewrites sanitized text |
-| `kong/skf_guard_post.lua` | `body_filter` phase — buffers full response, scans output |
+| `kong/seraph_pre.lua` | `access` phase — scans prompt, blocks or rewrites sanitized text |
+| `kong/seraph_post.lua` | `body_filter` phase — buffers full response, scans output |
 | `kong/kong.yml` | Declarative Kong config |
 
 ### Enable in docker-compose.yml
@@ -213,7 +213,7 @@ Uses Kong's built-in `pre-function` and `post-function` serverless Lua plugins �
 Uncomment the `kong:` service block in `docker-compose.yml` and set your environment variables:
 
 ```bash
-SKF_GUARD_KEY=ts_conn_your_connection_key
+SERAPH_KEY=ts_conn_your_connection_key
 ```
 
 ```yaml
@@ -223,12 +223,12 @@ kong:
   environment:
     KONG_DATABASE: "off"
     KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
-    SKF_GUARD_URL: http://backend:8000
-    SKF_GUARD_KEY: ${SKF_GUARD_KEY}
+    SERAPH_URL: http://backend:8000
+    SERAPH_KEY: ${SERAPH_KEY}
   volumes:
     - ./kong/kong.yml:/etc/kong/kong.yml:ro
-    - ./kong/skf_guard_pre.lua:/usr/local/kong/skf_guard_pre.lua:ro
-    - ./kong/skf_guard_post.lua:/usr/local/kong/skf_guard_post.lua:ro
+    - ./kong/seraph_pre.lua:/usr/local/kong/seraph_pre.lua:ro
+    - ./kong/seraph_post.lua:/usr/local/kong/seraph_post.lua:ro
   ports:
     - "8080:8000"   # Kong proxy — point LLM clients here
     - "8081:8001"   # Kong Admin API
@@ -238,20 +238,20 @@ Point your LLM clients at `http://localhost:8080` instead of the LLM provider di
 
 ### What the Lua plugins do
 
-**`skf_guard_pre.lua` (input):**
+**`seraph_pre.lua` (input):**
 1. Reads the request body and extracts the last user message
-2. POSTs to `/api/scan/prompt` on SKF Guard
+2. POSTs to `/api/scan/prompt` on Seraph
 3. If blocked → returns `400` to the caller, request never reaches the LLM
 4. If `fix_applied` → rewrites the request body with `sanitized_text` before forwarding
 5. Adds `X-SKF-Audit-ID` header to the upstream request
 
-**`skf_guard_post.lua` (output):**
+**`seraph_post.lua` (output):**
 1. Buffers the full LLM response across chunks
 2. Extracts assistant content and POSTs to `/api/scan/output`
 3. If blocked → replaces the response body with a safe error message
 4. If `fix_applied` → replaces assistant content with `sanitized_text`
 
-Both plugins are **fail-closed** — if SKF Guard is unreachable, the request is terminated with `503`.
+Both plugins are **fail-closed** — if Seraph is unreachable, the request is terminated with `503`.
 
 ---
 
@@ -285,12 +285,12 @@ location /v1/chat/completions {
         local httpc = http.new()
         httpc:set_timeout(10000)
 
-        local res = httpc:request_uri("http://skf-guard:8000/api/integrations/hook", {
+        local res = httpc:request_uri("http://seraph:8000/api/integrations/hook", {
             method  = "POST",
             body    = cjson.encode({ text = text, direction = "input" }),
             headers = {
                 ["Content-Type"]  = "application/json",
-                ["Authorization"] = "Bearer " .. os.getenv("SKF_GUARD_KEY"),
+                ["Authorization"] = "Bearer " .. os.getenv("SERAPH_KEY"),
             },
         })
 
@@ -313,7 +313,7 @@ Full config with `fix_applied` body rewriting: [`gateway-examples/nginx.conf`](.
 
 ### Option B — Transparent Proxy (recommended)
 
-Route traffic through SKF Guard's proxy endpoint. Traefik injects the auth headers via middleware.
+Route traffic through Seraph's proxy endpoint. Traefik injects the auth headers via middleware.
 
 ```yaml
 # traefik.yml
@@ -321,14 +321,14 @@ http:
   routers:
     llm-with-guardrails:
       rule: "PathPrefix(`/llm`)"
-      service: skf-guard-proxy
+      service: seraph-proxy
       middlewares: [inject-skf-headers, strip-llm-prefix]
 
   middlewares:
     inject-skf-headers:
       headers:
         customRequestHeaders:
-          Authorization:   "Bearer {{ env \"SKF_GUARD_KEY\" }}"
+          Authorization:   "Bearer {{ env \"SERAPH_KEY\" }}"
           X-Upstream-URL:  "https://api.openai.com"
           X-Upstream-Auth: "Bearer {{ env \"OPENAI_API_KEY\" }}"
 
@@ -337,13 +337,13 @@ http:
         prefixes: ["/llm"]
 
   services:
-    skf-guard-proxy:
+    seraph-proxy:
       loadBalancer:
         servers:
-          - url: "http://skf-guard:8000/api/integrations/proxy"
+          - url: "http://seraph:8000/api/integrations/proxy"
 ```
 
-Clients call `http://traefik/llm/v1/chat/completions` — Traefik strips the prefix, injects headers, and routes to SKF Guard's proxy, which scans and forwards to OpenAI.
+Clients call `http://traefik/llm/v1/chat/completions` — Traefik strips the prefix, injects headers, and routes to Seraph's proxy, which scans and forwards to OpenAI.
 
 ### Option A — forwardAuth
 
@@ -355,7 +355,7 @@ Full config: [`gateway-examples/traefik.yml`](../gateway-examples/traefik.yml)
 
 ## 7. Envoy
 
-Uses the `ext_authz` HTTP filter with `with_request_body: true` to forward the full request body to SKF Guard for scanning.
+Uses the `ext_authz` HTTP filter with `with_request_body: true` to forward the full request body to Seraph for scanning.
 
 **Requires:** Envoy >= 1.14
 
@@ -366,8 +366,8 @@ http_filters:
       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
       http_service:
         server_uri:
-          uri: http://skf-guard:8000
-          cluster: skf_guard
+          uri: http://seraph:8000
+          cluster: seraph
           timeout: 10s
         path_prefix: /api/integrations/hook
         authorization_request:
@@ -375,11 +375,11 @@ http_filters:
             - header: {key: Content-Type, value: application/json}
           allowed_headers:
             patterns: [{exact: authorization}]
-      # Forward request body so SKF Guard can read the user message
+      # Forward request body so Seraph can read the user message
       with_request_body:
         max_request_bytes: 65536
         allow_partial_message: false
-      # Fail-closed: deny if SKF Guard is unreachable
+      # Fail-closed: deny if Seraph is unreachable
       failure_mode_allow: false
 ```
 
@@ -393,7 +393,7 @@ Uses a Lambda **REQUEST authorizer** that calls the universal hook and returns a
 
 **Setup:**
 1. Deploy `gateway-examples/aws-lambda.py` as a Python 3.12 Lambda function
-2. Set environment variables: `SKF_GUARD_URL`, `SKF_GUARD_KEY`
+2. Set environment variables: `SERAPH_URL`, `SERAPH_KEY`
 3. In API Gateway → Authorizers → create a REQUEST authorizer pointing at the Lambda
 4. Set **Authorization caching TTL to 0** — guardrails must re-run on every request
 

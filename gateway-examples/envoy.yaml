@@ -1,10 +1,10 @@
 # gateway-examples/envoy.yaml
-# Envoy — SKF Guard universal hook via ext_authz HTTP filter
+# Envoy — Seraph universal hook via ext_authz HTTP filter
 #
 # Approach: External Authorization (ext_authz) HTTP filter
 #
 # Envoy's ext_authz filter calls an external authorization service before
-# forwarding the request to the upstream. We expose SKF Guard's universal
+# forwarding the request to the upstream. We expose Seraph's universal
 # hook endpoint as the authorization service.
 #
 # Note: ext_authz by default only forwards headers to the auth service, not
@@ -47,20 +47,20 @@ static_resources:
 
                 http_filters:
 
-                  # ── SKF Guard ext_authz filter ────────────────────────────
+                  # ── Seraph ext_authz filter ────────────────────────────
                   - name: envoy.filters.http.ext_authz
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
                       http_service:
                         server_uri:
-                          uri: http://skf-guard:8000
-                          cluster: skf_guard
+                          uri: http://seraph:8000
+                          cluster: seraph
                           timeout: 10s
 
-                        # Path to SKF Guard's universal hook endpoint
+                        # Path to Seraph's universal hook endpoint
                         path_prefix: /api/integrations/hook
 
-                        # Forward the Authorization header so SKF Guard can
+                        # Forward the Authorization header so Seraph can
                         # authenticate via the connection key
                         authorization_request:
                           headers_to_add:
@@ -80,13 +80,13 @@ static_resources:
                               - exact: x-skf-sanitized
 
                       # Forward the request body to the auth service
-                      # Required so SKF Guard can read the user message
+                      # Required so Seraph can read the user message
                       with_request_body:
                         max_request_bytes: 65536      # 64 KB limit
                         allow_partial_message: false
                         pack_as_bytes: false
 
-                      # Fail-closed: deny request if SKF Guard is unreachable
+                      # Fail-closed: deny request if Seraph is unreachable
                       failure_mode_allow: false
 
                   - name: envoy.filters.http.router
@@ -95,19 +95,19 @@ static_resources:
 
   clusters:
 
-    # ── SKF Guard cluster ─────────────────────────────────────────────────────
-    - name: skf_guard
+    # ── Seraph cluster ─────────────────────────────────────────────────────
+    - name: seraph
       type: STRICT_DNS
       lb_policy: ROUND_ROBIN
       connect_timeout: 5s
       load_assignment:
-        cluster_name: skf_guard
+        cluster_name: seraph
         endpoints:
           - lb_endpoints:
               - endpoint:
                   address:
                     socket_address:
-                      address: skf-guard
+                      address: seraph
                       port_value: 8000
 
     # ── LLM provider cluster ──────────────────────────────────────────────────

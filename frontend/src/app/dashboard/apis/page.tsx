@@ -89,7 +89,7 @@ const MODEL_PRESETS: { label: string; group: string; input: number; output: numb
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const ENV_COLORS: Record<string, { background: string; color: string }> = {
-  production: { background: "rgba(81,85,148,0.1)", color: "#515594" },
+  production: { background: "rgba(92,240,151,0.1)", color: "#5CF097" },
   development: { background: "rgba(251,191,36,0.1)", color: "#fbbf24" },
   staging: { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
 };
@@ -233,7 +233,7 @@ function ConnectionForm({
             type="button"
             onClick={() => set("alert_enabled", !form.alert_enabled)}
             className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-            style={{ background: form.alert_enabled ? "#515594" : "rgba(255,255,255,0.1)" }}
+            style={{ background: form.alert_enabled ? "#5CF097" : "rgba(255,255,255,0.1)" }}
           >
             <span
               className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
@@ -255,7 +255,7 @@ function ConnectionForm({
                 step={1}
                 value={form.alert_threshold === "" ? 50 : Number(form.alert_threshold)}
                 onChange={(e) => set("alert_threshold", e.target.value)}
-                className="flex-1 accent-[#515594]"
+                className="flex-1 accent-[#5CF097]"
               />
               <span className="text-sm font-mono text-white w-12 text-right">
                 {form.alert_threshold === "" ? "50" : form.alert_threshold}%
@@ -273,7 +273,7 @@ function ConnectionForm({
             Set per-token pricing and monthly spend limits. Pass{" "}
             <code className="font-mono text-slate-400">input_tokens</code> /{" "}
             <code className="font-mono text-slate-400">output_tokens</code> in scan requests, or
-            SKF Guard estimates from text length.
+            Seraph estimates from text length.
           </p>
         </div>
 
@@ -398,7 +398,7 @@ function ConnectionForm({
           onClick={() => onSave(form)}
           disabled={loading || !form.name.trim()}
           className="text-xs font-medium px-4 py-2 rounded transition-opacity disabled:opacity-40"
-          style={{ background: "#515594", color: "#0A0F1F" }}
+          style={{ background: "#5CF097", color: "#0A0F1F" }}
         >
           {loading ? "Saving…" : "Save connection"}
         </button>
@@ -479,7 +479,7 @@ function DeleteModal({
 
 function SpendBar({ pct, maxReached }: { pct: number; maxReached: boolean }) {
   const clamped = Math.min(pct, 100);
-  const color = maxReached || pct >= 100 ? "#f87171" : pct >= 80 ? "#fbbf24" : "#515594";
+  const color = maxReached || pct >= 100 ? "#f87171" : pct >= 80 ? "#fbbf24" : "#5CF097";
   return (
     <div className="space-y-1">
       <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
@@ -605,7 +605,7 @@ function GuardrailsPanel({
     >
       <div
         className="relative w-full max-w-xl mx-4 rounded-lg border p-6 space-y-5"
-        style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.25)" }}
+        style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.25)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -638,7 +638,7 @@ function GuardrailsPanel({
             type="button"
             onClick={() => setUseCustom((v) => !v)}
             className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-            style={{ background: useCustom ? "#515594" : "rgba(255,255,255,0.1)" }}
+            style={{ background: useCustom ? "#5CF097" : "rgba(255,255,255,0.1)" }}
           >
             <span
               className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
@@ -661,8 +661,8 @@ function GuardrailsPanel({
                   onClick={() => setTab(t)}
                   className="px-3 py-1.5 text-xs capitalize font-medium transition-colors"
                   style={{
-                    color: tab === t ? "#515594" : "#64748b",
-                    borderBottom: tab === t ? "2px solid #515594" : "2px solid transparent",
+                    color: tab === t ? "#5CF097" : "#64748b",
+                    borderBottom: tab === t ? "2px solid #5CF097" : "2px solid transparent",
                   }}
                 >
                   {t}
@@ -710,7 +710,7 @@ function GuardrailsPanel({
                           style={{
                             background: "var(--card)",
                             border: "1px solid rgba(255,255,255,0.1)",
-                            color: currentThreshold !== null ? "#515594" : "#64748b",
+                            color: currentThreshold !== null ? "#5CF097" : "#64748b",
                             outline: "none",
                           }}
                         >
@@ -725,7 +725,7 @@ function GuardrailsPanel({
                         type="button"
                         onClick={() => toggleGuardrail(g.id)}
                         className="relative w-8 h-4 rounded-full transition-colors shrink-0"
-                        style={{ background: isEnabled ? "#515594" : "rgba(255,255,255,0.1)" }}
+                        style={{ background: isEnabled ? "#5CF097" : "rgba(255,255,255,0.1)" }}
                       >
                         <span
                           className="absolute top-0.5 w-3 h-3 rounded-full transition-all"
@@ -769,7 +769,7 @@ function GuardrailsPanel({
               onClick={handleTest}
               disabled={testing || !testText.trim()}
               className="text-xs font-medium px-3 py-2 rounded border transition-colors disabled:opacity-40 shrink-0"
-              style={{ borderColor: "rgba(81,85,148,0.3)", color: "#515594" }}
+              style={{ borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }}
             >
               {testing ? "…" : "Run"}
             </button>
@@ -779,14 +779,14 @@ function GuardrailsPanel({
             <div
               className="rounded border px-3 py-2.5 space-y-2"
               style={{
-                background: testResult.is_valid ? "rgba(81,85,148,0.04)" : "rgba(248,113,113,0.04)",
-                borderColor: testResult.is_valid ? "rgba(81,85,148,0.2)" : "rgba(248,113,113,0.25)",
+                background: testResult.is_valid ? "rgba(92,240,151,0.04)" : "rgba(248,113,113,0.04)",
+                borderColor: testResult.is_valid ? "rgba(92,240,151,0.2)" : "rgba(248,113,113,0.25)",
               }}
             >
               <div className="flex items-center justify-between">
                 <span
                   className="text-xs font-mono font-bold"
-                  style={{ color: testResult.is_valid ? "#515594" : "#f87171" }}
+                  style={{ color: testResult.is_valid ? "#5CF097" : "#f87171" }}
                 >
                   {testResult.is_valid ? "✓ PASS" : "✗ BLOCKED"}
                 </span>
@@ -826,7 +826,7 @@ function GuardrailsPanel({
             onClick={handleSave}
             disabled={saving}
             className="text-xs font-medium px-4 py-2 rounded transition-opacity disabled:opacity-40"
-            style={{ background: "#515594", color: "#0A0F1F" }}
+            style={{ background: "#5CF097", color: "#0A0F1F" }}
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -928,8 +928,8 @@ function ConnectionCard({
           <span
             className="w-2 h-2 rounded-full shrink-0 mt-1"
             style={{
-              background: isActive ? "#515594" : "#f87171",
-              boxShadow: isActive ? "0 0 6px #51559440" : "0 0 6px #f8717140",
+              background: isActive ? "#5CF097" : "#f87171",
+              boxShadow: isActive ? "0 0 6px #5CF09740" : "0 0 6px #f8717140",
             }}
           />
           <div className="min-w-0">
@@ -952,7 +952,7 @@ function ConnectionCard({
                 className="text-xs px-1.5 py-0.5 rounded font-mono"
                 style={
                   isActive
-                    ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
+                    ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" }
                     : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
                 }
               >
@@ -984,7 +984,7 @@ function ConnectionCard({
             className="text-xs px-2.5 py-1.5 rounded border transition-colors"
             style={
               conn.use_custom_guardrails
-                ? { borderColor: "rgba(81,85,148,0.4)", color: "#515594" }
+                ? { borderColor: "rgba(92,240,151,0.4)", color: "#5CF097" }
                 : { borderColor: "rgba(255,255,255,0.1)", color: "var(--text-dim)" }
             }
           >
@@ -1004,7 +1004,7 @@ function ConnectionCard({
             style={
               isActive
                 ? { borderColor: "rgba(248,113,113,0.3)", color: "#f87171" }
-                : { borderColor: "rgba(81,85,148,0.3)", color: "#515594" }
+                : { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
             }
           >
             {isActive ? "Block" : "Unblock"}
@@ -1075,7 +1075,7 @@ function ConnectionCard({
           className="text-slate-600 hover:text-slate-400 transition-colors shrink-0"
         >
           {copied ? (
-            <svg className="w-3.5 h-3.5 text-[#515594]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5 text-[#5CF097]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ) : (
@@ -1099,7 +1099,7 @@ function ConnectionCard({
         {/* Violation rate */}
         {(() => {
           const rate = conn.violation_rate;
-          const rateColor = rate === 0 ? "#515594" : rate < 10 ? "#fbbf24" : "#f87171";
+          const rateColor = rate === 0 ? "#5CF097" : rate < 10 ? "#fbbf24" : "#f87171";
           return (
             <StatCell
               label="Violation rate"
@@ -1116,7 +1116,7 @@ function ConnectionCard({
           <StatCell
             label="Month spend"
             value={fmtUSD(conn.month_spend)}
-            color={conn.max_spend_reached ? "#f87171" : conn.alert_spend_active ? "#fbbf24" : "#515594"}
+            color={conn.max_spend_reached ? "#f87171" : conn.alert_spend_active ? "#fbbf24" : "#5CF097"}
             sub={
               conn.month_input_tokens > 0 || conn.month_output_tokens > 0
                 ? `${fmtTokens(conn.month_input_tokens)} in · ${fmtTokens(conn.month_output_tokens)} out`
@@ -1343,7 +1343,7 @@ export default function ApisPage() {
             <button
               onClick={() => setShowCreate(true)}
               className="text-xs font-medium px-4 py-2 rounded"
-              style={{ background: "#515594", color: "#0A0F1F" }}
+              style={{ background: "#5CF097", color: "#0A0F1F" }}
             >
               + New connection
             </button>
@@ -1354,10 +1354,10 @@ export default function ApisPage() {
       {/* How it works */}
       <div
         className="rounded border p-4 text-xs"
-        style={{ background: "rgba(81,85,148,0.03)", borderColor: "rgba(81,85,148,0.12)" }}
+        style={{ background: "rgba(92,240,151,0.03)", borderColor: "rgba(92,240,151,0.12)" }}
       >
         <div className="flex items-start gap-3">
-          <svg className="w-4 h-4 text-[#515594] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4 text-[#5CF097] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
           <div className="space-y-2 flex-1">
@@ -1365,7 +1365,7 @@ export default function ApisPage() {
             <p className="text-slate-400 leading-relaxed">
               Each connection generates a scoped API key for one of your apps or environments. Use it as the Bearer token when
               calling <span className="font-mono text-slate-300">POST /api/scan/prompt</span> or{" "}
-              <span className="font-mono text-slate-300">/api/scan/output</span> — SKF Guard will attribute every request to that
+              <span className="font-mono text-slate-300">/api/scan/output</span> — Seraph will attribute every request to that
               connection, tracking its own violation rate, monthly token usage, and spend independently from all others.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
@@ -1407,7 +1407,7 @@ export default function ApisPage() {
 
       {/* Edit form */}
       {editing && (
-        <div className="rounded border border-[#515594]/20 p-6" style={{ background: "var(--card)" }}>
+        <div className="rounded border border-[#5CF097]/20 p-6" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 uppercase tracking-widest font-mono mb-5">
             Edit — {editing.name}
           </p>
@@ -1452,7 +1452,7 @@ export default function ApisPage() {
             <button
               onClick={() => setShowCreate(true)}
               className="mt-4 text-xs font-medium px-4 py-2 rounded"
-              style={{ background: "#515594", color: "#0A0F1F" }}
+              style={{ background: "#5CF097", color: "#0A0F1F" }}
             >
               Create your first connection
             </button>

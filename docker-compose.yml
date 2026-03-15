@@ -12,7 +12,7 @@ services:
       - backend_data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY:-changeme-super-secret-key-at-least-32-chars}
-      - DATABASE_URL=sqlite+aiosqlite:///./data/skfguard.db
+      - DATABASE_URL=sqlite+aiosqlite:///./data/seraph.db
       - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
       - DEBUG=${DEBUG:-false}
     command: >
@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
 
   # ── Kong API Gateway (optional — enables gateway-level guardrail enforcement)
-  # Uncomment this service to route LLM traffic through Kong + SKF Guard.
+  # Uncomment this service to route LLM traffic through Kong + Seraph.
   # Clients send requests to Kong (:8080) instead of the LLM provider directly.
   #
   # kong:
@@ -45,12 +45,12 @@ services:
   #     KONG_PROXY_ERROR_LOG: /dev/stderr
   #     KONG_ADMIN_ERROR_LOG: /dev/stderr
   #     KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-  #     SKF_GUARD_URL: http://backend:8000
-  #     SKF_GUARD_KEY: ${SKF_GUARD_KEY:-ts_conn_replace_me}
+  #     SERAPH_URL: http://backend:8000
+  #     SERAPH_KEY: ${SERAPH_KEY:-ts_conn_replace_me}
   #   volumes:
   #     - ./kong/kong.yml:/etc/kong/kong.yml:ro
-  #     - ./kong/skf_guard_pre.lua:/usr/local/kong/skf_guard_pre.lua:ro
-  #     - ./kong/skf_guard_post.lua:/usr/local/kong/skf_guard_post.lua:ro
+  #     - ./kong/seraph_pre.lua:/usr/local/kong/seraph_pre.lua:ro
+  #     - ./kong/seraph_post.lua:/usr/local/kong/seraph_post.lua:ro
   #   ports:
   #     - "8080:8000"   # Kong proxy — point your LLM clients here
   #     - "8081:8001"   # Kong Admin API

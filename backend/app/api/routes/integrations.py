@@ -19,7 +19,7 @@ Three integration patterns, from simplest to most powerful:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2. TRANSPARENT PROXY  —  POST /api/integrations/proxy
    OpenAI-compatible reverse proxy. Zero client-side changes — just point
-   your base_url at SKF Guard. SKF Guard scans both directions and forwards
+   your base_url at Seraph. Seraph scans both directions and forwards
    to the real LLM upstream.
 
    Extra headers:
@@ -112,7 +112,7 @@ async def _run_input(
     text: str,
 ) -> dict:
     """
-    Shared logic for scanning a user input through SKF Guard.
+    Shared logic for scanning a user input through Seraph.
     Returns a dict with scan metadata on success; raises HTTP 400 on block.
     """
     ip   = request.client.host if request.client else None
@@ -187,7 +187,7 @@ async def _run_output(
     prompt_text: str,
 ) -> dict:
     """
-    Shared logic for scanning an LLM output through SKF Guard.
+    Shared logic for scanning an LLM output through Seraph.
     Returns a dict with scan metadata on success; raises HTTP 400 on block.
     """
     ip   = request.client.host if request.client else None
@@ -267,7 +267,7 @@ async def litellm_pre_call(
     LiteLLM custom guardrail — pre_call hook.
 
     Called by LiteLLM before forwarding the prompt to the LLM.
-    Scans the last user message through SKF Guard's input scanners.
+    Scans the last user message through Seraph's input scanners.
 
     HTTP 200  → allowed (optionally sanitized_text contains the clean version)
     HTTP 400  → blocked (LiteLLM surfaces the detail as the error to the caller)
@@ -290,7 +290,7 @@ async def litellm_post_call(
     LiteLLM custom guardrail — post_call hook.
 
     Called by LiteLLM after receiving the LLM response, before returning it
-    to the caller. Scans the assistant reply through SKF Guard's output scanners.
+    to the caller. Scans the assistant reply through Seraph's output scanners.
 
     HTTP 200  → allowed
     HTTP 400  → blocked (LiteLLM will surface this as an error to the caller)
@@ -314,7 +314,7 @@ async def litellm_during_call(
     LiteLLM custom guardrail — during_call hook (streaming).
 
     LiteLLM calls this mid-stream. We treat it identically to pre_call —
-    scan the last user message. SKF Guard does not stream scan chunks.
+    scan the last user message. Seraph does not stream scan chunks.
     """
     text = _last_user_message(data.messages)
     if not text:
@@ -396,9 +396,9 @@ async def transparent_proxy(
         # Before
         client = OpenAI(base_url="https://api.openai.com/v1")
 
-        # After — SKF Guard scans every request/response transparently
+        # After — Seraph scans every request/response transparently
         client = OpenAI(
-            base_url="http://skf-guard:8000/api/integrations/proxy/v1",
+            base_url="http://seraph:8000/api/integrations/proxy/v1",
             default_headers={
                 "Authorization":  "Bearer ts_conn_<key>",
                 "X-Upstream-URL": "https://api.openai.com",

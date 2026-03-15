@@ -32,7 +32,7 @@ const priorities = [
 ];
 
 const statusColors: Record<string, { bg: string; color: string; label: string }> = {
-  open:        { bg: "rgba(81,85,148,0.1)",  color: "#515594", label: "Open" },
+  open:        { bg: "rgba(92,240,151,0.1)",  color: "#5CF097", label: "Open" },
   in_progress: { bg: "rgba(251,191,36,0.1)",  color: "#fbbf24", label: "In Progress" },
   resolved:    { bg: "rgba(148,163,184,0.1)", color: "var(--text-muted)", label: "Resolved" },
   closed:      { bg: "rgba(71,85,105,0.15)",  color: "var(--text-dim)", label: "Closed" },
@@ -129,7 +129,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
 
   const statCards = [
     { label: "Total", value: stats?.total ?? "—", color: "var(--text-muted)" },
-    { label: "Open", value: stats?.open ?? "—", color: "#515594" },
+    { label: "Open", value: stats?.open ?? "—", color: "#5CF097" },
     { label: "In Progress", value: stats?.in_progress ?? "—", color: "#fbbf24" },
     { label: "Resolved", value: stats?.resolved ?? "—", color: "var(--text-muted)" },
   ];
@@ -192,7 +192,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                 key={t.id}
                 onClick={() => loadTicket(t.id)}
                 className="w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors"
-                style={selected?.id === t.id ? { background: "rgba(81,85,148,0.06)" } : {}}
+                style={selected?.id === t.id ? { background: "rgba(92,240,151,0.06)" } : {}}
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <span className="text-xs font-medium text-white truncate">{t.subject}</span>
@@ -230,7 +230,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                     </div>
                     <h2 className="text-sm font-semibold text-white">{selected.subject}</h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {selected.name} · <a href={`mailto:${selected.email}`} className="hover:text-white" style={{ color: "#515594" }}>{selected.email}</a>
+                      {selected.name} · <a href={`mailto:${selected.email}`} className="hover:text-white" style={{ color: "#5CF097" }}>{selected.email}</a>
                       {" "}· #{selected.id} · {fmt(selected.created_at)}
                     </p>
                   </div>
@@ -270,13 +270,13 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
 
                 {/* Responses */}
                 {selected.responses.map((r) => (
-                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#515594]/30" : "border-white/5"}`}
-                    style={{ background: r.is_staff ? "rgba(81,85,148,0.04)" : "var(--card)" }}>
+                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#5CF097]/30" : "border-white/5"}`}
+                    style={{ background: r.is_staff ? "rgba(92,240,151,0.04)" : "var(--card)" }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-white">{r.responder_name}</p>
                         {r.is_staff && (
-                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
+                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>
                             staff
                           </span>
                         )}
@@ -311,7 +311,7 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                     onClick={sendReply}
                     disabled={sending || !reply.trim()}
                     className="text-xs px-4 py-1.5 rounded font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#515594", color: "var(--card)" }}
+                    style={{ background: "#5CF097", color: "var(--card)" }}
                   >
                     {sending ? "Sending…" : "Send reply"}
                   </button>
@@ -418,8 +418,8 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
 
               {submitted ? (
                 <div className="px-6 py-14 text-center">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(81,85,148,0.12)" }}>
-                    <svg className="w-6 h-6" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(92,240,151,0.12)" }}>
+                    <svg className="w-6 h-6" style={{ color: "#5CF097" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -429,7 +429,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                     <button onClick={reset} className="text-xs px-4 py-2 rounded border border-white/10 text-slate-400 hover:text-white transition-colors">
                       Submit another
                     </button>
-                    <button onClick={() => setTab("my")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#515594", color: "var(--card)" }}>
+                    <button onClick={() => setTab("my")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#5CF097", color: "var(--card)" }}>
                       View my tickets
                     </button>
                   </div>
@@ -480,7 +480,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                   </div>
                   <button type="submit" disabled={submitting}
                     className="px-5 py-2.5 rounded text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#515594", color: "var(--card)" }}>
+                    style={{ background: "#5CF097", color: "var(--card)" }}>
                     {submitting ? "Sending…" : "Submit request"}
                   </button>
                 </form>
@@ -499,7 +499,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               ) : myTickets.length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <p className="text-sm text-slate-600 mb-3">No tickets yet.</p>
-                  <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#515594", color: "var(--card)" }}>
+                  <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#5CF097", color: "var(--card)" }}>
                     Submit a request
                   </button>
                 </div>
@@ -555,11 +555,11 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                   <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedTicket.description}</p>
                 </div>
                 {selectedTicket.responses.map((r) => (
-                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#515594]/30" : "border-white/5"}`}
-                    style={{ background: r.is_staff ? "rgba(81,85,148,0.04)" : "var(--card)" }}>
+                  <div key={r.id} className={`rounded-lg p-4 border ${r.is_staff ? "border-[#5CF097]/30" : "border-white/5"}`}
+                    style={{ background: r.is_staff ? "rgba(92,240,151,0.04)" : "var(--card)" }}>
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-xs font-medium text-white">{r.responder_name}</p>
-                      {r.is_staff && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>staff</span>}
+                      {r.is_staff && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>staff</span>}
                       <span className="text-xs text-slate-600 ml-auto">{fmt(r.created_at)}</span>
                     </div>
                     <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{r.message}</p>
@@ -573,7 +573,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                     className="w-full px-3 py-2 text-sm outline-none placeholder:text-slate-600 resize-none rounded mb-3" style={inputStyle} />
                   <button onClick={sendFollowUp} disabled={sendingFollowUp || !followUp.trim()}
                     className="text-xs px-4 py-1.5 rounded font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: "#515594", color: "var(--card)" }}>
+                    style={{ background: "#5CF097", color: "var(--card)" }}>
                     {sendingFollowUp ? "Sending…" : "Send follow-up"}
                   </button>
                 </div>
@@ -586,15 +586,15 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
         <div className="space-y-4">
           <div className="rounded-lg border border-white/5 p-5" style={{ background: "var(--card)" }}>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(81,85,148,0.1)" }}>
-                <svg className="w-4 h-4" style={{ color: "#515594" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(92,240,151,0.1)" }}>
+                <svg className="w-4 h-4" style={{ color: "#5CF097" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
                 <p className="text-sm font-medium text-white mb-0.5">Email support</p>
                 <p className="text-xs text-slate-500 mb-2">For non-urgent issues and billing questions.</p>
-                <a href="mailto:support@skfguard.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#515594" }}>support@skfguard.io</a>
+                <a href="mailto:support@seraph.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#5CF097" }}>support@seraph.io</a>
               </div>
             </div>
           </div>
@@ -608,7 +608,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               <div>
                 <p className="text-sm font-medium text-white mb-0.5">Security disclosures</p>
                 <p className="text-xs text-slate-500 mb-2">Found a vulnerability? Please reach out privately.</p>
-                <a href="mailto:security@skfguard.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#f87171" }}>security@skfguard.io</a>
+                <a href="mailto:security@seraph.io" className="text-xs font-mono hover:text-white transition-colors" style={{ color: "#f87171" }}>security@seraph.io</a>
               </div>
             </div>
           </div>
@@ -626,7 +626,7 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               </div>
             </div>
           </div>
-          <div className="rounded-lg px-4 py-3 border border-white/5" style={{ background: "rgba(81,85,148,0.03)" }}>
+          <div className="rounded-lg px-4 py-3 border border-white/5" style={{ background: "rgba(92,240,151,0.03)" }}>
             <p className="text-xs text-slate-600 leading-relaxed">
               <span className="text-slate-500 font-medium">Response times:</span> Urgent &lt;4h · High &lt;24h · Medium &lt;2 days · Low &lt;5 days
             </p>

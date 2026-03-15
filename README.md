@@ -1,10 +1,10 @@
-# SKF Guard — LLM Security Platform
+# Seraph — LLM Security Platform
 
 **Open-source, production-ready guardrails for Large Language Models**
 
 **SKF** stands for **Secure Knowledge Framework** — a set of principles for building AI systems that are safe, observable, and controllable.
 
-SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard. It can be integrated as a standalone API gateway or wired into any existing gateway (Kong, Nginx, Traefik, Envoy, AWS API Gateway, LiteLLM) using a single HTTP hook.
+Seraph wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner library with a FastAPI backend, SQLite-persisted configuration, audit logging, multi-tenant org support, and a full Next.js admin dashboard. It can be integrated as a standalone API gateway or wired into any existing gateway (Kong, Nginx, Traefik, Envoy, AWS API Gateway, LiteLLM) using a single HTTP hook.
 
 > **Status:** Beta · MIT License
 
@@ -80,7 +80,7 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 └────────────────────────────────┬────────────────────────────┘
                                  │
 ┌────────────────────────────────▼────────────────────────────┐
-│                   SQLite  (skfguard.db)                      │
+│                   SQLite  (seraph.db)                      │
 │  users · organizations · teams · guardrail_configs           │
 │  api_connections · connection_guardrails · audit_logs        │
 │  platform_settings · announcements · notifications           │
@@ -114,7 +114,7 @@ SKF Guard wraps the [llm-guard](https://github.com/protectai/llm-guard) scanner 
 ## Project Structure
 
 ```
-skf-guard/
+seraph/
 ├── backend/
 │   ├── app/
 │   │   ├── api/routes/        # REST endpoints (auth, scan, guardrails, admin …)
@@ -152,8 +152,8 @@ skf-guard/
 │   └── aws-lambda.py              # AWS Lambda REQUEST authorizer
 ├── kong/
 │   ├── kong.yml                   # Kong declarative config
-│   ├── skf_guard_pre.lua          # Input scan Lua plugin (access phase)
-│   └── skf_guard_post.lua         # Output scan Lua plugin (body_filter phase)
+│   ├── seraph_pre.lua          # Input scan Lua plugin (access phase)
+│   └── seraph_post.lua         # Output scan Lua plugin (body_filter phase)
 └── docker-compose.yml
 ```
 
@@ -194,7 +194,7 @@ python seed_demo_logs.py   # optional: seed 8 demo audit entries (one per outcom
 uvicorn app.main:app --reload --port 8000
 ```
 
-The DB (`skfguard.db`) is created automatically on first start.
+The DB (`seraph.db`) is created automatically on first start.
 
 #### 2. Frontend
 
@@ -227,7 +227,7 @@ Create `backend/.env`:
 SECRET_KEY=your-random-32-char-secret
 
 # Database (default: SQLite)
-DATABASE_URL=sqlite+aiosqlite:///./skfguard.db
+DATABASE_URL=sqlite+aiosqlite:///./seraph.db
 
 # CORS — comma-separated list of allowed frontend origins
 CORS_ORIGINS=["http://localhost:3000"]
@@ -243,7 +243,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=you@gmail.com
 SMTP_PASSWORD=app-password
-SMTP_FROM=noreply@skfguard.io
+SMTP_FROM=noreply@seraph.io
 SMTP_TLS=true
 
 # Admin seed password (used by seed.py)
@@ -257,8 +257,8 @@ Create `chatbot/.env`:
 
 ```env
 OPENAI_API_KEY=sk-...
-SKF_GUARD_API_URL=http://localhost:8000
-SKF_GUARD_CONNECTION_KEY=<connection key from Dashboard → Connections>
+SERAPH_API_URL=http://localhost:8000
+SERAPH_CONNECTION_KEY=<connection key from Dashboard → Connections>
 OPENAI_MODEL=gpt-4o-mini
 PORT=3001
 ```
@@ -267,14 +267,14 @@ PORT=3001
 
 ## Gateway Integrations
 
-SKF Guard can be wired into any API gateway or proxy at the infrastructure level — no application code changes required.
+Seraph can be wired into any API gateway or proxy at the infrastructure level — no application code changes required.
 
 ### Universal Hook
 
 One endpoint, works with every gateway that supports HTTP callbacks:
 
 ```bash
-curl -X POST http://skf-guard:8000/api/integrations/hook \
+curl -X POST http://seraph:8000/api/integrations/hook \
   -H "Authorization: Bearer ts_conn_<key>" \
   -H "Content-Type: application/json" \
   -d '{"text": "user message", "direction": "input"}'
@@ -289,7 +289,7 @@ Drop-in OpenAI-compatible proxy — just change `base_url`, zero other changes:
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://skf-guard:8000/api/integrations/proxy/v1",
+    base_url="http://seraph:8000/api/integrations/proxy/v1",
     default_headers={
         "Authorization":   "Bearer ts_conn_<key>",
         "X-Upstream-URL":  "https://api.openai.com",
@@ -379,7 +379,7 @@ The `on_fail_action` for each guardrail controls what happens on violation:
 
 ## Trained Rule Sets
 
-SKF Guard ships with three rule-based scanners pre-loaded from four red-team attack databases. Rules are embedded directly in `backend/app/core/guardrail_catalog.py` and applied at startup — no external dependencies.
+Seraph ships with three rule-based scanners pre-loaded from four red-team attack databases. Rules are embedded directly in `backend/app/core/guardrail_catalog.py` and applied at startup — no external dependencies.
 
 ### Coverage
 

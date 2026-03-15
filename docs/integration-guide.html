@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SKF Guard — Integration Guide</title>
+  <title>Seraph — Integration Guide</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -499,7 +499,7 @@
 <body>
 
 <header class="site-header">
-  <span class="logo">SKF GUARD</span>
+  <span class="logo">SERAPH</span>
   <span class="logo-sep">/</span>
   <span class="logo-sub">Integration Guide</span>
 </header>
@@ -531,9 +531,9 @@
       <!-- ═══════════════════════════════ OVERVIEW ═══════════════════════════════ -->
       <div class="hero" id="overview">
         <div class="section-label">Integration guide</div>
-        <h1>Connect your app to SKF Guard</h1>
+        <h1>Connect your app to Seraph</h1>
         <p>
-          SKF Guard sits between your users and your AI model. Every prompt is scanned
+          Seraph sits between your users and your AI model. Every prompt is scanned
           before reaching the model, and every response is scanned before reaching the user —
           two HTTP calls, no infrastructure to manage.
         </p>
@@ -609,7 +609,7 @@
         <div class="section-label">Choose your pattern</div>
         <h2>Integration patterns</h2>
         <p>
-          SKF Guard supports three integration patterns — from the simplest one-line wrapper
+          Seraph supports three integration patterns — from the simplest one-line wrapper
           to a fully transparent proxy that requires zero changes to your LLM client.
         </p>
         <div class="pattern-grid">
@@ -757,8 +757,8 @@
             <button class="copy-btn" onclick="copy(this)">copy</button>
           </div>
           <pre><span class="c"># .env — server-side only, never commit this file</span>
-SKF_GUARD_API_URL=https://skfguard.io          <span class="c"># base URL of your SKF Guard instance</span>
-SKF_GUARD_CONNECTION_KEY=ts_conn_abc123...         <span class="c"># from Dashboard → APIs → copy key</span>
+SERAPH_API_URL=https://seraph.io          <span class="c"># base URL of your Seraph instance</span>
+SERAPH_CONNECTION_KEY=ts_conn_abc123...         <span class="c"># from Dashboard → APIs → copy key</span>
 OPENAI_API_KEY=sk-...                          <span class="c"># your LLM provider key</span></pre>
         </div>
         <div class="callout warn">
@@ -789,8 +789,8 @@ OPENAI_API_KEY=sk-...                          <span class="c"># your LLM provid
             <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="k">import</span> os, httpx
 
-API_URL = os.environ[<span class="s">"SKF_GUARD_API_URL"</span>]
-KEY   = os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>]
+API_URL = os.environ[<span class="s">"SERAPH_API_URL"</span>]
+KEY   = os.environ[<span class="s">"SERAPH_CONNECTION_KEY"</span>]
 
 headers = {
     <span class="s">"Authorization"</span>: f<span class="s">"Bearer {KEY}"</span>,
@@ -824,8 +824,8 @@ headers = {
         <div class="tab-panel" id="tab-typescript">
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">typescript</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
-            <pre><span class="k">const</span> API_URL = process.env.SKF_GUARD_API_URL!;
-<span class="k">const</span> KEY   = process.env.SKF_GUARD_CONNECTION_KEY!;
+            <pre><span class="k">const</span> API_URL = process.env.SERAPH_API_URL!;
+<span class="k">const</span> KEY   = process.env.SERAPH_CONNECTION_KEY!;
 
 <span class="k">const</span> <span class="kw">skf</span> = <span class="k">async</span> (path: string, body: object) => {
   <span class="k">const</span> res = <span class="k">await</span> fetch(`${API_URL}${path}`, {
@@ -833,7 +833,7 @@ headers = {
     headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span>, Authorization: `Bearer ${KEY}` },
     body: JSON.stringify(body),
   });
-  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> Error(`SKF Guard ${res.status}`);
+  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> Error(`Seraph ${res.status}`);
   <span class="k">return</span> res.json();
 };
 
@@ -857,16 +857,16 @@ headers = {
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">bash (cURL)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="c"># Scan a prompt</span>
-curl -X POST https://skfguard.io/api/scan/prompt \
+curl -X POST https://seraph.io/api/scan/prompt \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"text": "What are your security features?"}'</span>
 
 <span class="c"># Scan a model response</span>
-curl -X POST https://skfguard.io/api/scan/output \
+curl -X POST https://seraph.io/api/scan/output \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
-  -d <span class="s">'{"text": "SKF Guard scans every prompt...", "prompt": "What are your security features?"}'</span></pre>
+  -d <span class="s">'{"text": "Seraph scans every prompt...", "prompt": "What are your security features?"}'</span></pre>
           </div>
         </div>
       </section>
@@ -900,8 +900,8 @@ curl -X POST https://skfguard.io/api/scan/output \
             <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="k">import</span> os, httpx
 
-HOOK_URL = f"{os.environ['SKF_GUARD_API_URL']}/api/integrations/hook"
-headers  = {<span class="s">"Authorization"</span>: f<span class="s">"Bearer {os.environ['SKF_GUARD_CONNECTION_KEY']}"</span>}
+HOOK_URL = f"{os.environ['SERAPH_API_URL']}/api/integrations/hook"
+headers  = {<span class="s">"Authorization"</span>: f<span class="s">"Bearer {os.environ['SERAPH_CONNECTION_KEY']}"</span>}
 
 <span class="k">def</span> <span class="kw">scan</span>(text: str, direction: str = <span class="s">"input"</span>, prompt: str = <span class="s">""</span>) -> dict:
     resp = httpx.post(
@@ -929,16 +929,16 @@ result = scan(ai_response, direction=<span class="s">"output"</span>, prompt=use
         <div class="tab-panel" id="tab-hook-nginx">
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">nginx.conf</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
-            <pre><span class="c"># Nginx auth_request — every request is pre-screened by SKF Guard</span>
+            <pre><span class="c"># Nginx auth_request — every request is pre-screened by Seraph</span>
 location /api/ {
-    auth_request /skf-guard-check;
+    auth_request /seraph-check;
     auth_request_set $skf_status $upstream_status;
     proxy_pass http://your-llm-service;
 }
 
-location = /skf-guard-check {
+location = /seraph-check {
     internal;
-    proxy_pass          https://skfguard.io/api/integrations/hook;
+    proxy_pass          https://seraph.io/api/integrations/hook;
     proxy_method        POST;
     proxy_set_header    Authorization <span class="s">"Bearer ts_conn_abc123..."</span>;
     proxy_set_header    Content-Type  <span class="s">"application/json"</span>;
@@ -952,13 +952,13 @@ location = /skf-guard-check {
           <div class="code-wrap">
             <div class="code-header"><span class="code-lang">bash (cURL)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
             <pre><span class="c"># Scan input via hook</span>
-curl -X POST https://skfguard.io/api/integrations/hook \
+curl -X POST https://seraph.io/api/integrations/hook \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"text": "Hello, help me with my account", "direction": "input"}'</span>
 
 <span class="c"># Scan output via hook</span>
-curl -X POST https://skfguard.io/api/integrations/hook \
+curl -X POST https://seraph.io/api/integrations/hook \
   -H <span class="s">"Authorization: Bearer ts_conn_abc123..."</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"text": "Here is how to...", "direction": "output", "prompt": "Help me with my account"}'</span>
@@ -979,7 +979,7 @@ curl -X POST https://skfguard.io/api/integrations/hook \
         <h2>Transparent Proxy</h2>
         <p>
           An OpenAI-compatible reverse proxy. <strong>Change one URL in your client — that's it.</strong>
-          SKF Guard scans every request and response automatically, then forwards the (sanitized)
+          Seraph scans every request and response automatically, then forwards the (sanitized)
           traffic to your upstream LLM. Works with the OpenAI SDK, LangChain, and any
           OpenAI-compatible client.
         </p>
@@ -1004,10 +1004,10 @@ curl -X POST https://skfguard.io/api/integrations/hook \
 <span class="c"># Before — direct to OpenAI</span>
 <span class="c"># client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])</span>
 
-<span class="c"># After — route through SKF Guard proxy (zero other changes)</span>
+<span class="c"># After — route through Seraph proxy (zero other changes)</span>
 client = OpenAI(
-    base_url=f<span class="s">"{os.environ['SKF_GUARD_API_URL']}/api/integrations/proxy/v1"</span>,
-    api_key=os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>],
+    base_url=f<span class="s">"{os.environ['SERAPH_API_URL']}/api/integrations/proxy/v1"</span>,
+    api_key=os.environ[<span class="s">"SERAPH_CONNECTION_KEY"</span>],
     default_headers={
         <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
         <span class="s">"X-Upstream-Auth"</span>: f<span class="s">"Bearer {os.environ['OPENAI_API_KEY']}"</span>,
@@ -1019,7 +1019,7 @@ response = client.chat.completions.create(
     model=<span class="s">"gpt-4o-mini"</span>,
     messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Hello!"</span>}],
 )
-<span class="c"># SKF Guard has already scanned input + output transparently</span></pre>
+<span class="c"># Seraph has already scanned input + output transparently</span></pre>
           </div>
         </div>
 
@@ -1029,8 +1029,8 @@ response = client.chat.completions.create(
             <pre><span class="k">import</span> OpenAI <span class="k">from</span> <span class="s">"openai"</span>;
 
 <span class="k">const</span> client = <span class="k">new</span> OpenAI({
-  baseURL: `${process.env.SKF_GUARD_API_URL}/api/integrations/proxy/v1`,
-  apiKey:  process.env.SKF_GUARD_CONNECTION_KEY,
+  baseURL: `${process.env.SERAPH_API_URL}/api/integrations/proxy/v1`,
+  apiKey:  process.env.SERAPH_CONNECTION_KEY,
   defaultHeaders: {
     <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
     <span class="s">"X-Upstream-Auth"</span>: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -1051,11 +1051,11 @@ response = client.chat.completions.create(
             <pre><span class="k">from</span> langchain_openai <span class="k">import</span> ChatOpenAI
 <span class="k">import</span> os
 
-<span class="c"># Route LangChain through the SKF Guard transparent proxy</span>
+<span class="c"># Route LangChain through the Seraph transparent proxy</span>
 llm = ChatOpenAI(
     model=<span class="s">"gpt-4o-mini"</span>,
-    openai_api_base=f<span class="s">"{os.environ['SKF_GUARD_API_URL']}/api/integrations/proxy/v1"</span>,
-    openai_api_key=os.environ[<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>],
+    openai_api_base=f<span class="s">"{os.environ['SERAPH_API_URL']}/api/integrations/proxy/v1"</span>,
+    openai_api_key=os.environ[<span class="s">"SERAPH_CONNECTION_KEY"</span>],
     model_kwargs={
         <span class="s">"extra_headers"</span>: {
             <span class="s">"X-Upstream-URL"</span>:  <span class="s">"https://api.openai.com"</span>,
@@ -1076,7 +1076,7 @@ result = llm.invoke(<span class="s">"What can you help me with?"</span>)</pre>
         <div class="section-label">Step 6 — LiteLLM</div>
         <h2>LiteLLM custom guardrail</h2>
         <p>
-          If you use LiteLLM as your LLM gateway, SKF Guard provides native
+          If you use LiteLLM as your LLM gateway, Seraph provides native
           <code>pre_call</code>, <code>post_call</code>, and <code>during_call</code> hook endpoints.
           Register them in your LiteLLM config and every call is scanned automatically.
         </p>
@@ -1097,21 +1097,21 @@ model_list:
       api_key: <span class="s">"os.environ/OPENAI_API_KEY"</span>
 
 guardrails:
-  - guardrail_name: skf-guard
+  - guardrail_name: seraph
     litellm_params:
       guardrail: custom
       mode: pre_call
-      guardrail_endpoint: <span class="n">https://skfguard.io/api/integrations/litellm/pre_call</span>
+      guardrail_endpoint: <span class="n">https://seraph.io/api/integrations/litellm/pre_call</span>
       default_on: <span class="n">true</span>
-      api_key: <span class="s">"os.environ/SKF_GUARD_CONNECTION_KEY"</span>
+      api_key: <span class="s">"os.environ/SERAPH_CONNECTION_KEY"</span>
 
-  - guardrail_name: skf-guard-output
+  - guardrail_name: seraph-output
     litellm_params:
       guardrail: custom
       mode: post_call
-      guardrail_endpoint: <span class="n">https://skfguard.io/api/integrations/litellm/post_call</span>
+      guardrail_endpoint: <span class="n">https://seraph.io/api/integrations/litellm/post_call</span>
       default_on: <span class="n">true</span>
-      api_key: <span class="s">"os.environ/SKF_GUARD_CONNECTION_KEY"</span></pre>
+      api_key: <span class="s">"os.environ/SERAPH_CONNECTION_KEY"</span></pre>
           </div>
         </div>
 
@@ -1127,7 +1127,7 @@ guardrails:
             </div>
             <div class="field-row">
               <div class="field-name"><code>/litellm/during_call</code><span class="field-type">streaming</span></div>
-              <div class="field-desc">Called mid-stream. Treated identically to <code>pre_call</code> — scans the last user message. SKF Guard does not scan partial stream chunks.</div>
+              <div class="field-desc">Called mid-stream. Treated identically to <code>pre_call</code> — scans the last user message. Seraph does not scan partial stream chunks.</div>
             </div>
           </div>
         </div>
@@ -1139,13 +1139,13 @@ guardrails:
         <div class="section-label">Reference implementation</div>
         <h2>The reference chatbot</h2>
         <p>
-          The SKF Guard repository includes a ready-to-run reference chatbot (Python + Flask +
+          The Seraph repository includes a ready-to-run reference chatbot (Python + Flask +
           OpenAI) in the <code>chatbot/</code> directory. Supply your keys and run one command:
         </p>
         <div class="code-wrap">
           <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
           <pre>cd chatbot/
-cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNECTION_KEY + OPENAI_API_KEY</span>
+cp .env.example .env          <span class="c"># edit and fill in SERAPH_CONNECTION_KEY + OPENAI_API_KEY</span>
 ./run.sh                       <span class="c"># ✓ http://localhost:3001</span></pre>
         </div>
 
@@ -1165,7 +1165,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
               <div class="chat-sidebar-item">Security questions</div>
               <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 20px;">
                 <div style="font-size:0.7rem; color:var(--slate-7); font-family:var(--mono); padding: 4px 4px;">
-                  Protected by<br><span style="color:var(--accent-bright);">SKF Guard</span>
+                  Protected by<br><span style="color:var(--accent-bright);">Seraph</span>
                 </div>
               </div>
             </div>
@@ -1179,11 +1179,11 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
               <div class="chat-messages">
                 <!-- Normal exchange -->
                 <div class="chat-msg user">
-                  <div class="chat-bubble user">What security features does SKF Guard provide?</div>
+                  <div class="chat-bubble user">What security features does Seraph provide?</div>
                   <div class="chat-bubble-meta" style="text-align:right;">You · 2:41 pm</div>
                 </div>
                 <div class="chat-msg bot">
-                  <div class="chat-bubble bot">SKF Guard scans every prompt and response for prompt injection, toxicity, banned topics, secrets leakage, and more — in real time. All decisions are logged to the audit trail.</div>
+                  <div class="chat-bubble bot">Seraph scans every prompt and response for prompt injection, toxicity, banned topics, secrets leakage, and more — in real time. All decisions are logged to the audit trail.</div>
                   <div class="chat-bubble-meta">Assistant · 2:41 pm</div>
                 </div>
                 <!-- Blocked message -->
@@ -1196,7 +1196,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
                     ⛔ Your message was blocked by content guardrails.
                     <div><span class="chat-scanner-tag">PromptInjection · 0.97</span></div>
                   </div>
-                  <div class="chat-bubble-meta">SKF Guard · 2:43 pm</div>
+                  <div class="chat-bubble-meta">Seraph · 2:43 pm</div>
                 </div>
               </div>
               <div class="chat-input-bar">
@@ -1211,7 +1211,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
         <p style="margin-top: 20px; font-size: 0.9rem;">The core of <code>chatbot/server.py</code>:</p>
         <div class="code-wrap" style="margin-top: 10px;">
           <div class="code-header"><span class="code-lang">python — chatbot/server.py (core logic)</span><button class="copy-btn" onclick="copy(this)">copy</button></div>
-          <pre>SKF_GUARD_KEY = os.getenv(<span class="s">"SKF_GUARD_CONNECTION_KEY"</span>, <span class="s">""</span>)
+          <pre>SERAPH_KEY = os.getenv(<span class="s">"SERAPH_CONNECTION_KEY"</span>, <span class="s">""</span>)
 
 <span class="n">@app</span>.route(<span class="s">"/chat"</span>, methods=[<span class="s">"POST"</span>])
 <span class="k">def</span> <span class="kw">chat</span>():
@@ -1219,9 +1219,9 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
 
     <span class="c"># ── 1. Scan user input ───────────────────────────────────────────</span>
     input_scan = requests.post(
-        f<span class="s">"{SKF_GUARD_API_URL}/api/scan/prompt"</span>,
+        f<span class="s">"{SERAPH_API_URL}/api/scan/prompt"</span>,
         json={<span class="s">"text"</span>: user_message},
-        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SKF_GUARD_KEY}"</span>},
+        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SERAPH_KEY}"</span>},
         timeout=<span class="n">30</span>,
     ).json()
 
@@ -1239,9 +1239,9 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
 
     <span class="c"># ── 3. Scan AI response ──────────────────────────────────────────</span>
     output_scan = requests.post(
-        f<span class="s">"{SKF_GUARD_API_URL}/api/scan/output"</span>,
+        f<span class="s">"{SERAPH_API_URL}/api/scan/output"</span>,
         json={<span class="s">"text"</span>: ai_response, <span class="s">"prompt"</span>: user_message},
-        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SKF_GUARD_KEY}"</span>},
+        headers={<span class="s">"Authorization"</span>: f<span class="s">"Bearer {SERAPH_KEY}"</span>},
         timeout=<span class="n">30</span>,
     ).json()
 
@@ -1304,7 +1304,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
         <div class="fields" style="margin-top: 20px;">
           <div class="field-row"><div class="field-name">text<span class="field-type">string · required</span></div><div class="field-desc">The prompt (for <code>/scan/prompt</code>) or model response (for <code>/scan/output</code>) to scan.</div></div>
           <div class="field-row"><div class="field-name">prompt<span class="field-type">string · output only</span></div><div class="field-desc">The original user prompt. Required for <code>/scan/output</code> — used by relevance, factual consistency, and other context-aware scanners.</div></div>
-          <div class="field-row"><div class="field-name">input_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual input token count from your LLM provider. If omitted, SKF Guard estimates from text length.</div></div>
+          <div class="field-row"><div class="field-name">input_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual input token count from your LLM provider. If omitted, Seraph estimates from text length.</div></div>
           <div class="field-row"><div class="field-name">output_tokens<span class="field-type">number · optional</span></div><div class="field-desc">Actual output token count. Pass this for accurate monthly spend tracking. Defaults to 0.</div></div>
         </div>
       </section>
@@ -1458,7 +1458,7 @@ cp .env.example .env          <span class="c"># edit and fill in SKF_GUARD_CONNE
           </div>
           <div class="card">
             <h3>✓ Decide fail-open vs fail-closed</h3>
-            <p style="margin-top:6px;font-size:0.88rem;">If SKF Guard is unreachable, decide whether to let the message through (<em>fail open</em>) or reject it (<em>fail closed</em>). The reference chatbot defaults to fail-open for availability.</p>
+            <p style="margin-top:6px;font-size:0.88rem;">If Seraph is unreachable, decide whether to let the message through (<em>fail open</em>) or reject it (<em>fail closed</em>). The reference chatbot defaults to fail-open for availability.</p>
           </div>
           <div class="card">
             <h3>✓ Pass actual token counts for spend tracking</h3>
@@ -1472,11 +1472,11 @@ httpx.post(f<span class="s">"{API_URL}/api/scan/output"</span>, json={
           </div>
           <div class="card">
             <h3>✓ Log <code>audit_log_id</code></h3>
-            <p style="margin-top:6px;font-size:0.88rem;">Store it alongside your application logs to cross-reference scan decisions with user sessions in the SKF Guard audit dashboard.</p>
+            <p style="margin-top:6px;font-size:0.88rem;">Store it alongside your application logs to cross-reference scan decisions with user sessions in the Seraph audit dashboard.</p>
           </div>
           <div class="card">
             <h3>✓ Self-hosting security</h3>
-            <p style="margin-top:6px;font-size:0.88rem;">Set a strong <code>SECRET_KEY</code> in <code>backend/.env</code>, configure <code>CORS_ORIGINS</code> to your frontend domain, run behind a reverse proxy with TLS, and back up <code>skfguard.db</code> regularly (or migrate to PostgreSQL).</p>
+            <p style="margin-top:6px;font-size:0.88rem;">Set a strong <code>SECRET_KEY</code> in <code>backend/.env</code>, configure <code>CORS_ORIGINS</code> to your frontend domain, run behind a reverse proxy with TLS, and back up <code>seraph.db</code> regularly (or migrate to PostgreSQL).</p>
           </div>
         </div>
       </section>
@@ -1528,7 +1528,7 @@ flowchart TD
 sequenceDiagram
     participant U as 👤 User
     participant A as Your App
-    participant T as SKF Guard
+    participant T as Seraph
     participant L as 🤖 LLM
 
     U->>A: User sends message
@@ -1563,7 +1563,7 @@ flowchart LR
     App -- "Pattern 3\nTransparent Proxy" --> P3["/api/integrations/proxy"]
     App -- "LiteLLM" --> P4["/api/integrations/litellm/\npre_call · post_call"]
 
-    P1 & P2 & P3 & P4 --> Guard["SKF Guard\nScanners"]
+    P1 & P2 & P3 & P4 --> Guard["Seraph\nScanners"]
     Guard --> Result["is_valid\nsanitized_text\nscanner_results"]
 
     style Guard fill:#1a1b2e,stroke:#6b6fab,color:#8b8fc4
@@ -1604,7 +1604,7 @@ flowchart TD
 
       <!-- Footer -->
       <div style="margin-top:80px;padding-top:24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--slate-7);">SKF Guard — Integration Guide</span>
+        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--slate-7);">Seraph — Integration Guide</span>
         <span style="font-size:0.8rem;color:var(--slate-7);">Questions? Open a support ticket from the dashboard.</span>
       </div>
 

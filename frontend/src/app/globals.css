@@ -19,9 +19,14 @@
   --text-dimmest: #334155;
   --scrollbar-track: #0d1426;
   --scrollbar-thumb: #2e3b56;
-  --purple: #515594;
-  --purple-light: #6b6fab;
-  --purple-dark:  #41447a;
+  --accent:        #5CF097;
+  --accent-light:  #80F5B3;
+  --accent-dark:   #3DD47A;
+  --purple:        #7B7FD4;
+  --purple-light:  #9A9DE0;
+  --purple-dark:   #5B5FA8;
+  /* backward-compat aliases */
+  --green: #5CF097;
 }
 
 [data-theme="light"] {
@@ -55,10 +60,10 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--purple); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* ── Selection ─────────────────────────────────────────────────────────────── */
-::selection { background: var(--purple); color: #fff; }
+::selection { background: var(--accent); color: #fff; }
 
 /* ── Theme-aware utility classes ───────────────────────────────────────────── */
 .border-theme  { border-color: var(--border) !important; }

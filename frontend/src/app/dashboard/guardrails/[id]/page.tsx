@@ -216,7 +216,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
   // Show the strictness band guide only for standard 0–1 threshold sliders
   const isThresholdSlider = (field.min ?? 0) === 0 && (field.max ?? 1) === 1;
   const strictLabel = value < 0.35 ? "strict" : value < 0.65 ? "balanced" : "permissive";
-  const strictColor = value < 0.35 ? "#f87171" : value < 0.65 ? "#fbbf24" : "#515594";
+  const strictColor = value < 0.35 ? "#f87171" : value < 0.65 ? "#fbbf24" : "#5CF097";
 
   return (
     <div>
@@ -226,7 +226,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
           {isThresholdSlider && (
             <span className="text-xs font-mono capitalize" style={{ color: strictColor }}>{strictLabel}</span>
           )}
-          <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#515594" }}>{value.toFixed(2)}</span>
+          <span className="text-sm font-mono font-semibold tabular-nums" style={{ color: "#5CF097" }}>{value.toFixed(2)}</span>
         </div>
       </div>
       <input
@@ -236,7 +236,7 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, #515594 ${pct}%, #1a2236 ${pct}%)`,
+          background: `linear-gradient(to right, #5CF097 ${pct}%, #1a2236 ${pct}%)`,
           outline: "none",
         }}
       />
@@ -245,12 +245,12 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
           <div className="flex h-1 rounded-full overflow-hidden">
             <div className="flex-[35]" style={{ background: "rgba(248,113,113,0.35)" }} />
             <div className="flex-[30]" style={{ background: "rgba(251,191,36,0.35)" }} />
-            <div className="flex-[35]" style={{ background: "rgba(81,85,148,0.35)" }} />
+            <div className="flex-[35]" style={{ background: "rgba(92,240,151,0.35)" }} />
           </div>
           <div className="flex justify-between mt-0.5">
             <span className="text-xs font-mono" style={{ color: "rgba(248,113,113,0.55)" }}>0 · strict</span>
             <span className="text-xs text-slate-700 font-mono">0.5</span>
-            <span className="text-xs font-mono" style={{ color: "rgba(81,85,148,0.55)" }}>1 · permissive</span>
+            <span className="text-xs font-mono" style={{ color: "rgba(92,240,151,0.55)" }}>1 · permissive</span>
           </div>
         </div>
       ) : (
@@ -288,7 +288,7 @@ function BooleanField({ field, value, onChange }: { field: FieldDef; value: bool
         type="button"
         onClick={() => onChange(!value)}
         className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 mt-0.5"
-        style={{ background: value ? "#515594" : "#1a2236" }}
+        style={{ background: value ? "#5CF097" : "#1a2236" }}
       >
         <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
           style={{ transform: value ? "translateX(18px)" : "translateX(2px)" }} />
@@ -327,7 +327,7 @@ function TagsField({ field, value, onChange }: { field: FieldDef; value: string[
       >
         {value.map((tag) => (
           <span key={tag} className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded"
-            style={{ background: "rgba(81,85,148,0.12)", color: "#515594" }}>
+            style={{ background: "rgba(92,240,151,0.12)", color: "#5CF097" }}>
             {tag}
             <button type="button" onClick={() => onChange(value.filter((t) => t !== tag))}
               className="opacity-60 hover:opacity-100 transition-opacity leading-none">
@@ -369,8 +369,8 @@ function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: 
               onClick={() => toggle(opt.value)}
               className="text-xs px-3 py-1.5 rounded border transition-all"
               style={{
-                background: active ? "rgba(81,85,148,0.18)" : "var(--bg)",
-                borderColor: active ? "#515594" : "rgba(255,255,255,0.06)",
+                background: active ? "rgba(92,240,151,0.18)" : "var(--bg)",
+                borderColor: active ? "#5CF097" : "rgba(255,255,255,0.06)",
                 color: active ? "#8b8fc4" : "var(--text-muted)",
               }}
             >
@@ -385,7 +385,7 @@ function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: 
         </p>
       )}
       {value.length > 0 && (
-        <p className="text-xs mt-2 font-mono" style={{ color: "#515594" }}>
+        <p className="text-xs mt-2 font-mono" style={{ color: "#5CF097" }}>
           {value.length} language{value.length !== 1 ? "s" : ""} selected
         </p>
       )}
@@ -467,7 +467,7 @@ function CustomBlockedPhrases({
   }
 
   return (
-    <div className="rounded border p-6 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.12)" }}>
+    <div className="rounded border p-6 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.12)" }}>
       <div>
         <p className="text-xs text-slate-400 uppercase tracking-widest font-mono mb-1">
           Custom blocked keywords &amp; phrases
@@ -559,7 +559,7 @@ function ScannerIntelCard({ scannerType }: { scannerType: string }) {
             <p className="text-xs text-slate-600 uppercase tracking-wider">
               {intel.modelType === "rule" ? "Library" : "Model"}
             </p>
-            <p className="text-sm font-mono" style={{ color: "#515594" }}>{intel.model}</p>
+            <p className="text-sm font-mono" style={{ color: "#5CF097" }}>{intel.model}</p>
           </div>
         )}
 
@@ -683,7 +683,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
   if (!guardrail) return (
     <div className="text-center py-20">
       <p className="text-slate-500 text-sm mb-4">Guardrail not found.</p>
-      <button onClick={() => router.push("/dashboard/guardrails")} style={{ color: "#515594" }} className="text-sm">← Back</button>
+      <button onClick={() => router.push("/dashboard/guardrails")} style={{ color: "#5CF097" }} className="text-sm">← Back</button>
     </div>
   );
 
@@ -700,7 +700,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
         {/* Header card */}
         <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
           <div className="flex items-center gap-2 mb-5">
-            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
+            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>
               {guardrail.scanner_type}
             </span>
             <span className="text-xs text-slate-600">{DIRECTION_LABEL[guardrail.direction] ?? guardrail.direction}</span>
@@ -740,7 +740,7 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
                 type="button"
                 onClick={() => setIsActive(!isActive)}
                 className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 mt-0.5"
-                style={{ background: isActive ? "#515594" : "#1a2236" }}
+                style={{ background: isActive ? "#5CF097" : "#1a2236" }}
               >
                 <span className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
                   style={{ transform: isActive ? "translateX(18px)" : "translateX(2px)" }} />
@@ -817,12 +817,12 @@ export default function EditGuardrailPage({ params }: { params: Promise<{ id: st
               type="submit"
               disabled={saving}
               className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50 transition-opacity"
-              style={{ background: "#515594", color: "#0A0F1F" }}
+              style={{ background: "#5CF097", color: "#0A0F1F" }}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
             {saved && (
-              <span className="text-xs font-mono" style={{ color: "#515594" }}>✓ Saved</span>
+              <span className="text-xs font-mono" style={{ color: "#5CF097" }}>✓ Saved</span>
             )}
           </div>
           <button

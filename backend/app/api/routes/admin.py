@@ -744,7 +744,7 @@ async def export_users_csv(
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=skfguard-users.csv"},
+        headers={"Content-Disposition": "attachment; filename=seraph-users.csv"},
     )
 
 
@@ -779,7 +779,7 @@ async def export_audit_logs_csv(
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=skfguard-audit-logs.csv"},
+        headers={"Content-Disposition": "attachment; filename=seraph-audit-logs.csv"},
     )
 
 

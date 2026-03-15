@@ -111,7 +111,7 @@ export default function AnnouncementsPage() {
         <button
           onClick={openCreate}
           className="px-4 py-2 rounded text-sm font-medium shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: "#515594", color: "#0A0F1F" }}
+          style={{ background: "#5CF097", color: "#0A0F1F" }}
         >
           + New announcement
         </button>
@@ -121,7 +121,7 @@ export default function AnnouncementsPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: "Total created", value: items?.length ?? "—", color: "var(--text-muted)" },
-          { label: "Currently active", value: active, color: "#515594" },
+          { label: "Currently active", value: active, color: "#5CF097" },
           { label: "Archived", value: archived, color: "#475569" },
         ].map((s) => (
           <div key={s.label} className="rounded-lg px-5 py-4 border border-white/5" style={{ background: "var(--card)" }}>
@@ -227,7 +227,7 @@ export default function AnnouncementsPage() {
                 type="submit"
                 disabled={saving || !form.title.trim()}
                 className="px-5 py-2 rounded text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: "#515594", color: "#0A0F1F" }}
+                style={{ background: "#5CF097", color: "#0A0F1F" }}
               >
                 {saving ? "Saving…" : editing ? "Save changes" : "Publish announcement"}
               </button>
@@ -250,7 +250,7 @@ export default function AnnouncementsPage() {
         ) : items.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm text-slate-600 mb-2">No announcements yet.</p>
-            <button onClick={openCreate} className="text-xs" style={{ color: "#515594" }}>Create your first one →</button>
+            <button onClick={openCreate} className="text-xs" style={{ color: "#5CF097" }}>Create your first one →</button>
           </div>
         ) : (
           <table className="w-full text-xs">
@@ -284,7 +284,7 @@ export default function AnnouncementsPage() {
                         className="font-mono px-2 py-0.5 rounded border transition-colors disabled:opacity-50"
                         style={
                           item.is_active
-                            ? { background: "rgba(81,85,148,0.08)", color: "#515594", borderColor: "rgba(81,85,148,0.2)" }
+                            ? { background: "rgba(92,240,151,0.08)", color: "#5CF097", borderColor: "rgba(92,240,151,0.2)" }
                             : { background: "rgba(71,85,105,0.15)", color: "var(--text-dim)", borderColor: "rgba(255,255,255,0.06)" }
                         }
                       >

@@ -161,13 +161,13 @@ export default function AnalyticsPage() {
         <StatCard
           label="Pass Rate (30d)"
           value={`${passRate30d.toFixed(1)}%`}
-          color={passRate30d >= 95 ? "#515594" : passRate30d >= 80 ? "#fbbf24" : "#f87171"}
+          color={passRate30d >= 95 ? "#5CF097" : passRate30d >= 80 ? "#fbbf24" : "#f87171"}
           sub="clean scans"
         />
         <StatCard
           label="Violation Rate (30d)"
           value={`${violRate30d.toFixed(1)}%`}
-          color={violRate30d < 5 ? "#515594" : violRate30d < 20 ? "#fbbf24" : "#f87171"}
+          color={violRate30d < 5 ? "#5CF097" : violRate30d < 20 ? "#fbbf24" : "#f87171"}
           sub="of all scans"
         />
         <StatCard
@@ -310,7 +310,7 @@ export default function AnalyticsPage() {
           {!summary ? <Sk /> : (
             <div className="space-y-5">
               {([
-                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#515594" },
+                { label: "Input", count: summary.input_scans, pct: inputPct, color: "#5CF097" },
                 { label: "Output", count: summary.output_scans, pct: outputPct, color: "#a78bfa" },
               ] as const).map(({ label, count, pct, color }) => (
                 <div key={label}>

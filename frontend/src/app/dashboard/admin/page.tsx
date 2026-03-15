@@ -116,7 +116,7 @@ function timeAgo(iso: string | null): string {
 }
 
 const ENV_COLOR: Record<string, { background: string; color: string }> = {
-  production: { background: "rgba(81,85,148,0.1)", color: "#515594" },
+  production: { background: "rgba(92,240,151,0.1)", color: "#5CF097" },
   development: { background: "rgba(251,191,36,0.1)", color: "#fbbf24" },
   staging: { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
 };
@@ -217,7 +217,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
                   <button key={v} type="button" onClick={() => setRole(v)}
                     className="flex-1 py-1.5 rounded text-xs font-medium border transition-colors"
                     style={role === v
-                      ? { background: "#515594", color: "#fff", borderColor: "#515594" }
+                      ? { background: "#5CF097", color: "#fff", borderColor: "#5CF097" }
                       : { background: "transparent", color: "var(--text-dim)", borderColor: "var(--border-input)" }}>
                     {label}
                   </button>
@@ -230,7 +230,7 @@ function AssignOrgModal({ user, orgs, onClose, onSaved }: {
           <div className="flex gap-3 pt-1">
             <button type="submit" disabled={saving}
               className="flex-1 py-2 rounded text-sm font-medium disabled:opacity-50"
-              style={{ background: "#515594", color: "#fff" }}>
+              style={{ background: "#5CF097", color: "#fff" }}>
               {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={onClose}
@@ -310,7 +310,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
         </div>
         {done ? (
           <div className="space-y-3">
-            <p className="text-xs font-mono" style={{ color: "#515594" }}>✓ Password updated.</p>
+            <p className="text-xs font-mono" style={{ color: "#5CF097" }}>✓ Password updated.</p>
             <button onClick={onClose} className="w-full py-2 rounded text-sm border border-white/10 text-slate-400 hover:text-white transition-colors">Close</button>
           </div>
         ) : (
@@ -325,7 +325,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
             <div className="flex gap-3">
               <button type="submit" disabled={saving}
                 className="flex-1 py-2 rounded text-sm font-medium disabled:opacity-50"
-                style={{ background: "#515594", color: "#fff" }}>
+                style={{ background: "#5CF097", color: "#fff" }}>
                 {saving ? "Saving…" : "Set password"}
               </button>
               <button type="button" onClick={onClose}
@@ -361,7 +361,7 @@ function CreateUserPanel({ onCreated, onCancel }: { onCreated: () => void; onCan
   }
 
   return (
-    <div className="rounded border p-5 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.2)" }}>
+    <div className="rounded border p-5 space-y-4" style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.2)" }}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">New User Account</p>
         <button onClick={onCancel} className="text-xs text-slate-600 hover:text-slate-400">✕ Cancel</button>
@@ -401,7 +401,7 @@ function CreateUserPanel({ onCreated, onCancel }: { onCreated: () => void; onCan
         </div>
         <div className="sm:col-span-2 flex items-center gap-4">
           <button type="submit" disabled={saving} className="text-sm font-medium px-5 py-2 rounded disabled:opacity-50"
-            style={{ background: "#515594", color: "#fff" }}>
+            style={{ background: "#5CF097", color: "#fff" }}>
             {saving ? "Creating…" : "Create user"}
           </button>
           {error && <p className="text-xs text-red-400">{error}</p>}
@@ -500,7 +500,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       <tr
         onClick={() => setExpanded((v) => !v)}
         className="border-b border-white/5 last:border-0 cursor-pointer transition-colors"
-        style={{ background: expanded ? "rgba(81,85,148,0.02)" : undefined }}
+        style={{ background: expanded ? "rgba(92,240,151,0.02)" : undefined }}
         onMouseEnter={(e) => { if (!expanded) e.currentTarget.style.background = "rgba(255,255,255,0.01)"; }}
         onMouseLeave={(e) => { if (!expanded) e.currentTarget.style.background = ""; }}
       >
@@ -512,7 +512,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         <td className="px-4 py-3">
           <span className="text-xs font-mono px-2 py-0.5 rounded"
             style={entry.is_valid
-              ? { background: "rgba(81,85,148,0.08)", color: "#515594" }
+              ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" }
               : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
             {entry.is_valid ? "pass" : "block"}
           </span>
@@ -572,7 +572,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
                       .map(([name, score]) => {
                         const pct = Math.round(score * 100);
                         const isViol = entry.violation_scanners.includes(name);
-                        const barColor = isViol ? "#f87171" : score > 0.4 ? "#fbbf24" : "#515594";
+                        const barColor = isViol ? "#f87171" : score > 0.4 ? "#fbbf24" : "#5CF097";
                         return (
                           <div key={name} className="rounded px-3 py-2 border border-white/5"
                             style={{ background: isViol ? "rgba(248,113,113,0.04)" : "var(--card)" }}>
@@ -645,7 +645,7 @@ function ColVis({ cols, hidden, onToggle }: {
         </svg>
         Columns
         {hidden.size > 0 && (
-          <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(81,85,148,0.2)", color: "#818cf8" }}>
+          <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(92,240,151,0.2)", color: "#818cf8" }}>
             {visCount}/{cols.length}
           </span>
         )}
@@ -693,7 +693,7 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
           return (
             <button key={p} onClick={() => onPage(p)}
               className="w-7 h-7 rounded text-xs font-mono transition-colors"
-              style={p === page ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
+              style={p === page ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
               {p}
             </button>
           );
@@ -710,25 +710,25 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
 // ── System Events sub-tab ─────────────────────────────────────────────────────
 
 const EVENT_STYLES: Record<string, { background: string; color: string }> = {
-  "user.created":        { background: "rgba(81,85,148,0.1)",  color: "#515594" },
-  "user.registered":     { background: "rgba(81,85,148,0.08)", color: "#5eead4" },
+  "user.created":        { background: "rgba(92,240,151,0.1)",  color: "#5CF097" },
+  "user.registered":     { background: "rgba(92,240,151,0.08)", color: "#5eead4" },
   "user.deleted":        { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "user.role_changed":   { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
   "user.password_reset": { background: "rgba(251,191,36,0.08)", color: "#fbbf24" },
   "user.impersonated":   { background: "rgba(251,191,36,0.12)", color: "#fbbf24" },
-  "guardrail.created":   { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "guardrail.created":   { background: "rgba(92,240,151,0.1)",  color: "#5CF097" },
   "guardrail.updated":   { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
   "guardrail.deleted":   { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "guardrail.toggled":   { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
-  "connection.created":  { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "connection.created":  { background: "rgba(92,240,151,0.1)",  color: "#5CF097" },
   "connection.updated":  { background: "rgba(148,163,184,0.1)", color: "var(--text-muted)" },
   "connection.deleted":  { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "connection.toggled":  { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
   "connection.spend_reset": { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
-  "org.created":            { background: "rgba(81,85,148,0.1)",  color: "#515594" },
+  "org.created":            { background: "rgba(92,240,151,0.1)",  color: "#5CF097" },
   "org.deleted":            { background: "rgba(248,113,113,0.1)", color: "#f87171" },
   "org.member_removed":     { background: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
-  "org.invite_created":     { background: "rgba(81,85,148,0.08)", color: "#5eead4" },
+  "org.invite_created":     { background: "rgba(92,240,151,0.08)", color: "#5eead4" },
   "user.org_assigned":      { background: "rgba(167,139,250,0.1)", color: "#a78bfa" },
 };
 
@@ -826,7 +826,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
             <button key={n} onClick={() => { setPageSize(n); setPage(1); }}
               className="text-xs px-2 py-1 rounded font-mono transition-colors"
               style={pageSize === n
-                ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
                 : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
               {n}
             </button>
@@ -873,7 +873,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                     <tr key={e.id}
                       onClick={() => setExpanded(isExpanded ? null : e.id)}
                       className="border-b border-white/5 cursor-pointer transition-colors"
-                      style={{ background: isExpanded ? "rgba(81,85,148,0.02)" : undefined }}
+                      style={{ background: isExpanded ? "rgba(92,240,151,0.02)" : undefined }}
                       onMouseEnter={(ev) => { if (!isExpanded) ev.currentTarget.style.background = "rgba(255,255,255,0.01)"; }}
                       onMouseLeave={(ev) => { if (!isExpanded) ev.currentTarget.style.background = ""; }}
                     >
@@ -1010,7 +1010,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
         {(["scan-logs", "system-events"] as const).map((k) => (
           <button key={k} onClick={() => setSubTab(k)}
             className="px-4 py-1.5 rounded text-xs font-medium transition-colors"
-            style={subTab === k ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
+            style={subTab === k ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
             {k === "scan-logs" ? "Scan Logs" : "System Events"}
           </button>
         ))}
@@ -1031,7 +1031,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
               {(["all", "input", "output"] as const).map((d) => (
                 <button key={d} onClick={() => applyFilter("dir", d)}
                   className="px-3 py-1 rounded text-xs font-medium transition-colors capitalize"
-                  style={dir === d ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
+                  style={dir === d ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
                   {d}
                 </button>
               ))}
@@ -1040,7 +1040,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
               {[{ v: "all", label: "All" }, { v: "pass", label: "Pass" }, { v: "block", label: "Block" }].map(({ v, label }) => (
                 <button key={v} onClick={() => applyFilter("status", v)}
                   className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                  style={status === v ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
+                  style={status === v ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
                   {label}
                 </button>
               ))}
@@ -1051,13 +1051,13 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                 <button key={n} onClick={() => { setPageSize(n); setPage(1); }}
                   className="text-xs px-2 py-1 rounded font-mono transition-colors"
                   style={pageSize === n
-                    ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                    ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
                     : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
                   {n}
                 </button>
               ))}
             </div>
-            <button onClick={() => downloadCSV("/admin/export/audit-logs?limit=1000", "skfguard-audit-logs.csv")}
+            <button onClick={() => downloadCSV("/admin/export/audit-logs?limit=1000", "seraph-audit-logs.csv")}
               className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
               ↓ Export CSV
             </button>
@@ -1191,7 +1191,7 @@ function OrgsTab() {
         <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">All Organizations</p>
         <button onClick={() => setShowCreate(!showCreate)}
           className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-          style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#515594", color: "#fff" }}>
+          style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#5CF097", color: "#fff" }}>
           {showCreate ? "✕ Cancel" : "+ New org"}
         </button>
       </div>
@@ -1199,7 +1199,7 @@ function OrgsTab() {
       {showCreate && (
         <form onSubmit={handleCreate}
           className="rounded border p-4 flex items-end gap-3"
-          style={{ background: "var(--card)", borderColor: "rgba(81,85,148,0.2)" }}>
+          style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.2)" }}>
           <div className="flex-1">
             <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">Organization Name</label>
             <input value={newOrgName} onChange={(e) => setNewOrgName(e.target.value)}
@@ -1209,7 +1209,7 @@ function OrgsTab() {
           </div>
           <button type="submit" disabled={creating}
             className="px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
-            style={{ background: "#515594", color: "#fff" }}>
+            style={{ background: "#5CF097", color: "#fff" }}>
             {creating ? "Creating…" : "Create"}
           </button>
           {createError && <p className="text-xs text-red-400">{createError}</p>}
@@ -1231,7 +1231,7 @@ function OrgsTab() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 hover:bg-white/[0.01] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ background: "rgba(81,85,148,0.1)", color: "#515594" }}>
+                  style={{ background: "rgba(92,240,151,0.1)", color: "#5CF097" }}>
                   {org.name[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -1269,7 +1269,7 @@ function OrgsTab() {
                 <button onClick={() => toggleExpand(org.id, "members")}
                   className="text-xs px-2.5 py-1 rounded border transition-colors"
                   style={isOpen(org.id, "members")
-                    ? { borderColor: "rgba(81,85,148,0.4)", color: "#515594" }
+                    ? { borderColor: "rgba(92,240,151,0.4)", color: "#5CF097" }
                     : { borderColor: "var(--border-input)", color: "var(--text-dim)" }}>
                   Members {isOpen(org.id, "members") ? "▲" : "▼"}
                 </button>
@@ -1290,7 +1290,7 @@ function OrgsTab() {
 
             {/* Members panel */}
             {isOpen(org.id, "members") && (
-              <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(81,85,148,0.02)" }}>
+              <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(92,240,151,0.02)" }}>
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-2">Members</p>
                 {!orgMembers[org.id] ? (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
@@ -1304,7 +1304,7 @@ function OrgsTab() {
                         <span className="font-mono px-1.5 py-0.5 rounded"
                           style={m.role === "org_admin"
                             ? { background: "rgba(251,191,36,0.1)", color: "#fbbf24" }
-                            : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
+                            : { background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
                           {m.role === "org_admin" ? "Org Admin" : "Member"}
                         </span>
                         {m.email && <span className="text-slate-600">{m.email}</span>}
@@ -1436,7 +1436,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             </div>
             <button onClick={() => set("signup_enabled", signupEnabled ? "false" : "true")}
               className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-              style={{ background: signupEnabled ? "#515594" : "rgba(255,255,255,0.1)" }}>
+              style={{ background: signupEnabled ? "#5CF097" : "rgba(255,255,255,0.1)" }}>
               <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                 style={{ transform: signupEnabled ? "translateX(20px)" : "translateX(2px)" }} />
             </button>
@@ -1454,7 +1454,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             </div>
             <button onClick={() => set("chatbot_enabled", chatbotEnabled ? "false" : "true")}
               className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-              style={{ background: chatbotEnabled ? "#515594" : "rgba(255,255,255,0.1)" }}>
+              style={{ background: chatbotEnabled ? "#5CF097" : "rgba(255,255,255,0.1)" }}>
               <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                 style={{ transform: chatbotEnabled ? "translateX(20px)" : "translateX(2px)" }} />
             </button>
@@ -1529,7 +1529,7 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
             <div className="flex items-center gap-3 pt-5">
               <button onClick={() => set("smtp_tls", settings.smtp_tls === "true" ? "false" : "true")}
                 className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-                style={{ background: settings.smtp_tls === "true" ? "#515594" : "rgba(255,255,255,0.1)" }}>
+                style={{ background: settings.smtp_tls === "true" ? "#5CF097" : "rgba(255,255,255,0.1)" }}>
                 <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
                   style={{ transform: settings.smtp_tls === "true" ? "translateX(20px)" : "translateX(2px)" }} />
               </button>
@@ -1543,10 +1543,10 @@ function SettingsTab({ platformSettings, mutatePlatform }: {
       <div className="flex items-center gap-4">
         <button onClick={handleSave} disabled={saving}
           className="px-6 py-2.5 rounded font-medium text-sm disabled:opacity-50 transition-colors"
-          style={{ background: "#515594", color: "#fff" }}>
+          style={{ background: "#5CF097", color: "#fff" }}>
           {saving ? "Saving…" : "Save all settings"}
         </button>
-        {saved && <p className="text-xs font-mono" style={{ color: "#515594" }}>✓ Settings saved</p>}
+        {saved && <p className="text-xs font-mono" style={{ color: "#5CF097" }}>✓ Settings saved</p>}
       </div>
     </div>
   );
@@ -1563,7 +1563,7 @@ function AccessDenied() {
       </div>
       <p className="text-white font-semibold">Administrator access required</p>
       <p className="text-xs text-slate-500">This page is only accessible to admin accounts.</p>
-      <a href="/dashboard" className="text-xs font-mono mt-2" style={{ color: "#515594" }}>← Back to dashboard</a>
+      <a href="/dashboard" className="text-xs font-mono mt-2" style={{ color: "#5CF097" }}>← Back to dashboard</a>
     </div>
   );
 }
@@ -1594,7 +1594,7 @@ function ActivityScannerRows({ entry }: { entry: ActivityEntry }) {
       {pairs.map(([name, score]) => {
         const isViol = entry.violation_scanners.includes(name);
         const pct = Math.min(Math.round(score * 100), 100);
-        const color = isViol ? "#f87171" : score > 0.5 ? "#fbbf24" : "#515594";
+        const color = isViol ? "#f87171" : score > 0.5 ? "#fbbf24" : "#5CF097";
         return (
           <div key={name}>
             <div className="flex items-center justify-between mb-1">
@@ -1602,7 +1602,7 @@ function ActivityScannerRows({ entry }: { entry: ActivityEntry }) {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono" style={{ color }}>{score.toFixed(3)}</span>
                 <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                  style={isViol ? { background: "rgba(248,113,113,0.12)", color: "#f87171" } : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
+                  style={isViol ? { background: "rgba(248,113,113,0.12)", color: "#f87171" } : { background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
                   {isViol ? "blocked" : "pass"}
                 </span>
               </div>
@@ -1638,7 +1638,7 @@ function ActivityFeed({
         <div className="flex items-center gap-3">
           {entries.length > 0 && (
             <>
-              <span className="text-xs font-mono" style={{ color: "#515594" }}>{passCount} pass</span>
+              <span className="text-xs font-mono" style={{ color: "#5CF097" }}>{passCount} pass</span>
               <span className="text-xs font-mono" style={{ color: "#f87171" }}>{blockCount} blocked</span>
             </>
           )}
@@ -1647,7 +1647,7 @@ function ActivityFeed({
       </div>
       {entries.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center space-y-3">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#515594" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#5CF097" }} />
           <p className="text-sm text-slate-500">No scans yet — waiting for traffic.</p>
         </div>
       ) : (
@@ -1658,12 +1658,12 @@ function ActivityFeed({
             return (
               <button key={entry.id} onClick={() => onSelect(entry)} className="w-full text-left px-4 py-3 transition-all"
                 style={{
-                  background: isNew ? "rgba(81,85,148,0.06)" : isSel ? "rgba(255,255,255,0.03)" : "transparent",
-                  borderLeft: isSel ? "2px solid #515594" : "2px solid transparent",
+                  background: isNew ? "rgba(92,240,151,0.06)" : isSel ? "rgba(255,255,255,0.03)" : "transparent",
+                  borderLeft: isSel ? "2px solid #5CF097" : "2px solid transparent",
                 }}>
                 <div className="flex items-center gap-3">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: entry.is_valid ? "#515594" : "#f87171" }} />
+                    style={{ background: entry.is_valid ? "#5CF097" : "#f87171" }} />
                   <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
                     style={{
                       background: entry.direction === "input" ? "rgba(167,139,250,0.1)" : "rgba(251,191,36,0.1)",
@@ -1672,7 +1672,7 @@ function ActivityFeed({
                     {entry.direction}
                   </span>
                   <span className="text-xs font-mono shrink-0"
-                    style={{ color: entry.is_valid ? "#515594" : "#f87171" }}>
+                    style={{ color: entry.is_valid ? "#5CF097" : "#f87171" }}>
                     {entry.is_valid ? "pass" : "blocked"}
                   </span>
                   {entry.violation_scanners.length > 0 && (
@@ -1713,13 +1713,13 @@ function ActivityDetailPanel({ selected }: { selected: ActivityEntry | null }) {
       <div className="rounded border px-5 py-4"
         style={{
           background: "var(--card)",
-          borderColor: selected.is_valid ? "rgba(81,85,148,0.2)" : "rgba(248,113,113,0.25)",
+          borderColor: selected.is_valid ? "rgba(92,240,151,0.2)" : "rgba(248,113,113,0.25)",
         }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono font-bold px-2.5 py-1 rounded"
               style={selected.is_valid
-                ? { background: "rgba(81,85,148,0.1)", color: "#515594" }
+                ? { background: "rgba(92,240,151,0.1)", color: "#5CF097" }
                 : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
               {selected.is_valid ? "✓ PASS" : "✗ BLOCKED"}
             </span>
@@ -1825,7 +1825,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
       {/* Header + sub-tabs */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#515594" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#5CF097" }} />
           <p className="text-xs font-mono text-slate-500 uppercase tracking-wider">Live request monitor</p>
         </div>
         <div className="flex items-center gap-1 ml-4">
@@ -1833,7 +1833,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
             <button key={v} onClick={() => { setSubView(v); setConnFilter(null); setSelected(null); }}
               className="px-3 py-1.5 text-xs font-medium rounded transition-colors capitalize"
               style={subView === v
-                ? { background: "rgba(81,85,148,0.1)", color: "#515594" }
+                ? { background: "rgba(92,240,151,0.1)", color: "#5CF097" }
                 : { color: "#475569" }}>
               {v === "connections" ? "By Connection" : "Feed"}
             </button>
@@ -1871,7 +1871,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: conn.violations > 0 ? "#f87171" : "#515594" }} />
+                        style={{ background: conn.violations > 0 ? "#f87171" : "#5CF097" }} />
                       <div className="min-w-0">
                         <p className="text-sm text-slate-200 font-medium truncate">{conn.name}</p>
                         {conn.env && (
@@ -1904,7 +1904,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
         <div className="space-y-3">
           <button onClick={() => { setConnFilter(null); setSelected(null); }}
             className="flex items-center gap-2 text-xs font-mono transition-colors"
-            style={{ color: "#515594" }}>
+            style={{ color: "#5CF097" }}>
             ← Back to connections
           </button>
           <p className="text-sm font-medium text-white">{connFilter}</p>
@@ -2081,11 +2081,11 @@ export default function AdminPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className="px-4 py-2.5 text-sm font-medium transition-colors relative"
-            style={tab === t.key ? { color: "#515594" } : { color: "var(--text-dim)" }}
+            style={tab === t.key ? { color: "#5CF097" } : { color: "var(--text-dim)" }}
           >
             {t.label}
             {tab === t.key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: "#515594" }} />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: "#5CF097" }} />
             )}
           </button>
         ))}
@@ -2105,15 +2105,15 @@ export default function AdminPage() {
                 <StatCard label="Platform Scans" value={stats.total_scans.toLocaleString()} color="#e2e8f0"
                   sub={`${stats.scans_today.toLocaleString()} today`} />
                 <StatCard label="Pass Rate" value={`${stats.pass_rate.toFixed(1)}%`}
-                  color={stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
+                  color={stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
                   sub={`${stats.pass_rate_today.toFixed(1)}% today`} />
                 <StatCard label="Violations" value={stats.total_violations.toLocaleString()}
-                  color={stats.total_violations > 0 ? "#f87171" : "#515594"}
+                  color={stats.total_violations > 0 ? "#f87171" : "#5CF097"}
                   sub={`${stats.violations_today} today`} />
                 <StatCard label="Active Guardrails" value={`${stats.active_guardrails} / ${stats.total_guardrails}`}
-                  color="#515594" sub="scanning now" />
+                  color="#5CF097" sub="scanning now" />
                 <StatCard label="API Connections" value={stats.total_connections.toString()}
-                  color={stats.blocked_connections > 0 ? "#f87171" : "#515594"}
+                  color={stats.blocked_connections > 0 ? "#f87171" : "#5CF097"}
                   sub={stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "all active"}
                   warn={stats.blocked_connections > 0} />
                 <StatCard label="Month Spend" value={`$${stats.total_month_spend.toFixed(2)}`}
@@ -2122,7 +2122,7 @@ export default function AdminPage() {
                   color="#fbbf24" sub="registrations" />
                 <StatCard label="Platform Health"
                   value={stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor"}
-                  color={stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
+                  color={stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
                   sub="based on pass rate" />
               </>
             )}
@@ -2132,7 +2132,7 @@ export default function AdminPage() {
           {stats && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#515594" },
+                { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#5CF097" },
                 { label: "All-Time Violations", big: stats.total_violations, total: stats.total_scans, color: "#fbbf24" },
               ].map(({ label, big, total, color }) => (
                 <div key={label} className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
@@ -2151,9 +2151,9 @@ export default function AdminPage() {
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-4">System Status</p>
                 <div className="space-y-3">
                   {[
-                    { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#515594" : "#f87171" },
-                    { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#515594" },
-                    { label: "Platform health", val: stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor", color: stats.pass_rate >= 95 ? "#515594" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171" },
+                    { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#5CF097" : "#f87171" },
+                    { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#5CF097" },
+                    { label: "Platform health", val: stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor", color: stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171" },
                     { label: "Month spend", val: `$${stats.total_month_spend.toFixed(2)}`, color: "#a78bfa" },
                   ].map(({ label, val, color }) => (
                     <div key={label} className="flex items-center justify-between">
@@ -2225,10 +2225,10 @@ export default function AdminPage() {
                   {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
                     <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#515594" }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#5CF097" }} />
                         <span className="text-xs text-slate-400 truncate">{g.name}</span>
                         <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                          style={{ background: g.direction === "input" ? "rgba(81,85,148,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#515594" : "#a78bfa" }}>
+                          style={{ background: g.direction === "input" ? "rgba(92,240,151,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#5CF097" : "#a78bfa" }}>
                           {g.direction}
                         </span>
                       </div>
@@ -2287,7 +2287,7 @@ export default function AdminPage() {
                         {ovis("status") && (
                           <td className="px-4 py-3">
                             <span className="text-xs font-mono px-2 py-0.5 rounded"
-                              style={a.is_valid ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
+                              style={a.is_valid ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
                               {a.is_valid ? "pass" : "block"}
                             </span>
                           </td>
@@ -2342,7 +2342,7 @@ export default function AdminPage() {
                 {(["", "admin", "viewer"] as const).map((r) => (
                   <button key={r || "all"} onClick={() => { setRoleFilter(r); setUserPage(1); }}
                     className="text-xs px-2.5 py-1 rounded transition-colors"
-                    style={roleFilter === r ? { background: "#515594", color: "#fff" } : { color: "var(--text-dim)" }}>
+                    style={roleFilter === r ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
                     {r === "" ? "All" : r}
                   </button>
                 ))}
@@ -2353,19 +2353,19 @@ export default function AdminPage() {
                   <button key={n} onClick={() => { setUserPageSize(n); setUserPage(1); }}
                     className="text-xs px-2 py-1 rounded font-mono transition-colors"
                     style={userPageSize === n
-                      ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                      ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
                       : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
                     {n}
                   </button>
                 ))}
               </div>
-              <button onClick={() => downloadCSV("/admin/export/users", "skfguard-users.csv")}
+              <button onClick={() => downloadCSV("/admin/export/users", "seraph-users.csv")}
                 className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
                 ↓ Export CSV
               </button>
               <button onClick={() => setShowCreate(!showCreate)}
                 className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-                style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#515594", color: "#fff" }}>
+                style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#5CF097", color: "#fff" }}>
                 {showCreate ? "✕ Cancel" : "+ New user"}
               </button>
             </div>
@@ -2398,7 +2398,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(81,85,148,0.1)", color: u.role === "admin" ? "#f87171" : "#515594" }}>
+                          style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(92,240,151,0.1)", color: u.role === "admin" ? "#f87171" : "#5CF097" }}>
                           {u.username[0].toUpperCase()}
                         </div>
                         <div>
@@ -2410,7 +2410,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono">{u.email ?? <span className="text-slate-700">—</span>}</td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                        style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(81,85,148,0.08)", color: "#515594" }}>
+                        style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
                         {u.role}
                       </span>
                     </td>
@@ -2490,7 +2490,7 @@ export default function AdminPage() {
                   <button key={n} onClick={() => { setConnPageSize(n); setConnPage(1); }}
                     className="text-xs px-2 py-1 rounded font-mono transition-colors"
                     style={connPageSize === n
-                      ? { background: "rgba(81,85,148,0.2)", color: "#818cf8", border: "1px solid rgba(81,85,148,0.3)" }
+                      ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
                       : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
                     {n}
                   </button>
@@ -2535,7 +2535,7 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                          style={c.status === "active" ? { background: "rgba(81,85,148,0.08)", color: "#515594" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
+                          style={c.status === "active" ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
                           {c.status}
                         </span>
                       </td>
@@ -2604,7 +2604,7 @@ export default function AdminPage() {
                       <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"
                         style={{ background: "rgba(255,255,255,0.01)" }}>
                         <span className="text-xs font-mono font-semibold capitalize px-2 py-0.5 rounded"
-                          style={dir === "input" ? { background: "rgba(81,85,148,0.1)", color: "#515594" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
+                          style={dir === "input" ? { background: "rgba(92,240,151,0.1)", color: "#5CF097" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
                           {dir}
                         </span>
                         <span className="text-xs text-slate-600 font-mono">
@@ -2614,7 +2614,7 @@ export default function AdminPage() {
                       {list.map((g) => (
                         <div key={g.id} className="flex items-center justify-between px-5 py-3 border-b border-white/5 last:border-0">
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#515594" : "#334155" }} />
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#5CF097" : "#334155" }} />
                             <span className="text-xs text-slate-300 truncate">{g.name}</span>
                             <span className="text-xs font-mono text-slate-600 shrink-0">{g.scanner_type}</span>
                           </div>
@@ -2623,7 +2623,7 @@ export default function AdminPage() {
                             disabled={toggling === g.id}
                             className="text-xs px-3 py-1 rounded border ml-4 shrink-0 transition-colors disabled:opacity-40"
                             style={g.is_active
-                              ? { borderColor: "rgba(81,85,148,0.3)", color: "#515594" }
+                              ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
                               : { borderColor: "var(--border-input)", color: "#475569" }}>
                             {toggling === g.id ? "…" : g.is_active ? "On" : "Off"}
                           </button>
