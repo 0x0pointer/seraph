@@ -16,6 +16,13 @@ Parallel execution:
   Each scanner is run in its own thread via run_in_executor so ML models execute
   concurrently instead of sequentially.  This cuts wall-clock time from the sum of
   all model latencies to roughly the latency of the slowest single model.
+
+Text canonicalization (v17):
+  Before scanning, the engine produces a canonical form of the input text
+  (homoglyphs resolved, leetspeak reversed, spaced-out letters collapsed, etc.).
+  Rule-based scanners (BanSubstrings, Regex) run on the CANONICAL text so that
+  evasion techniques like Cyrillic substitution or leetspeak are neutralized.
+  ML-based scanners run on the ORIGINAL text for best classification accuracy.
 """
 import asyncio
 import concurrent.futures
@@ -32,8 +39,15 @@ from sqlalchemy import select as _sa_select
 
 from app.models.guardrail import GuardrailConfig
 from app.services.guardrail_service import list_guardrails
+from app.services.text_canonicalizer import canonicalize
 
 logger = logging.getLogger(__name__)
+
+# Scanner types that benefit from text canonicalization.
+# These are pure detection scanners (no sanitized output) that match on
+# exact substrings or regex patterns — evasion via homoglyphs/leetspeak
+# is neutralized by feeding them the canonical text form.
+_CANONICAL_SCANNERS = {"BanSubstrings", "Regex"}
 
 # Shared thread-pool for blocking scanner inference.
 # max_workers=None → Python default (min(32, cpu_count+4)).
@@ -99,6 +113,12 @@ def _import_custom_scanner(direction: str, params: dict) -> Any:
     """Instantiate the first-party CustomRuleScanner."""
     from app.services.custom_scanner import CustomRuleScanner
     return CustomRuleScanner(direction=direction, **params)
+
+
+def _import_embedding_shield(params: dict) -> Any:
+    """Instantiate the first-party EmbeddingShield scanner."""
+    from app.services.embedding_shield import EmbeddingShield
+    return EmbeddingShield(**params)
 
 
 # Exact language names accepted by the llm-guard Code scanner.
@@ -177,6 +197,9 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
     """
     if scanner_type == "CustomRule":
         return _import_custom_scanner(direction, params)
+
+    if scanner_type == "EmbeddingShield":
+        return _import_embedding_shield(params)
 
     if scanner_type == "BanCode":
         languages = params.get("languages")
@@ -395,8 +418,18 @@ async def run_input_scan(
     if not entries:
         return True, text, {}, [], {}, None, False
 
+    # ── Text canonicalization (v17) ─────────────────────────────────────────
+    # Produce a canonical form for rule-based scanners (BanSubstrings, Regex).
+    # ML scanners still see the original text for best classification accuracy.
+    canonical_text = canonicalize(text)
+    _has_canonical = canonical_text != text
+    if _has_canonical:
+        logger.debug("Text canonicalized: original=%d chars, canonical=%d chars", len(text), len(canonical_text))
+
     # Check LRU cache (global mode only, no per-connection overrides)
-    cache_key = _result_cache_key("input", entries, text) if use_cache else None
+    # Include canonical text in cache key so evasion variants cache separately
+    _cache_input = f"{text}\x01{canonical_text}" if _has_canonical else text
+    cache_key = _result_cache_key("input", entries, _cache_input) if use_cache else None
     if cache_key:
         cached = _result_cache_get(cache_key)
         if cached is not None:
@@ -404,7 +437,11 @@ async def run_input_scan(
 
     loop = asyncio.get_event_loop()
     tasks = [
-        loop.run_in_executor(_executor, _scan_one_input, e[0], text)
+        loop.run_in_executor(
+            _executor, _scan_one_input, e[0],
+            # Rule-based scanners see canonical text; ML scanners see original
+            canonical_text if _has_canonical and e[1] in _CANONICAL_SCANNERS else text,
+        )
         for e in entries
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -481,6 +518,9 @@ async def run_input_scan(
             on_fail_actions[scanner_name] = "blocked"
 
     phrase_hit = _apply_custom_phrases(text, entries, results_score, violation_scanners)
+    # v17: Also check custom phrases against canonical text (catches homoglyph/leetspeak evasion)
+    if _has_canonical and not phrase_hit:
+        phrase_hit = _apply_custom_phrases(canonical_text, entries, results_score, violation_scanners)
     if phrase_hit:
         overall_valid = False
 
@@ -521,8 +561,15 @@ async def run_output_scan(
     if not entries:
         return True, output, {}, [], {}, None, False
 
+    # ── Text canonicalization (v17) — also applies to output scanning ────
+    canonical_output = canonicalize(output)
+    _has_canonical_out = canonical_output != output
+    if _has_canonical_out:
+        logger.debug("Output canonicalized: original=%d chars, canonical=%d chars", len(output), len(canonical_output))
+
     # Check LRU cache — key includes prompt so context is preserved
-    cache_key = _result_cache_key("output", entries, f"{prompt}\x00{output}") if use_cache else None
+    _cache_out = f"{prompt}\x00{output}\x01{canonical_output}" if _has_canonical_out else f"{prompt}\x00{output}"
+    cache_key = _result_cache_key("output", entries, _cache_out) if use_cache else None
     if cache_key:
         cached = _result_cache_get(cache_key)
         if cached is not None:
@@ -530,7 +577,10 @@ async def run_output_scan(
 
     loop = asyncio.get_event_loop()
     tasks = [
-        loop.run_in_executor(_executor, _scan_one_output, e[0], prompt, output)
+        loop.run_in_executor(
+            _executor, _scan_one_output, e[0], prompt,
+            canonical_output if _has_canonical_out and e[1] in _CANONICAL_SCANNERS else output,
+        )
         for e in entries
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -599,6 +649,9 @@ async def run_output_scan(
             on_fail_actions[scanner_name] = "blocked"
 
     phrase_hit = _apply_custom_phrases(output, entries, results_score, violation_scanners)
+    # v17: Also check custom phrases against canonical output
+    if _has_canonical_out and not phrase_hit:
+        phrase_hit = _apply_custom_phrases(canonical_output, entries, results_score, violation_scanners)
     if phrase_hit:
         overall_valid = False
 

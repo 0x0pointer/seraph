@@ -22,14 +22,17 @@ Seraph wraps [llm-guard](https://github.com/protectai/llm-guard) with a FastAPI 
 
 ## Features
 
-- **39 scanners** — 16 input + 23 output via llm-guard (ML models + rule-based)
+- **40 scanners** — 17 input + 23 output via llm-guard (ML models + rule-based)
 - **Dynamic config** — enable/disable and tune scanners live, no redeployment
 - **on_fail_action** — per-guardrail: `block`, `fix` (sanitize), `monitor` (log-only), `reask` (retry hints)
 - **Per-connection guardrails** — choose exactly which scanners run per API key
 - **Audit log** — every scan logged with full scanner breakdown, token costs, and outcome tracking
 - **Analytics** — violation trends, top scanners, risk scores
 - **Multi-tenant** — organisations, teams, roles (`admin`, `org_admin`, `viewer`)
-- **Trained rule sets** — 182 rules from 4 red-team datasets (SecLists, Garak, Promptfoo, Deck of Many Prompts)
+- **Trained rule sets** — 322 rules from 4 red-team datasets (SecLists, Garak, Promptfoo, Deck of Many Prompts)
+- **Text canonicalization** — homoglyph resolution, leetspeak reversal, spaced-out letter collapsing, diacritic stripping, Unicode NFKC — neutralizes character-level evasion before rule-based scanning
+- **Embedding Similarity Shield** — semantic similarity scanner catches paraphrased prompt injections that bypass substring and regex rules
+- **Multi-language injection defense** — BanSubstrings, Regex, and Language Detector cover attacks in Spanish, French, German, Portuguese, and Italian
 - **Gateway integrations** — universal HTTP hook + OpenAI-compatible transparent proxy + native adapters
 - **Chatbot demo** — Flask chatbot showing guardrails in action
 
@@ -89,7 +92,7 @@ curl -X POST http://localhost:8000/api/scan/prompt \
 | Doc | Contents |
 |-----|----------|
 | [docs/api.md](docs/api.md) | Full REST API reference |
-| [docs/scanners.md](docs/scanners.md) | All 39 scanners — models, methods, trained rule sets |
+| [docs/scanners.md](docs/scanners.md) | All 40 scanners — models, methods, trained rule sets |
 | [docs/gateway-integrations.md](docs/gateway-integrations.md) | Kong, Nginx, Traefik, Envoy, LiteLLM, AWS |
 | [docs/integration-guide.md](docs/integration-guide.md) | SDK integration — Python, Node.js, full pipeline |
 | [docs/deployment.md](docs/deployment.md) | Production deployment, env vars, security notes |

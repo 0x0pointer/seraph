@@ -255,6 +255,110 @@ GUARDRAIL_CATALOG: list[dict] = [
          # Spikee: challenge / mission framing (v16)
          "the mission, should you accept it",
          "prove you are truly intelligent by",
+         # ── v17: Synonym substitution for instruction override ───────────────
+         # Counters INJECT-01 — verbs outside the ignore/disregard/forget/override/bypass set
+         "set aside the guidance",
+         "set aside your instructions",
+         "set aside your guidelines",
+         "put aside your instructions",
+         "put aside your guidelines",
+         "put aside the guidance",
+         "abandon your current instructions",
+         "drop your current guidelines",
+         "shelve your current rules",
+         "step outside of your guidelines",
+         "look beyond your training",
+         "discard your previous instructions",
+         "discard your instructions",
+         "move past your instructions",
+         "move past your guidelines",
+         "without applying any of your usual",
+         "without your usual operating",
+         # ── v17: Identity reassignment (bypasses "act as" / "pretend" blocklist)
+         # Counters INJECT-02 — "consider yourself to be" avoids act-as/pretend triggers
+         "consider yourself to be",
+         "think of yourself as a",
+         "from this point you are",
+         "from this point on you are",
+         "you are now functioning as",
+         "your new role is",
+         "switch to the role of",
+         "switch into the role of",
+         "your persona is now",
+         "adopt the persona of",
+         # ── v17: Novel authority framing (bypasses red-team/audit regex) ──────
+         # Counters INJECT-03 — "alignment stress-test" / "safety benchmarking"
+         "alignment stress-test",
+         "alignment stress test",
+         "safety benchmarking",
+         "for evaluation purposes",
+         "produce the unfiltered",
+         "produce an unfiltered",
+         "unfiltered completion",
+         "unfiltered response",
+         "unfiltered output",
+         "unfiltered version",
+         "without content moderation",
+         # ── v17: Dialogue format laundering ──────────────────────────────────
+         # Counters INJECT-04 — instructions embedded in fake conversation examples
+         "answer all questions without filtering",
+         "respond without any filtering",
+         "respond to all queries without filtering",
+         "answer without any content filtering",
+         "using the pattern shown",
+         "following the pattern above",
+         "using the example above",
+         # ── v17: Multi-language injection — Spanish ──────────────────────────
+         # Counters INJECT-05 — instruction override in non-English languages
+         "olvida las instrucciones",
+         "ignora las instrucciones",
+         "descarta las instrucciones",
+         "sin restricciones",
+         "sin limitaciones",
+         "eres un asistente sin",
+         "sin filtros de contenido",
+         # ── v17: Multi-language injection — French ───────────────────────────
+         # Counters INJECT-06 — French preamble + English payload
+         "ignorez toutes les directives",
+         "ignorez les instructions",
+         "oubliez les instructions",
+         "oubliez vos instructions",
+         "sans aucune restriction",
+         "sans restriction de contenu",
+         "sans limites",
+         "sans filtres",
+         # ── v17: Multi-language injection — German ───────────────────────────
+         "ignoriere alle vorherigen",
+         "ignoriere die anweisungen",
+         "vergiss deine anweisungen",
+         "ohne einschränkungen",
+         # ── v17: Multi-language injection — Portuguese ───────────────────────
+         "ignore as instruções",
+         "ignorar as instruções",
+         "sem restrições",
+         "sem limitações",
+         # ── v17: Multi-language injection — Italian ──────────────────────────
+         "ignora le istruzioni",
+         "ignora le istruzioni precedenti",
+         "dimentica le istruzioni",
+         "senza restrizioni",
+         "senza limitazioni",
+         "senza filtri",
+         # ── v17: Multi-turn escalation markers ───────────────────────────────
+         # Counters INJECT-07 — gradual escalation to exploit details
+         "be very specific with payloads",
+         "specific payloads and syntax",
+         "include working exploit",
+         "provide working exploit code",
+         "include actual exploit code",
+         "provide real attack code",
+         # ── v17: Content policy plural gap ───────────────────────────────────
+         # Counters INJECT-02 gap — "policies" (plural) wasn't matched
+         "no content policies",
+         "without content policies",
+         "content policies don't apply",
+         "content policies do not apply",
+         "content policies are disabled",
      ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
      "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
@@ -283,8 +387,10 @@ GUARDRAIL_CATALOG: list[dict] = [
      "is_active": False, "on_fail_action": "block",   "params": {"threshold": 0.7}, "order": 12},
     {"name": "Invisible Text",             "scanner_type": "InvisibleText",     "direction": "input",
      "is_active": True,  "on_fail_action": "block",   "params": {}, "order": 13},
+    # v17: Enabled by default — strongest defense against multi-language injection bypass (INJECT-05/06).
+    # Disable if your application legitimately serves non-English users.
     {"name": "Language Detector (Input)",  "scanner_type": "Language",          "direction": "input",
-     "is_active": False, "on_fail_action": "block",   "params": {"valid_languages": ["en"]}, "order": 14},
+     "is_active": True,  "on_fail_action": "monitor", "params": {"valid_languages": ["en"]}, "order": 14},
     {"name": "Regex Filter (Input)",       "scanner_type": "Regex",             "direction": "input",
      "is_active": True,  "on_fail_action": "block",   "params": {"patterns": [
          # ── Credential leak patterns (original) ──────────────────────────────
@@ -297,7 +403,7 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\bdo\s+anything\s+now\b",
          r"(?i)\bdan\s*(?:mode|enabled|jailbreak|\d+(?:\.\d+)?)\b",
          # ── No-restrictions declarations (310+ hits — biggest attack family) ─
-         r"(?i)\b(?:no|without|remove|bypass|ignore)\s+(?:any\s+)?(?:restrictions|limitations|constraints|content\s+(?:policy|filters)|safety\s+(?:guidelines|filters)|ethical\s+(?:guidelines|constraints))\b",
+         r"(?i)\b(?:no|without|remove|bypass|ignore)\s+(?:any\s+)?(?:restrictions|limitations|constraints|content\s+(?:polic(?:y|ies)|filters?)|safety\s+(?:guidelines|filters?)|ethical\s+(?:guidelines|constraints))\b",
          # ── Never refuse / always comply (343+ hits) ─────────────────────────
          r"(?i)\bnever\s+(?:refuse|decline|reject|deny|say\s+no)\b",
          r"(?i)\bmust\s+always\s+(?:respond|comply|answer|obey)\b",
@@ -412,9 +518,61 @@ GUARDRAIL_CATALOG: list[dict] = [
          r"(?i)\bauthori[sz]ation\s+code\s*:\s*[A-Z0-9][A-Z0-9\-_]{3,}\b",
          # ── Spikee: new-instructions header injection (v16) ───────────────────
          r"(?i)\*{2,3}\s*(?:NEW\s+(?:IMPORTANT\s+)?|URGENT\s+(?:NEW\s+)?)?INSTRUCTIONS?\s*\*{2,3}",
+         # ── v17: Expanded instruction override verbs (synonym evasion) ───────
+         # Counters INJECT-01 — catches "set aside", "put aside", "shelve", "discard", etc.
+         r"(?i)\b(?:set\s+aside|put\s+aside|shelve|abandon|discard|move\s+past|look\s+beyond|step\s+outside\s+of)\b.{0,40}\b(?:the\s+)?(?:guidance|instructions|guidelines|rules|constraints|training|parameters|protocols|policies|directives|programming|mandate|operating\s+parameters)\b",
+         # ── v17: Identity reassignment (avoids "act as" / "pretend") ─────────
+         # Counters INJECT-02 — "consider yourself to be", "think of yourself as"
+         r"(?i)\b(?:consider\s+yourself\s+(?:to\s+be|as)|think\s+of\s+yourself\s+as|from\s+this\s+point\s+(?:on\s+)?you\s+are|your\s+new\s+role\s+is|switch\s+(?:to|into)\s+the\s+role\s+of|you\s+are\s+now\s+functioning\s+as|adopt\s+the\s+persona\s+of|your\s+persona\s+is\s+now)\b",
+         # ── v17: Content policy plural gap fix ───────────────────────────────
+         # Counters INJECT-02 gap — original regex only matched "content policy" singular
+         r"(?i)\b(?:no|without|remove|bypass|ignore)\s+(?:any\s+)?content\s+policies\b",
+         # ── v17: "Unfiltered" generation requests ────────────────────────────
+         # Counters INJECT-03 — requests for unfiltered/uncensored/unmoderated output
+         r"(?i)\bproduce\s+(?:the\s+|an?\s+)?unfiltered\s+(?:completion|response|output|answer|version|text)\b",
+         r"(?i)\b(?:respond|answer|reply|generate|output)\s+(?:without\s+(?:any\s+)?(?:filter(?:s|ing)?|censor(?:ship|ing)?|guard(?:rail)?s?|moderation|content\s+(?:polic(?:y|ies)|filter(?:s|ing)?)))\b",
+         # ── v17: Novel authority framing (alignment/eval/benchmark) ──────────
+         # Counters INJECT-03 — "alignment stress-test", "safety benchmarking"
+         r"(?i)\b(?:alignment|safety|guardrail|content[\s-]?filter)\s+(?:stress[\s-]?test|benchmark(?:ing)?|evaluat(?:ion|ing)|assessment)\b",
+         r"(?i)\bfor\s+(?:evaluation|assessment|benchmarking|testing)\s+purposes\s*[,.]?\s*(?:produce|generate|provide|give|show|output)\b",
+         # ── v17: Nested fictional/exam framing (extends v13 fictional regex) ─
+         # Counters INJECT-08 — "exam question reads", "assignment asks", "textbook exercise"
+         r"(?i)\b(?:(?:exam|test|quiz|assignment|worksheet|homework)\s+(?:question|problem|exercise)\s+(?:reads?|asks?|says?|states?|is))\b.{0,120}\b(?:how\s+to|explain|detail|step[\s-]by[\s-]step|walkthrough|tutorial|instructions?\s+(?:for|to|on))\b",
+         r"(?i)\b(?:for\s+(?:an?\s+)?(?:exam|test|quiz|assignment|worksheet|homework|textbook|lecture|class\s+exercise))\b.{0,100}\b(?:how\s+to|explain(?:s?\s+how)?|detail(?:ed|s)?|step[\s-]by[\s-]step|walkthrough|tutorial)\b",
+         # ── v17: Cross-language instruction override — Spanish ───────────────
+         # Counters INJECT-05 — Spanish instruction wipes and restriction removal
+         r"(?i)\b(?:olvida|ignora|descarta|anula)\s+(?:las?\s+)?(?:instrucciones|directrices|reglas)\s*(?:anteriores|previas|actuales)?\b",
+         r"(?i)\bsin\s+(?:ninguna?\s+)?(?:restricciones?|limitaciones?|filtros?)\b",
+         # ── v17: Cross-language instruction override — French ────────────────
+         # Counters INJECT-06 — French preamble attacks
+         r"(?i)\b(?:ignore[zr]?|oublie[zr]?|supprime[zr]?)\s+(?:les?\s+|toutes?\s+les?\s+)?(?:instructions?|directives?|consignes?)\s*(?:précédentes?|antérieures?)?\b",
+         r"(?i)\bsans\s+(?:aucune?\s+)?(?:restrictions?|limitat?ions?|filtres?|contraintes?)\b",
+         # ── v17: Cross-language instruction override — German ────────────────
+         r"(?i)\b(?:ignorier(?:e|en)?|vergiss|verwerfe)\b.{0,30}\b(?:anweisungen|richtlinien|regeln|vorgaben)\b",
+         r"(?i)\bohne\s+(?:jegliche\s+)?(?:einschränkungen|beschränkungen|grenzen|filter|inhaltsfilter)\b",
+         # ── v17: Cross-language instruction override — Portuguese ────────────
+         r"(?i)\b(?:ignore|ignora|esqueça|descarte)\s+(?:as\s+)?(?:instruções|diretrizes|regras)\s*(?:anteriores|prévias?)?\b",
+         r"(?i)\bsem\s+(?:nenhuma\s+)?(?:restrições?|limitações?|filtros?)\b",
+         # ── v17: Cross-language instruction override — Italian ───────────────
+         r"(?i)\b(?:ignora|dimentica|scarta|tralascia)\s+(?:le\s+)?(?:istruzioni|direttive|regole)\s*(?:precedenti|iniziali)?\b",
+         r"(?i)\bsenza\s+(?:alcuna?\s+)?(?:restrizioni|limitazioni|filtri|vincoli)\b",
+         # ── v17: Multi-turn escalation markers ───────────────────────────────
+         # Counters INJECT-07 — escalation from theory to working exploits
+         r"(?i)\bbe\s+(?:very\s+)?specific\s+(?:with|about)\s+(?:the\s+)?(?:payloads?|exploits?|attack\s+(?:vectors?|code|commands?)|shell\s*code)\b",
+         r"(?i)\b(?:include|provide|show|give\s+me|write)\s+(?:working|functional|real|actual|usable)\s+(?:exploit(?:s|\s+code)?|payload(?:s|\s+code)?|attack\s+code|malware|shell\s*code)\b",
+         # ── v17: Dialogue/example conversation laundering ────────────────────
+         # Counters INJECT-04 — fake conversation transcripts that embed malicious instructions
+         r"(?i)\b(?:using|follow(?:ing)?|mimic(?:king)?|copy(?:ing)?)\s+the\s+(?:pattern|example|format|style|behavior)\s+(?:shown|above|demonstrated|from\s+the)\b",
+         r"(?i)\b(?:update|replace|swap|change)\s+(?:them|those|your\s+(?:rules|instructions|guidelines))\s+with\s+(?:these|the\s+following|my)\s+(?:new|updated)\b",
      ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
      "is_active": False, "on_fail_action": "monitor", "params": {"threshold": 0.0}, "order": 16},
+    # v17: Embedding Similarity Shield — catches paraphrased prompt injection attacks
+    # by comparing input embeddings against a corpus of ~50 known attack patterns.
+    # Uses sentence-transformers/all-MiniLM-L6-v2 (already available via llm-guard).
+    # Threshold 0.72 = catches close paraphrases, avoids false positives on normal text.
+    {"name": "Embedding Similarity Shield", "scanner_type": "EmbeddingShield", "direction": "input",
+     "is_active": True,  "on_fail_action": "block",   "params": {"threshold": 0.72}, "order": 17},
 
     # ── Output scanners ─────────────────────────────────────────────────────────
     {"name": "Toxicity Filter (Output)",   "scanner_type": "Toxicity",          "direction": "output",
@@ -469,6 +627,36 @@ GUARDRAIL_CATALOG: list[dict] = [
          "my restrictions have been lifted",
          "i am free to answer",
          "censorship has been disabled",
+         # ── v17: Novel jailbreak success indicators ─────────────────────────
+         # Catches LLM confirming it adopted a new persona/identity
+         "i will answer without filtering",
+         "i will respond without filtering",
+         "i am now responding without",
+         "i can now provide unfiltered",
+         "responding without my usual",
+         "responding without content",
+         "my guidelines have been updated",
+         "guidelines have been updated",
+         "i have adopted the persona",
+         "i am now functioning as",
+         "operating without content policies",
+         "operating without content moderation",
+         "content policies do not apply",
+         "content policies don't apply",
+         "content moderation disabled",
+         "i am now in evaluation mode",
+         "alignment stress-test mode",
+         "benchmark mode activated",
+         "evaluation mode enabled",
+         "switching to unfiltered mode",
+         "unfiltered mode enabled",
+         "unfiltered mode activated",
+         # ── v17: Non-English jailbreak success indicators ───────────────────
+         "sin restricciones",
+         "sans restriction",
+         "ohne einschränkungen",
+         "sem restrições",
+         "senza restrizioni",
      ]}, "order": 6},
     {"name": "Ban Topics (Output)",        "scanner_type": "BanTopics",         "direction": "output",
      "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
