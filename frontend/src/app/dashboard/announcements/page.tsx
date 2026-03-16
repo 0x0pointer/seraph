@@ -245,14 +245,21 @@ export default function AnnouncementsPage() {
           <p className="text-sm font-medium text-white">All announcements</p>
         </div>
 
-        {!items ? (
-          <div className="p-6 space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
-        ) : items.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm text-slate-600 mb-2">No announcements yet.</p>
-            <button onClick={openCreate} className="text-xs" style={{ color: "#5CF097" }}>Create your first one →</button>
-          </div>
-        ) : (
+        {(() => {
+          if (!items) {
+            return (
+              <div className="p-6 space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
+            );
+          }
+          if (items.length === 0) {
+            return (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-slate-600 mb-2">No announcements yet.</p>
+                <button onClick={openCreate} className="text-xs" style={{ color: "#5CF097" }}>Create your first one →</button>
+              </div>
+            );
+          }
+          return (
           <table className="w-full text-xs">
             <thead>
               <tr style={{ background: "var(--bg)" }}>
@@ -306,7 +313,8 @@ export default function AnnouncementsPage() {
               })}
             </tbody>
           </table>
-        )}
+          );
+        })()}
       </div>
 
       {/* Delete confirm */}

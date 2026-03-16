@@ -154,18 +154,24 @@ export default function NotificationBell() {
 
           {/* Body */}
           <div className="max-h-96 overflow-y-auto">
-            {!notifications ? (
-              <div className="p-4 space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />
-                ))}
-              </div>
-            ) : totalItems === 0 ? (
-              <div className="px-4 py-10 text-center">
-                <p className="text-xs text-slate-600">Nothing here yet.</p>
-              </div>
-            ) : (
-              groups.map((group) => (
+            {(() => {
+              if (!notifications) {
+                return (
+                  <div className="p-4 space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />
+                    ))}
+                  </div>
+                );
+              }
+              if (totalItems === 0) {
+                return (
+                  <div className="px-4 py-10 text-center">
+                    <p className="text-xs text-slate-600">Nothing here yet.</p>
+                  </div>
+                );
+              }
+              return groups.map((group) => (
                 <div key={group.label}>
                   {/* Section header */}
                   <div className="px-4 py-2 border-b border-white/5" style={{ background: "var(--bg)" }}>
@@ -218,8 +224,8 @@ export default function NotificationBell() {
                     );
                   })}
                 </div>
-              ))
-            )}
+              ));
+            })()}
           </div>
 
           {/* Footer */}

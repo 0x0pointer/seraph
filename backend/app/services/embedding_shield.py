@@ -173,7 +173,7 @@ class EmbeddingShield:
 
         max_sim = float(np.max(similarities))
         max_idx = int(np.argmax(similarities))
-        matched_category, matched_phrase_idx = _CORPUS_MAP[max_idx]
+        matched_category, _ = _CORPUS_MAP[max_idx]
 
         is_valid = max_sim < self.threshold
 

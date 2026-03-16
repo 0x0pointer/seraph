@@ -181,13 +181,18 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
 
           {/* List */}
           <div className="flex-1 overflow-y-auto">
-            {!tickets ? (
-              <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 rounded animate-pulse" style={{ background: "var(--bg)" }} />
-              ))}</div>
-            ) : tickets.length === 0 ? (
-              <p className="text-xs text-slate-600 text-center mt-8">No tickets found.</p>
-            ) : tickets.map((t) => (
+            {(() => {
+              if (!tickets) {
+                return (
+                  <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-16 rounded animate-pulse" style={{ background: "var(--bg)" }} />
+                  ))}</div>
+                );
+              }
+              if (tickets.length === 0) {
+                return <p className="text-xs text-slate-600 text-center mt-8">No tickets found.</p>;
+              }
+              return tickets.map((t) => (
               <button
                 key={t.id}
                 onClick={() => loadTicket(t.id)}
@@ -204,7 +209,8 @@ function StaffView({ currentUser }: { currentUser: UserInfo }) {
                 </div>
                 <p className="text-xs text-slate-600 mt-1">{new Date(t.created_at).toLocaleDateString()}</p>
               </button>
-            ))}
+            ));
+            })()}
           </div>
         </div>
 
@@ -494,16 +500,23 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
               <div className="px-6 py-4 border-b border-white/5">
                 <p className="text-sm font-medium text-white">My tickets</p>
               </div>
-              {!myTickets ? (
-                <div className="p-6 space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
-              ) : myTickets.length === 0 ? (
-                <div className="px-6 py-10 text-center">
-                  <p className="text-sm text-slate-600 mb-3">No tickets yet.</p>
-                  <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#5CF097", color: "var(--card)" }}>
-                    Submit a request
-                  </button>
-                </div>
-              ) : (
+              {(() => {
+                if (!myTickets) {
+                  return (
+                    <div className="p-6 space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />)}</div>
+                  );
+                }
+                if (myTickets.length === 0) {
+                  return (
+                    <div className="px-6 py-10 text-center">
+                      <p className="text-sm text-slate-600 mb-3">No tickets yet.</p>
+                      <button onClick={() => setTab("submit")} className="text-xs px-4 py-2 rounded font-medium" style={{ background: "#5CF097", color: "var(--card)" }}>
+                        Submit a request
+                      </button>
+                    </div>
+                  );
+                }
+                return (
                 <table className="w-full text-xs">
                   <thead>
                     <tr style={{ background: "var(--bg)" }}>
@@ -528,7 +541,8 @@ function UserView({ currentUser }: { currentUser: UserInfo }) {
                     ))}
                   </tbody>
                 </table>
-              )}
+                );
+              })()}
             </div>
           )}
 

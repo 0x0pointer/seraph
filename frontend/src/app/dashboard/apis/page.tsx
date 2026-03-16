@@ -479,7 +479,8 @@ function DeleteModal({
 
 function SpendBar({ pct, maxReached }: { pct: number; maxReached: boolean }) {
   const clamped = Math.min(pct, 100);
-  const color = maxReached || pct >= 100 ? "#f87171" : pct >= 80 ? "#fbbf24" : "#5CF097";
+  const innerColor = pct >= 80 ? "#fbbf24" : "#5CF097";
+  const color = maxReached || pct >= 100 ? "#f87171" : innerColor;
   return (
     <div className="space-y-1">
       <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
@@ -606,7 +607,10 @@ function GuardrailsPanel({
       <div
         className="relative w-full max-w-xl mx-4 rounded-lg border p-6 space-y-5"
         style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.25)" }}
+        role="button"
+        tabIndex={0}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -672,11 +676,10 @@ function GuardrailsPanel({
 
             {/* Guardrail rows */}
             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {!items ? (
-                <p className="text-xs text-slate-600 py-4 text-center">Loading…</p>
-              ) : filtered.length === 0 ? (
-                <p className="text-xs text-slate-600 py-4 text-center">No {tab} guardrails configured.</p>
-              ) : (
+              {(() => {
+                if (!items) return <p className="text-xs text-slate-600 py-4 text-center">Loading…</p>;
+                if (filtered.length === 0) return <p className="text-xs text-slate-600 py-4 text-center">No {tab} guardrails configured.</p>;
+                return (
                 filtered.map((g) => {
                   const isEnabled = enabled.has(g.id);
                   const showThreshold = isEnabled && THRESHOLD_SCANNERS.has(g.scanner_type);
@@ -710,7 +713,7 @@ function GuardrailsPanel({
                           style={{
                             background: "var(--card)",
                             border: "1px solid rgba(255,255,255,0.1)",
-                            color: currentThreshold !== null ? "#5CF097" : "#64748b",
+                            color: currentThreshold === null ? "#64748b" : "#5CF097",
                             outline: "none",
                           }}
                         >
@@ -738,7 +741,8 @@ function GuardrailsPanel({
                     </div>
                   );
                 })
-              )}
+                );
+              })()}
             </div>
           </div>
         )}
@@ -883,6 +887,314 @@ function timeAgo(iso: string | null): string {
   return formatDate(iso);
 }
 
+// ─── Sub-components for ConnectionCard (extracted to reduce cognitive complexity) ───
+
+function CardHeader({
+  conn,
+  isActive,
+  envStyle,
+  hasSpendTracking,
+  onEdit,
+  onGuardrails,
+  onResetSpend,
+  onToggle,
+}: {
+  conn: ApiConnection;
+  isActive: boolean;
+  envStyle: { background: string; color: string };
+  hasSpendTracking: boolean;
+  onEdit: (conn: ApiConnection) => void;
+  onGuardrails: (conn: ApiConnection) => void;
+  onResetSpend: (id: number) => void;
+  onToggle: (id: number) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <span
+          className="w-2 h-2 rounded-full shrink-0 mt-1"
+          style={{
+            background: isActive ? "#5CF097" : "#f87171",
+            boxShadow: isActive ? "0 0 6px #5CF09740" : "0 0 6px #f8717140",
+          }}
+        />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-white truncate">{conn.name}</p>
+            {conn.max_spend_reached && (
+              <span
+                className="text-xs font-mono px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }}
+              >
+                ⛔ spend blocked
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={envStyle}>
+              {conn.environment}
+            </span>
+            <span
+              className="text-xs px-1.5 py-0.5 rounded font-mono"
+              style={
+                isActive
+                  ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" }
+                  : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
+              }
+            >
+              {isActive ? "active" : "blocked"}
+            </span>
+            {conn.org_id && (
+              <span className="text-xs px-1.5 py-0.5 rounded font-mono"
+                style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
+                org
+              </span>
+            )}
+            {conn.created_by_username && (
+              <span className="text-xs text-slate-600 font-mono">
+                by @{conn.created_by_username}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => onEdit(conn)}
+          className="text-xs px-2.5 py-1.5 rounded border border-white/10 text-slate-400 hover:text-white transition-colors"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onGuardrails(conn)}
+          className="text-xs px-2.5 py-1.5 rounded border transition-colors"
+          style={
+            conn.use_custom_guardrails
+              ? { borderColor: "rgba(92,240,151,0.4)", color: "#5CF097" }
+              : { borderColor: "rgba(255,255,255,0.1)", color: "var(--text-dim)" }
+          }
+        >
+          Guardrails
+        </button>
+        {hasSpendTracking && (
+          <button
+            onClick={() => onResetSpend(conn.id)}
+            className="text-xs px-2.5 py-1.5 rounded border border-white/10 text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Reset spend
+          </button>
+        )}
+        <button
+          onClick={() => onToggle(conn.id)}
+          className="text-xs px-2.5 py-1.5 rounded border transition-colors"
+          style={
+            isActive
+              ? { borderColor: "rgba(248,113,113,0.3)", color: "#f87171" }
+              : { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
+          }
+        >
+          {isActive ? "Block" : "Unblock"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SpendBanner({ conn }: { conn: ApiConnection }) {
+  if (conn.max_spend_reached) {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
+        style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171" }}
+      >
+        <span>⛔</span>
+        <span>
+          Max spend of ${conn.max_monthly_spend?.toFixed(2)} reached — scans return HTTP 402.
+          Reset the monthly counter to unblock.
+        </span>
+      </div>
+    );
+  }
+  if (conn.spend_limit_reached) {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
+        style={{ background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.2)", color: "#fb923c" }}
+      >
+        <span>⚠</span>
+        <span>Monthly alert limit reached — scans still proceed</span>
+      </div>
+    );
+  }
+  if (conn.alert_spend_active) {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
+        style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}
+      >
+        <span>⚠</span>
+        <span>Approaching monthly alert limit ({conn.spend_percentage?.toFixed(1)}% used)</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function ApiKeyRow({ conn }: { conn: ApiConnection }) {
+  const [keyVisible, setKeyVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copyKey() {
+    await navigator.clipboard.writeText(conn.api_key);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded font-mono text-xs"
+      style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+    >
+      <span className="flex-1 text-slate-400 truncate">
+        {keyVisible ? conn.api_key : maskKey(conn.api_key)}
+      </span>
+      <button
+        onClick={() => setKeyVisible((v) => !v)}
+        className="text-slate-600 hover:text-slate-400 transition-colors shrink-0"
+      >
+        {keyVisible ? (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        )}
+      </button>
+      <button
+        onClick={copyKey}
+        className="text-slate-600 hover:text-slate-400 transition-colors shrink-0"
+      >
+        {copied ? (
+          <svg className="w-3.5 h-3.5 text-[#5CF097]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function CardMetrics({ conn, hasSpendTracking }: { conn: ApiConnection; hasSpendTracking: boolean }) {
+  const rate = conn.violation_rate;
+  const innerRateColor = rate < 10 ? "#fbbf24" : "#f87171";
+  const rateColor = rate === 0 ? "#5CF097" : innerRateColor;
+
+  function renderSpendCell() {
+    if (hasSpendTracking) {
+      const spendAlertColor = conn.alert_spend_active ? "#fbbf24" : "#5CF097";
+      const spendColor = conn.max_spend_reached ? "#f87171" : spendAlertColor;
+      const spendSub = conn.month_input_tokens > 0 || conn.month_output_tokens > 0
+        ? `${fmtTokens(conn.month_input_tokens)} in \u00b7 ${fmtTokens(conn.month_output_tokens)} out`
+        : "no token usage this month";
+      return (
+        <StatCell
+          label="Month spend"
+          value={fmtUSD(conn.month_spend)}
+          color={spendColor}
+          sub={spendSub}
+        />
+      );
+    }
+    return (
+      <StatCell
+        label="Est. cost"
+        value={conn.total_requests > 0 ? `$${conn.estimated_cost.toFixed(4)}` : "---"}
+        color="#94a3b8"
+        sub="add pricing to track spend"
+      />
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-t border-white/5">
+      <StatCell
+        label="Requests"
+        value={conn.total_requests.toLocaleString()}
+        color="#e2e8f0"
+        sub={conn.total_requests === 0 ? "no traffic yet" : `${conn.total_violations} blocked`}
+      />
+      <StatCell
+        label="Violation rate"
+        value={`${rate}%`}
+        color={rateColor}
+        bar={{ pct: rate, color: rateColor }}
+        sub={`${conn.total_violations} of ${conn.total_requests} flagged`}
+      />
+      {renderSpendCell()}
+      <StatCell
+        label="Last active"
+        value={timeAgo(conn.last_active_at)}
+        color={conn.last_active_at ? "#e2e8f0" : "#475569"}
+        sub={conn.last_active_at ? formatDate(conn.last_active_at) : "never used"}
+      />
+    </div>
+  );
+}
+
+function PricingFooter({ conn }: { conn: ApiConnection }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded text-xs font-mono"
+      style={{ background: "var(--bg)" }}
+    >
+      <span className="text-slate-600">Pricing:</span>
+      <span className="text-slate-400">
+        ${(conn.cost_per_input_token * 1_000_000).toFixed(4)}/1M in
+      </span>
+      <span className="text-slate-400">
+        ${(conn.cost_per_output_token * 1_000_000).toFixed(4)}/1M out
+      </span>
+      <span className="ml-auto flex items-center gap-3">
+        {conn.monthly_alert_spend !== null && (
+          <span className="text-slate-600">alert at ${conn.monthly_alert_spend.toFixed(2)}</span>
+        )}
+        {conn.max_monthly_spend !== null && (
+          <span style={{ color: conn.max_spend_reached ? "#f87171" : "#94a3b8" }}>
+            hard cap ${conn.max_monthly_spend.toFixed(2)}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function AlertBadge({ conn }: { conn: ApiConnection }) {
+  if (!conn.alert_enabled || conn.alert_threshold === null) return null;
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded text-xs"
+      style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.15)" }}
+    >
+      <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <span style={{ color: "#fbbf24" }}>
+        Auto-block at {conn.alert_threshold}% violation rate
+        {conn.status === "blocked" && " \u00b7 currently blocked"}
+      </span>
+    </div>
+  );
+}
+
+// ─── Connection card (uses extracted sub-components) ─────────────────────────
+
 function ConnectionCard({
   conn,
   onToggle,
@@ -898,19 +1210,11 @@ function ConnectionCard({
   onResetSpend: (id: number) => void;
   onGuardrails: (conn: ApiConnection) => void;
 }) {
-  const [keyVisible, setKeyVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const isActive = conn.status === "active";
   const envStyle = ENV_COLORS[conn.environment] ?? ENV_COLORS.staging;
   const hasSpendTracking = conn.cost_per_input_token > 0 || conn.cost_per_output_token > 0;
-
-  async function copyKey() {
-    await navigator.clipboard.writeText(conn.api_key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   return (
     <div
@@ -922,266 +1226,30 @@ function ConnectionCard({
           : "rgba(255,255,255,0.05)",
       }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span
-            className="w-2 h-2 rounded-full shrink-0 mt-1"
-            style={{
-              background: isActive ? "#5CF097" : "#f87171",
-              boxShadow: isActive ? "0 0 6px #5CF09740" : "0 0 6px #f8717140",
-            }}
-          />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-white truncate">{conn.name}</p>
-              {conn.max_spend_reached && (
-                <span
-                  className="text-xs font-mono px-1.5 py-0.5 rounded-full shrink-0"
-                  style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }}
-                >
-                  ⛔ spend blocked
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={envStyle}>
-                {conn.environment}
-              </span>
-              <span
-                className="text-xs px-1.5 py-0.5 rounded font-mono"
-                style={
-                  isActive
-                    ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" }
-                    : { background: "rgba(248,113,113,0.08)", color: "#f87171" }
-                }
-              >
-                {isActive ? "active" : "blocked"}
-              </span>
-              {conn.org_id && (
-                <span className="text-xs px-1.5 py-0.5 rounded font-mono"
-                  style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
-                  org
-                </span>
-              )}
-              {conn.created_by_username && (
-                <span className="text-xs text-slate-600 font-mono">
-                  by @{conn.created_by_username}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => onEdit(conn)}
-            className="text-xs px-2.5 py-1.5 rounded border border-white/10 text-slate-400 hover:text-white transition-colors"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => onGuardrails(conn)}
-            className="text-xs px-2.5 py-1.5 rounded border transition-colors"
-            style={
-              conn.use_custom_guardrails
-                ? { borderColor: "rgba(92,240,151,0.4)", color: "#5CF097" }
-                : { borderColor: "rgba(255,255,255,0.1)", color: "var(--text-dim)" }
-            }
-          >
-            Guardrails
-          </button>
-          {hasSpendTracking && (
-            <button
-              onClick={() => onResetSpend(conn.id)}
-              className="text-xs px-2.5 py-1.5 rounded border border-white/10 text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              Reset spend
-            </button>
-          )}
-          <button
-            onClick={() => onToggle(conn.id)}
-            className="text-xs px-2.5 py-1.5 rounded border transition-colors"
-            style={
-              isActive
-                ? { borderColor: "rgba(248,113,113,0.3)", color: "#f87171" }
-                : { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
-            }
-          >
-            {isActive ? "Block" : "Unblock"}
-          </button>
-        </div>
-      </div>
+      <CardHeader
+        conn={conn}
+        isActive={isActive}
+        envStyle={envStyle}
+        hasSpendTracking={hasSpendTracking}
+        onEdit={onEdit}
+        onGuardrails={onGuardrails}
+        onResetSpend={onResetSpend}
+        onToggle={onToggle}
+      />
 
-      {/* Spend banners */}
-      {conn.max_spend_reached ? (
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
-          style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171" }}
-        >
-          <span>⛔</span>
-          <span>
-            Max spend of ${conn.max_monthly_spend?.toFixed(2)} reached — scans return HTTP 402.
-            Reset the monthly counter to unblock.
-          </span>
-        </div>
-      ) : conn.spend_limit_reached ? (
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
-          style={{ background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.2)", color: "#fb923c" }}
-        >
-          <span>⚠</span>
-          <span>Monthly alert limit reached — scans still proceed</span>
-        </div>
-      ) : conn.alert_spend_active ? (
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono"
-          style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}
-        >
-          <span>⚠</span>
-          <span>Approaching monthly alert limit ({conn.spend_percentage?.toFixed(1)}% used)</span>
-        </div>
-      ) : null}
+      <SpendBanner conn={conn} />
 
-      {/* Spend progress bar */}
       {hasSpendTracking && conn.monthly_alert_spend !== null && conn.spend_percentage !== null && (
         <SpendBar pct={conn.spend_percentage} maxReached={conn.max_spend_reached} />
       )}
 
-      {/* API Key row */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 rounded font-mono text-xs"
-        style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
-      >
-        <span className="flex-1 text-slate-400 truncate">
-          {keyVisible ? conn.api_key : maskKey(conn.api_key)}
-        </span>
-        <button
-          onClick={() => setKeyVisible((v) => !v)}
-          className="text-slate-600 hover:text-slate-400 transition-colors shrink-0"
-        >
-          {keyVisible ? (
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-            </svg>
-          ) : (
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          )}
-        </button>
-        <button
-          onClick={copyKey}
-          className="text-slate-600 hover:text-slate-400 transition-colors shrink-0"
-        >
-          {copied ? (
-            <svg className="w-3.5 h-3.5 text-[#5CF097]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          )}
-        </button>
-      </div>
+      <ApiKeyRow conn={conn} />
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-t border-white/5">
-        {/* Requests */}
-        <StatCell
-          label="Requests"
-          value={conn.total_requests.toLocaleString()}
-          color="#e2e8f0"
-          sub={conn.total_requests === 0 ? "no traffic yet" : `${conn.total_violations} blocked`}
-        />
+      <CardMetrics conn={conn} hasSpendTracking={hasSpendTracking} />
 
-        {/* Violation rate */}
-        {(() => {
-          const rate = conn.violation_rate;
-          const rateColor = rate === 0 ? "#5CF097" : rate < 10 ? "#fbbf24" : "#f87171";
-          return (
-            <StatCell
-              label="Violation rate"
-              value={`${rate}%`}
-              color={rateColor}
-              bar={{ pct: rate, color: rateColor }}
-              sub={`${conn.total_violations} of ${conn.total_requests} flagged`}
-            />
-          );
-        })()}
+      {hasSpendTracking && <PricingFooter conn={conn} />}
 
-        {/* Spend / cost */}
-        {hasSpendTracking ? (
-          <StatCell
-            label="Month spend"
-            value={fmtUSD(conn.month_spend)}
-            color={conn.max_spend_reached ? "#f87171" : conn.alert_spend_active ? "#fbbf24" : "#5CF097"}
-            sub={
-              conn.month_input_tokens > 0 || conn.month_output_tokens > 0
-                ? `${fmtTokens(conn.month_input_tokens)} in · ${fmtTokens(conn.month_output_tokens)} out`
-                : "no token usage this month"
-            }
-          />
-        ) : (
-          <StatCell
-            label="Est. cost"
-            value={conn.total_requests > 0 ? `$${conn.estimated_cost.toFixed(4)}` : "—"}
-            color="#94a3b8"
-            sub="add pricing to track spend"
-          />
-        )}
-
-        {/* Last active */}
-        <StatCell
-          label="Last active"
-          value={timeAgo(conn.last_active_at)}
-          color={conn.last_active_at ? "#e2e8f0" : "#475569"}
-          sub={conn.last_active_at ? formatDate(conn.last_active_at) : "never used"}
-        />
-      </div>
-
-      {/* Pricing + limit footer (when spend tracking is on) */}
-      {hasSpendTracking && (
-        <div
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded text-xs font-mono"
-          style={{ background: "var(--bg)" }}
-        >
-          <span className="text-slate-600">Pricing:</span>
-          <span className="text-slate-400">
-            ${(conn.cost_per_input_token * 1_000_000).toFixed(4)}/1M in
-          </span>
-          <span className="text-slate-400">
-            ${(conn.cost_per_output_token * 1_000_000).toFixed(4)}/1M out
-          </span>
-          <span className="ml-auto flex items-center gap-3">
-            {conn.monthly_alert_spend !== null && (
-              <span className="text-slate-600">alert at ${conn.monthly_alert_spend.toFixed(2)}</span>
-            )}
-            {conn.max_monthly_spend !== null && (
-              <span style={{ color: conn.max_spend_reached ? "#f87171" : "#94a3b8" }}>
-                hard cap ${conn.max_monthly_spend.toFixed(2)}
-              </span>
-            )}
-          </span>
-        </div>
-      )}
-
-      {/* Violation-rate alert badge */}
-      {conn.alert_enabled && conn.alert_threshold !== null && (
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded text-xs"
-          style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.15)" }}
-        >
-          <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <span style={{ color: "#fbbf24" }}>
-            Auto-block at {conn.alert_threshold}% violation rate
-            {conn.status === "blocked" && " · currently blocked"}
-          </span>
-        </div>
-      )}
+      <AlertBadge conn={conn} />
 
       {/* Delete */}
       <div className="border-t border-white/5 pt-3 flex justify-end">
@@ -1203,7 +1271,6 @@ function ConnectionCard({
         </button>
       </div>
 
-      {/* Delete confirm modal */}
       {showDeleteModal && (
         <DeleteModal
           connName={conn.name}
@@ -1422,43 +1489,52 @@ export default function ApisPage() {
       )}
 
       {/* Connection list */}
-      {connections === undefined ? (
-        <div className="space-y-4">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="rounded border border-white/5 p-5 h-48 animate-pulse" style={{ background: "var(--card)" }} />
-          ))}
-        </div>
-      ) : connections.length > 0 ? (
-        <div className="space-y-4">
-          {connections.map((conn) => (
-            <ConnectionCard
-              key={conn.id}
-              conn={conn}
-              onToggle={handleToggle}
-              onDelete={handleDelete}
-              onEdit={(c) => { setEditing(c); setShowCreate(false); setFormError(""); }}
-              onResetSpend={handleResetSpend}
-              onGuardrails={handleOpenGuardrails}
-            />
-          ))}
-        </div>
-      ) : (
-        !showCreate && (
-          <div className="rounded border border-white/5 p-12 text-center" style={{ background: "var(--card)" }}>
-            <p className="text-sm text-slate-500">No connections yet.</p>
-            <p className="text-xs text-slate-600 mt-1">
-              Create a connection to get a scoped API key for your app.
-            </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-4 text-xs font-medium px-4 py-2 rounded"
-              style={{ background: "#5CF097", color: "#0A0F1F" }}
-            >
-              Create your first connection
-            </button>
-          </div>
-        )
-      )}
+      {(() => {
+        if (connections === undefined) {
+          return (
+            <div className="space-y-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="rounded border border-white/5 p-5 h-48 animate-pulse" style={{ background: "var(--card)" }} />
+              ))}
+            </div>
+          );
+        }
+        if (connections.length > 0) {
+          return (
+            <div className="space-y-4">
+              {connections.map((conn) => (
+                <ConnectionCard
+                  key={conn.id}
+                  conn={conn}
+                  onToggle={handleToggle}
+                  onDelete={handleDelete}
+                  onEdit={(c) => { setEditing(c); setShowCreate(false); setFormError(""); }}
+                  onResetSpend={handleResetSpend}
+                  onGuardrails={handleOpenGuardrails}
+                />
+              ))}
+            </div>
+          );
+        }
+        if (!showCreate) {
+          return (
+            <div className="rounded border border-white/5 p-12 text-center" style={{ background: "var(--card)" }}>
+              <p className="text-sm text-slate-500">No connections yet.</p>
+              <p className="text-xs text-slate-600 mt-1">
+                Create a connection to get a scoped API key for your app.
+              </p>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="mt-4 text-xs font-medium px-4 py-2 rounded"
+                style={{ background: "#5CF097", color: "#0A0F1F" }}
+              >
+                Create your first connection
+              </button>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Guardrails panel overlay */}
       {guardrailsConn && (

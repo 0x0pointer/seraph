@@ -215,8 +215,18 @@ function SliderField({ field, value, onChange }: { field: FieldDef; value: numbe
 
   // Show the strictness band guide only for standard 0–1 threshold sliders
   const isThresholdSlider = (field.min ?? 0) === 0 && (field.max ?? 1) === 1;
-  const strictLabel = value < 0.35 ? "strict" : value < 0.65 ? "balanced" : "permissive";
-  const strictColor = value < 0.35 ? "#f87171" : value < 0.65 ? "#fbbf24" : "#5CF097";
+  let strictLabel: string;
+  let strictColor: string;
+  if (value < 0.35) {
+    strictLabel = "strict";
+    strictColor = "#f87171";
+  } else if (value < 0.65) {
+    strictLabel = "balanced";
+    strictColor = "#fbbf24";
+  } else {
+    strictLabel = "permissive";
+    strictColor = "#5CF097";
+  }
 
   return (
     <div>
@@ -350,7 +360,7 @@ function TagsField({ field, value, onChange }: { field: FieldDef; value: string[
   );
 }
 
-function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: string[]; onChange: (v: string[]) => void }) {
+function MultiSelectField({ field, value, onChange }: Readonly<{ field: FieldDef; value: string[]; onChange: (v: string[]) => void }>) {
   function toggle(opt: string) {
     if (value.includes(opt)) onChange(value.filter((v) => v !== opt));
     else onChange([...value, opt]);
@@ -386,7 +396,7 @@ function MultiSelectField({ field, value, onChange }: { field: FieldDef; value: 
       )}
       {value.length > 0 && (
         <p className="text-xs mt-2 font-mono" style={{ color: "#5CF097" }}>
-          {value.length} language{value.length !== 1 ? "s" : ""} selected
+          {value.length} language{value.length === 1 ? "" : "s"} selected
         </p>
       )}
       <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-dim)" }}>{field.description}</p>

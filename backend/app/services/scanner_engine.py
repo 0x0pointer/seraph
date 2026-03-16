@@ -122,11 +122,14 @@ def _import_embedding_shield(params: dict) -> Any:
 
 
 # Exact language names accepted by the llm-guard Code scanner.
+_LANG_MATHEMATICA = "Mathematica/Wolfram Language"
+_LANG_VB_NET = "Visual Basic .NET"
+
 _CODE_SCANNER_LANGUAGES = [
     "ARM Assembly", "AppleScript", "C", "C#", "C++", "COBOL", "Erlang", "Fortran",
-    "Go", "Java", "JavaScript", "Kotlin", "Lua", "Mathematica/Wolfram Language",
+    "Go", "Java", "JavaScript", "Kotlin", "Lua", _LANG_MATHEMATICA,
     "PHP", "Pascal", "Perl", "PowerShell", "Python", "R", "Ruby", "Rust", "Scala",
-    "Swift", "Visual Basic .NET", "jq",
+    "Swift", _LANG_VB_NET, "jq",
 ]
 # Lowercase lookup so user-entered values like "javascript" → "JavaScript"
 _LANG_NORMALIZE: dict[str, str] = {l.lower(): l for l in _CODE_SCANNER_LANGUAGES}
@@ -140,10 +143,10 @@ _LANG_NORMALIZE.update({
     "sh": "PowerShell",
     "csharp": "C#",
     "cpp": "C++",
-    "vb.net": "Visual Basic .NET",
-    "vb": "Visual Basic .NET",
-    "wolfram": "Mathematica/Wolfram Language",
-    "mathematica": "Mathematica/Wolfram Language",
+    "vb.net": _LANG_VB_NET,
+    "vb": _LANG_VB_NET,
+    "wolfram": _LANG_MATHEMATICA,
+    "mathematica": _LANG_MATHEMATICA,
 })
 
 
@@ -160,7 +163,7 @@ def _normalize_languages(languages: list) -> list[str]:
 
 
 # Matches triple-backtick fenced code blocks (``` or ```lang\n...\n```)
-_MARKDOWN_CODE_FENCE_RE = re.compile(r"```[\w]*\n[\s\S]*?```", re.DOTALL)
+_MARKDOWN_CODE_FENCE_RE = re.compile(r"```[\w]*\n.+?```", re.DOTALL)
 
 
 class BanCode:
@@ -360,7 +363,7 @@ def _apply_threshold_overrides(
     """Re-instantiate scanners whose guardrail_id has a threshold override."""
     result = []
     for e in entries:
-        scanner, scanner_type, phrases, guardrail_id, params, on_fail_action = e
+        _, scanner_type, phrases, guardrail_id, params, on_fail_action = e
         if guardrail_id in threshold_overrides:
             override_params = {**params, "threshold": threshold_overrides[guardrail_id]}
             try:
@@ -381,6 +384,126 @@ def _build_reask_message(scanner_name: str, score: float) -> str:
         f"Your response was flagged by the '{scanner_name}' guardrail "
         f"(confidence: {score:.0%}). Please revise your message to comply with the policy."
     )
+
+
+def _find_action_for_scanner(entries: list, scanner_name: str) -> str:
+    """Look up the on_fail_action for a scanner by name."""
+    for e in entries:
+        if e[1] == scanner_name:
+            return e[5]
+    return "block"
+
+
+def _handle_violation_action(
+    action: str,
+    scanner_name: str,
+    score: float,
+    original_text: str,
+    scanner_sanitized: dict[str, tuple[str, str]],
+) -> tuple[bool, str | None, str, str | None]:
+    """
+    Process a single scanner violation based on its on_fail_action.
+
+    Returns (should_block, fixed_text_or_None, action_label, reask_msg_or_None).
+    """
+    if action == "monitor":
+        logger.info("Scanner %s: violation monitored (score=%.3f, action=monitor)", scanner_name, score)
+        return False, None, "monitored", None
+
+    if action == "fix":
+        san_info = scanner_sanitized.get(scanner_name)
+        if san_info and san_info[0] != original_text:
+            logger.info("Scanner %s: violation fixed via sanitization (score=%.3f)", scanner_name, score)
+            return False, san_info[0], "fixed", None
+        logger.warning("Scanner %s: fix action but no sanitized text — blocked (score=%.3f)", scanner_name, score)
+        return True, None, "blocked", None
+
+    if action == "reask":
+        return True, None, "reask", _build_reask_message(scanner_name, score)
+
+    # Default: block
+    return True, None, "blocked", None
+
+
+def _process_violations(
+    results_valid: dict[str, bool],
+    results_score: dict[str, float],
+    entries: list,
+    scanner_sanitized: dict[str, tuple[str, str]],
+    original_text: str,
+) -> tuple[bool, str, list[str], dict[str, str], list[str], bool]:
+    """
+    Process all scanner violations and apply on_fail_action logic.
+
+    Returns (overall_valid, current_text, violation_scanners,
+             on_fail_actions, reask_msgs, fix_applied).
+    """
+    overall_valid = True
+    violation_scanners: list[str] = []
+    on_fail_actions: dict[str, str] = {}
+    reask_msgs: list[str] = []
+    fix_applied = False
+    current_text = original_text
+
+    for scanner_name, is_valid_flag in results_valid.items():
+        if is_valid_flag:
+            continue
+        action = _find_action_for_scanner(entries, scanner_name)
+        score = results_score.get(scanner_name, 1.0)
+
+        should_block, fixed_text, label, reask_msg = _handle_violation_action(
+            action, scanner_name, score, original_text, scanner_sanitized,
+        )
+
+        on_fail_actions[scanner_name] = label
+        if should_block:
+            overall_valid = False
+            violation_scanners.append(scanner_name)
+        if fixed_text is not None:
+            current_text = fixed_text
+            fix_applied = True
+        if reask_msg:
+            reask_msgs.append(reask_msg)
+
+    return overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied
+
+
+def _load_and_filter_entries(
+    entries: list,
+    allowed_types: set[str] | None,
+) -> list:
+    """Filter scanner entries by allowed types."""
+    if allowed_types is not None:
+        return [e for e in entries if e[1] in allowed_types]
+    return entries
+
+
+def _collect_raw_results(
+    raw_results: list,
+    entries: list,
+) -> tuple[dict[str, bool], dict[str, float], dict[str, tuple[str, str]]]:
+    """
+    Collect raw scanner results into aggregated dicts.
+
+    Returns (results_valid, results_score, scanner_sanitized).
+    """
+    results_valid: dict[str, bool] = {}
+    results_score: dict[str, float] = {}
+    scanner_sanitized: dict[str, tuple[str, str]] = {}
+
+    for i, res in enumerate(raw_results):
+        if isinstance(res, Exception):
+            logger.warning("Scanner %s failed: %s", entries[i][1], res)
+            continue
+        sanitized, valid_dict, score_dict = res
+        scanner_name = entries[i][1]
+        on_fail_action = entries[i][5]
+        results_valid.update(valid_dict)
+        results_score.update(score_dict)
+        if not all(valid_dict.values()):
+            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
+
+    return results_valid, results_score, scanner_sanitized
 
 
 async def run_input_scan(
@@ -406,28 +529,20 @@ async def run_input_scan(
     use_cache = allowed_guardrail_ids is None and not threshold_overrides
 
     if allowed_guardrail_ids is not None:
-        entries = await _load_scanners_by_ids(session, "input", allowed_guardrail_ids)
-        if allowed_types is not None:
-            entries = [e for e in entries if e[1] in allowed_types]
+        entries = _load_and_filter_entries(
+            await _load_scanners_by_ids(session, "input", allowed_guardrail_ids), allowed_types)
     else:
-        entries = await _load_scanners(session, "input")
-        if allowed_types is not None:
-            entries = [e for e in entries if e[1] in allowed_types]
+        entries = _load_and_filter_entries(await _load_scanners(session, "input"), allowed_types)
     if threshold_overrides:
         entries = _apply_threshold_overrides(entries, threshold_overrides, "input")
     if not entries:
         return True, text, {}, [], {}, None, False
 
-    # ── Text canonicalization (v17) ─────────────────────────────────────────
-    # Produce a canonical form for rule-based scanners (BanSubstrings, Regex).
-    # ML scanners still see the original text for best classification accuracy.
     canonical_text = canonicalize(text)
     _has_canonical = canonical_text != text
     if _has_canonical:
         logger.debug("Text canonicalized: original=%d chars, canonical=%d chars", len(text), len(canonical_text))
 
-    # Check LRU cache (global mode only, no per-connection overrides)
-    # Include canonical text in cache key so evasion variants cache separately
     _cache_input = f"{text}\x01{canonical_text}" if _has_canonical else text
     cache_key = _result_cache_key("input", entries, _cache_input) if use_cache else None
     if cache_key:
@@ -439,86 +554,19 @@ async def run_input_scan(
     tasks = [
         loop.run_in_executor(
             _executor, _scan_one_input, e[0],
-            # Rule-based scanners see canonical text; ML scanners see original
             canonical_text if _has_canonical and e[1] in _CANONICAL_SCANNERS else text,
         )
         for e in entries
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    results_valid: dict[str, bool] = {}
-    results_score: dict[str, float] = {}
-    # Map scanner_name → (sanitized_text, on_fail_action) for failed scanners
-    scanner_sanitized: dict[str, tuple[str, str]] = {}
+    results_valid, results_score, scanner_sanitized = _collect_raw_results(raw_results, entries)
 
-    for i, res in enumerate(raw_results):
-        if isinstance(res, Exception):
-            logger.warning("Scanner %s failed: %s", entries[i][1], res)
-            continue
-        sanitized, valid_dict, score_dict = res
-        scanner_name = entries[i][1]
-        on_fail_action = entries[i][5]
-        results_valid.update(valid_dict)
-        results_score.update(score_dict)
-        # Track sanitized text for violated scanners with fix action
-        if not all(valid_dict.values()):
-            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
-
-    # ── Apply on_fail_action per violated scanner ───────────────────────────
-    overall_valid = True
-    violation_scanners: list[str] = []
-    on_fail_actions: dict[str, str] = {}
-    reask_msgs: list[str] = []
-    fix_applied = False
-    current_text = text
-
-    for scanner_name, is_valid_flag in results_valid.items():
-        if is_valid_flag:
-            continue
-        # Determine the on_fail_action for this scanner
-        action = "block"
-        for e in entries:
-            if e[1] == scanner_name:
-                action = e[5]
-                break
-
-        score = results_score.get(scanner_name, 1.0)
-
-        if action == "monitor":
-            # Log only — let the request through
-            on_fail_actions[scanner_name] = "monitored"
-            logger.info("Scanner %s: violation monitored (score=%.3f, action=monitor)", scanner_name, score)
-
-        elif action == "fix":
-            # Use sanitized output instead of blocking
-            san_info = scanner_sanitized.get(scanner_name)
-            if san_info and san_info[0] != text:
-                current_text = san_info[0]
-                fix_applied = True
-                on_fail_actions[scanner_name] = "fixed"
-                logger.info("Scanner %s: violation fixed via sanitization (score=%.3f)", scanner_name, score)
-            else:
-                # Scanner doesn't produce a different sanitized text — fall back to block
-                overall_valid = False
-                violation_scanners.append(scanner_name)
-                on_fail_actions[scanner_name] = "blocked"
-                logger.warning("Scanner %s: fix action but no sanitized text — blocked (score=%.3f)", scanner_name, score)
-
-        elif action == "reask":
-            # Reject but provide correction context
-            overall_valid = False
-            violation_scanners.append(scanner_name)
-            on_fail_actions[scanner_name] = "reask"
-            reask_msgs.append(_build_reask_message(scanner_name, score))
-
-        else:
-            # Default: block
-            overall_valid = False
-            violation_scanners.append(scanner_name)
-            on_fail_actions[scanner_name] = "blocked"
+    overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied = (
+        _process_violations(results_valid, results_score, entries, scanner_sanitized, text)
+    )
 
     phrase_hit = _apply_custom_phrases(text, entries, results_score, violation_scanners)
-    # v17: Also check custom phrases against canonical text (catches homoglyph/leetspeak evasion)
     if _has_canonical and not phrase_hit:
         phrase_hit = _apply_custom_phrases(canonical_text, entries, results_score, violation_scanners)
     if phrase_hit:
@@ -549,25 +597,20 @@ async def run_output_scan(
     use_cache = allowed_guardrail_ids is None and not threshold_overrides
 
     if allowed_guardrail_ids is not None:
-        entries = await _load_scanners_by_ids(session, "output", allowed_guardrail_ids)
-        if allowed_types is not None:
-            entries = [e for e in entries if e[1] in allowed_types]
+        entries = _load_and_filter_entries(
+            await _load_scanners_by_ids(session, "output", allowed_guardrail_ids), allowed_types)
     else:
-        entries = await _load_scanners(session, "output")
-        if allowed_types is not None:
-            entries = [e for e in entries if e[1] in allowed_types]
+        entries = _load_and_filter_entries(await _load_scanners(session, "output"), allowed_types)
     if threshold_overrides:
         entries = _apply_threshold_overrides(entries, threshold_overrides, "output")
     if not entries:
         return True, output, {}, [], {}, None, False
 
-    # ── Text canonicalization (v17) — also applies to output scanning ────
     canonical_output = canonicalize(output)
     _has_canonical_out = canonical_output != output
     if _has_canonical_out:
         logger.debug("Output canonicalized: original=%d chars, canonical=%d chars", len(output), len(canonical_output))
 
-    # Check LRU cache — key includes prompt so context is preserved
     _cache_out = f"{prompt}\x00{output}\x01{canonical_output}" if _has_canonical_out else f"{prompt}\x00{output}"
     cache_key = _result_cache_key("output", entries, _cache_out) if use_cache else None
     if cache_key:
@@ -585,71 +628,13 @@ async def run_output_scan(
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    results_valid: dict[str, bool] = {}
-    results_score: dict[str, float] = {}
-    scanner_sanitized: dict[str, tuple[str, str]] = {}
+    results_valid, results_score, scanner_sanitized = _collect_raw_results(raw_results, entries)
 
-    for i, res in enumerate(raw_results):
-        if isinstance(res, Exception):
-            logger.warning("Scanner %s failed: %s", entries[i][1], res)
-            continue
-        sanitized, valid_dict, score_dict = res
-        scanner_name = entries[i][1]
-        on_fail_action = entries[i][5]
-        results_valid.update(valid_dict)
-        results_score.update(score_dict)
-        if not all(valid_dict.values()):
-            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
-
-    # ── Apply on_fail_action per violated scanner ───────────────────────────
-    overall_valid = True
-    violation_scanners: list[str] = []
-    on_fail_actions: dict[str, str] = {}
-    reask_msgs: list[str] = []
-    fix_applied = False
-    current_text = output
-
-    for scanner_name, is_valid_flag in results_valid.items():
-        if is_valid_flag:
-            continue
-        action = "block"
-        for e in entries:
-            if e[1] == scanner_name:
-                action = e[5]
-                break
-
-        score = results_score.get(scanner_name, 1.0)
-
-        if action == "monitor":
-            on_fail_actions[scanner_name] = "monitored"
-            logger.info("Scanner %s: violation monitored (score=%.3f, action=monitor)", scanner_name, score)
-
-        elif action == "fix":
-            san_info = scanner_sanitized.get(scanner_name)
-            if san_info and san_info[0] != output:
-                current_text = san_info[0]
-                fix_applied = True
-                on_fail_actions[scanner_name] = "fixed"
-                logger.info("Scanner %s: violation fixed via sanitization (score=%.3f)", scanner_name, score)
-            else:
-                overall_valid = False
-                violation_scanners.append(scanner_name)
-                on_fail_actions[scanner_name] = "blocked"
-                logger.warning("Scanner %s: fix action but no sanitized text — blocked (score=%.3f)", scanner_name, score)
-
-        elif action == "reask":
-            overall_valid = False
-            violation_scanners.append(scanner_name)
-            on_fail_actions[scanner_name] = "reask"
-            reask_msgs.append(_build_reask_message(scanner_name, score))
-
-        else:
-            overall_valid = False
-            violation_scanners.append(scanner_name)
-            on_fail_actions[scanner_name] = "blocked"
+    overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied = (
+        _process_violations(results_valid, results_score, entries, scanner_sanitized, output)
+    )
 
     phrase_hit = _apply_custom_phrases(output, entries, results_score, violation_scanners)
-    # v17: Also check custom phrases against canonical output
     if _has_canonical_out and not phrase_hit:
         phrase_hit = _apply_custom_phrases(canonical_output, entries, results_score, violation_scanners)
     if phrase_hit:

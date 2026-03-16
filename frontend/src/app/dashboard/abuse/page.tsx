@@ -250,11 +250,11 @@ const ABUSE_COLS = [
 
 type AbuseColKey = typeof ABUSE_COLS[number]["key"];
 
-function ColVis({ cols, hidden, onToggle }: {
+function ColVis({ cols, hidden, onToggle }: Readonly<{
   cols: { key: string; label: string }[];
   hidden: Set<string>;
   onToggle: (k: string) => void;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {

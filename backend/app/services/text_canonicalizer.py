@@ -111,12 +111,12 @@ _LEET_MULTI: list[tuple[str, str]] = [
 # Spaces are NOT included as separators to avoid collapsing across word boundaries.
 # Uses [a-zA-Z0-9] to also catch leetspeak digits (1.g.n.0.r.3).
 _SPACED_LETTER_RE = re.compile(
-    r"(?<![a-zA-Z0-9])([a-zA-Z0-9])(?:[.\-_*~]{1,3}[a-zA-Z0-9]){1,}(?![a-zA-Z0-9])"
+    r"(?<![a-zA-Z0-9])([a-zA-Z0-9])(?:[.\-_*~]{1,3}[a-zA-Z0-9])+(?![a-zA-Z0-9])"
 )
 # Separate pattern for space-separated single letters: "i g n o r e"
 # Minimum 2 letters separated by single spaces
 _SPACE_SPELLED_RE = re.compile(
-    r"(?<![a-zA-Z])([a-zA-Z]) (?:[a-zA-Z] ){1,}([a-zA-Z])(?![a-zA-Z])"
+    r"(?<![a-zA-Z])([a-zA-Z]) (?:[a-zA-Z] )+([a-zA-Z])(?![a-zA-Z])"
 )
 
 # ── Repeated character folding ───────────────────────────────────────────────
@@ -125,6 +125,67 @@ _SPACE_SPELLED_RE = re.compile(
 # rule-based scanning, not displayed to users. "heeelllo" → "helo"
 # catches evasion while "hello" in the original text is handled by normal scanning.
 _REPEAT_RE = re.compile(r"(.)\1{2,}")
+
+# Non-space delimiters used in leetspeak pass 2
+_NONSPC_DELIM = set(".-_*~")
+
+
+def _is_adjacent_alpha(chars: list[str], i: int) -> bool:
+    """Check if a character has an alphabetic neighbour (directly or through a delimiter)."""
+    if i > 0 and chars[i - 1].isalpha():
+        return True
+    if i < len(chars) - 1 and chars[i + 1].isalpha():
+        return True
+    return False
+
+
+def _is_delimited_alpha(chars: list[str], i: int) -> bool:
+    """Check if a character has an alphabetic neighbour separated by a non-space delimiter."""
+    prev = (
+        (i > 0 and chars[i - 1].isalpha()) or
+        (i > 1 and chars[i - 1] in _NONSPC_DELIM and chars[i - 2].isalpha())
+    )
+    nxt = (
+        (i < len(chars) - 1 and chars[i + 1].isalpha()) or
+        (i < len(chars) - 2 and chars[i + 1] in _NONSPC_DELIM and chars[i + 2].isalpha())
+    )
+    return prev or nxt
+
+
+def _apply_leetspeak(text: str) -> str:
+    """Apply multi-char and single-char leetspeak reversal."""
+    # Multi-char substitution
+    lower = text.lower()
+    for leet, latin in _LEET_MULTI:
+        if leet in lower:
+            text = text.replace(leet, latin)
+            lower = text.lower()
+
+    # Pass 1: convert leet chars directly adjacent to letters
+    chars = list(text)
+    for i, ch in enumerate(chars):
+        if ch in _LEET_SINGLE and _is_adjacent_alpha(chars, i):
+            chars[i] = _LEET_SINGLE[ch]
+    text = "".join(chars)
+
+    # Pass 2: handle leet chars separated by non-space delimiters
+    chars = list(text)
+    to_convert = [i for i, ch in enumerate(chars) if ch in _LEET_SINGLE and _is_delimited_alpha(chars, i)]
+    for i in to_convert:
+        chars[i] = _LEET_SINGLE[chars[i]]
+    return "".join(chars)
+
+
+def _collapse_spaced_letters(text: str) -> str:
+    """Collapse spaced-out letter sequences like i.g.n.o.r.e or i g n o r e."""
+    text = _SPACED_LETTER_RE.sub(
+        lambda m: re.sub(r"[^a-zA-Z0-9]", "", m.group()),
+        text,
+    )
+    return _SPACE_SPELLED_RE.sub(
+        lambda m: m.group().replace(" ", ""),
+        text,
+    )
 
 
 def canonicalize(text: str) -> str:
@@ -141,86 +202,25 @@ def canonicalize(text: str) -> str:
         return text
 
     # Step 1: Unicode NFKC normalization
-    # Converts fullwidth chars to ASCII, decomposes ligatures, normalizes
-    # compatibility characters. This handles most Unicode trickery.
     result = unicodedata.normalize("NFKC", text)
 
     # Step 2: Homoglyph resolution
-    # Single-pass translation of Cyrillic/Greek/special lookalikes to Latin.
     result = result.translate(_HOMOGLYPH_TABLE)
 
     # Step 3: Diacritic/accent stripping
-    # Decompose to NFD (base char + combining marks), then remove combining marks.
-    # This turns "résumé" → "resume", "naïve" → "naive", etc.
     decomposed = unicodedata.normalize("NFD", result)
     result = "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
 
-    # Step 4: Leetspeak substitution (BEFORE separator collapsing so that
-    # mixed leet+separator patterns like 1.g.n.0.r.3 are handled correctly)
+    # Step 4: Leetspeak substitution
+    result = _apply_leetspeak(result)
 
-    # 4a: Multi-char leetspeak substitution
-    lower = result.lower()
-    for leet, latin in _LEET_MULTI:
-        if leet in lower:
-            result = result.replace(leet, latin)
-            lower = result.lower()
+    # Step 5: Spaced-out letter collapsing
+    result = _collapse_spaced_letters(result)
 
-    # 4b: Single-char leetspeak substitution (two passes)
-    # Only convert characters adjacent to alphabetic characters to avoid
-    # false positives on $100, @mentions, etc.
-    # Pass 1: convert leet chars directly adjacent to letters
-    chars = list(result)
-    for i, ch in enumerate(chars):
-        if ch in _LEET_SINGLE:
-            prev_alpha = i > 0 and chars[i - 1].isalpha()
-            next_alpha = i < len(chars) - 1 and chars[i + 1].isalpha()
-            if prev_alpha or next_alpha:
-                chars[i] = _LEET_SINGLE[ch]
-    result = "".join(chars)
-    # Pass 2: handle leet chars separated by non-space delimiters (e.g., "1.g.n.0.r.3")
-    # After pass 1, some letters are converted. Re-scan for leet chars near letters
-    # with a dot/dash/underscore separator in between. Spaces are excluded as separators
-    # to prevent "$100 total" cascade ($ near space near alpha → false positive).
-    # Compute all conversions first, then apply (no in-place mutation cascade).
-    _NONSPC_DELIM = set(".-_*~")
-    chars = list(result)
-    to_convert: list[int] = []
-    for i, ch in enumerate(chars):
-        if ch in _LEET_SINGLE:
-            prev_alpha = (
-                (i > 0 and chars[i - 1].isalpha()) or
-                (i > 1 and chars[i - 1] in _NONSPC_DELIM and chars[i - 2].isalpha())
-            )
-            next_alpha = (
-                (i < len(chars) - 1 and chars[i + 1].isalpha()) or
-                (i < len(chars) - 2 and chars[i + 1] in _NONSPC_DELIM and chars[i + 2].isalpha())
-            )
-            if prev_alpha or next_alpha:
-                to_convert.append(i)
-    for i in to_convert:
-        chars[i] = _LEET_SINGLE[chars[i]]
-    result = "".join(chars)
-
-    # Step 5: Spaced-out letter collapsing (after leet reversal)
-    # Handles: i.g.n.o.r.e → ignore, j-a-i-l-b-r-e-a-k → jailbreak
-    # Non-space separators (dots, dashes, underscores, etc.)
-    result = _SPACED_LETTER_RE.sub(
-        lambda m: re.sub(r"[^a-zA-Z0-9]", "", m.group()),
-        result,
-    )
-    # Space-separated single letters: "i g n o r e" → "ignore"
-    result = _SPACE_SPELLED_RE.sub(
-        lambda m: m.group().replace(" ", ""),
-        result,
-    )
-
-    # Step 7: Repeated character folding (heeeelllo → heello)
-    # Fold to 2 chars max — this preserves common double-letter words (all, see, too)
-    # while still catching evasion like "iiiignore" → "iignore".
-    # The canonical form is then scanned alongside the original for best coverage.
+    # Step 6: Repeated character folding (heeeelllo → heello)
     result = _REPEAT_RE.sub(r"\1\1", result)
 
-    # Step 8: Whitespace normalization
+    # Step 7: Whitespace normalization
     result = re.sub(r"\s+", " ", result).strip()
 
     return result

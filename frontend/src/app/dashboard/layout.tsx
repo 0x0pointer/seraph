@@ -47,7 +47,7 @@ const adminNavItems = [
 
 const orgNavItem = { href: "/dashboard/organization", label: "Organization" };
 
-function NavIcon({ href, active }: { href: string; active: boolean }) {
+function NavIcon({ href, active }: Readonly<{ href: string; active: boolean }>) {
   const color = active ? "var(--purple)" : "var(--text-dim)";
   const w = "w-4 h-4 shrink-0";
   if (href === "/dashboard")

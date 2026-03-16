@@ -67,6 +67,12 @@ const ENV_COLORS: Record<string, { background: string; color: string }> = {
 
 function ScoreBar({ name, score, violated }: { name: string; score: number; violated: boolean }) {
   const pct = Math.round(score * 100);
+  let barColor: string;
+  if (violated) {
+    barColor = "#f87171";
+  } else {
+    barColor = score > 0.3 ? "#fbbf24" : "#5CF097";
+  }
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
@@ -82,7 +88,7 @@ function ScoreBar({ name, score, violated }: { name: string; score: number; viol
           className="h-1 rounded-full transition-all"
           style={{
             width: `${pct}%`,
-            background: violated ? "#f87171" : score > 0.3 ? "#fbbf24" : "#5CF097",
+            background: barColor,
           }}
         />
       </div>
@@ -169,9 +175,14 @@ function MetaCard({ label, value, sub, color }: { label: string; value: string; 
 }
 
 function ExpandedRow({ item, orgName, isAdmin }: { item: AuditItem; orgName: string | null; isAdmin: boolean }) {
-  const riskColor =
-    item.max_risk_score >= 0.8 ? "#f87171" :
-    item.max_risk_score >= 0.5 ? "#fbbf24" : "#5CF097";
+  let riskColor: string;
+  if (item.max_risk_score >= 0.8) {
+    riskColor = "#f87171";
+  } else if (item.max_risk_score >= 0.5) {
+    riskColor = "#fbbf24";
+  } else {
+    riskColor = "#5CF097";
+  }
 
   const envStyle = item.connection_environment
     ? (ENV_COLORS[item.connection_environment] ?? ENV_COLORS.staging)
