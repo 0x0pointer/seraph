@@ -2650,7 +2650,7 @@ function GuardrailsTabContent({ guardrails, toggling, handleToggleGuardrail }: R
                         style={g.is_active
                           ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
                           : { borderColor: "var(--border-input)", color: "#475569" }}>
-                        {(() => { if (toggling === g.id) return "\u2026"; return g.is_active ? "On" : "Off"; })()}
+                        {toggling === g.id ? "\u2026" : (g.is_active ? "On" : "Off")}
                       </button>
                     </div>
                   ))}

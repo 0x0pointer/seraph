@@ -5,7 +5,7 @@
 */
 
 /* ── Skeleton placeholder ── */
-export function Sk({ h = "h-24", w }: { h?: string; w?: string }) {
+export function Sk({ h = "h-24", w }: Readonly<{ h?: string; w?: string }>) {
   return <div className={`${h} ${w ?? "w-full"} rounded animate-pulse`} style={{ background: "var(--card2)" }} />;
 }
 
