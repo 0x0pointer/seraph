@@ -5,6 +5,7 @@ Organization management routes.
 """
 import secrets
 from datetime import datetime, timezone
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -17,6 +18,9 @@ from app.models.organization import Organization
 from app.models.org_invite import OrgInvite
 from app.models.user import User
 from app.services.event_service import log_event
+
+# Annotated dependency types for FastAPI
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/org", tags=["org"])
 
@@ -48,12 +52,18 @@ def _org_id_for(user: User) -> int:
     return user.org_id
 
 
+# Annotated dependency types for user injection
+CurrentUser = Annotated[User, Depends(get_current_user)]
+OrgMember = Annotated[User, Depends(require_org_member)]
+OrgAdmin = Annotated[User, Depends(require_org_admin)]
+
+
 # ── Org info ──────────────────────────────────────────────────────────────────
 
 @router.get("")
 async def get_my_org(
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_member),
+    session: SessionDep,
+    current_user: OrgMember,
 ):
     """Return current user's organization details."""
     org = (await session.execute(
@@ -89,8 +99,8 @@ class CreateOrgRequest(BaseModel):
 @router.post("", status_code=201)
 async def create_my_org(
     data: CreateOrgRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    session: SessionDep,
+    current_user: CurrentUser,
 ):
     """Any authenticated user without an org can create one and become its admin."""
     if current_user.org_id:
@@ -129,8 +139,8 @@ async def create_my_org(
 @router.put("")
 async def update_my_org(
     data: dict,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """Update org name (org_admin only)."""
     org_id = _org_id_for(current_user)
@@ -153,8 +163,8 @@ async def update_my_org(
 
 @router.get("/members")
 async def list_org_members(
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """List all members of the org."""
     org_id = _org_id_for(current_user)
@@ -186,8 +196,8 @@ class ChangeMemberRoleRequest(BaseModel):
 async def change_member_role(
     user_id: int,
     data: ChangeMemberRoleRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """Change the role of an org member (cannot change superadmins)."""
     if data.role not in ("org_admin", "viewer"):
@@ -228,8 +238,8 @@ async def change_member_role(
 @router.delete("/members/{user_id}", status_code=204)
 async def remove_member(
     user_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """Remove a user from the org (sets their org_id to NULL)."""
     if user_id == current_user.id:
@@ -267,8 +277,8 @@ async def remove_member(
 
 @router.get("/invites")
 async def list_invites(
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """List pending (unused) invites for the org."""
     org_id = _org_id_for(current_user)
@@ -299,8 +309,8 @@ class CreateInviteRequest(BaseModel):
 @router.post("/invite", status_code=201)
 async def create_invite(
     data: CreateInviteRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """Create an invite link for a new org member."""
     if data.role not in ("org_admin", "viewer"):
@@ -356,8 +366,8 @@ async def create_invite(
 @router.delete("/invites/{invite_id}", status_code=204)
 async def cancel_invite(
     invite_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_org_admin),
+    session: SessionDep,
+    current_user: OrgAdmin,
 ):
     """Cancel a pending invite."""
     org_id = _org_id_for(current_user)
@@ -374,8 +384,8 @@ async def cancel_invite(
 
 @router.get("/invite/validate")
 async def validate_invite_token(
+    session: SessionDep,
     token: str = Query(...),
-    session: AsyncSession = Depends(get_session),
 ):
     """Validate an invite token — returns org name + email + role."""
     invite = (await session.execute(
@@ -407,7 +417,7 @@ class AcceptInviteRequest(BaseModel):
 @router.post("/invite/accept")
 async def accept_invite(
     data: AcceptInviteRequest,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ):
     """Accept an org invite — creates a new user account and joins the org."""
     from app.core.security import hash_password, create_access_token

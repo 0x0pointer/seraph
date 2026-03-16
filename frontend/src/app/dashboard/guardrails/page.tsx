@@ -723,17 +723,24 @@ export default function GuardrailsPage() {
 
       {/* Scanner list */}
       <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-        {!data ? (
-          <div className="p-6 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--card2)" }} />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-slate-600 text-center">
-            No {tab} guardrails configured.
-          </p>
-        ) : filtered.map((g, idx) => {
+        {(() => {
+          if (!data) {
+            return (
+              <div className="p-6 space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-14 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+                ))}
+              </div>
+            );
+          }
+          if (filtered.length === 0) {
+            return (
+              <p className="px-6 py-8 text-sm text-slate-600 text-center">
+                No {tab} guardrails configured.
+              </p>
+            );
+          }
+          return filtered.map((g, idx) => {
           const customDesc = typeof g.params?._description === "string" ? g.params._description : null;
           const autoDesc =
             CATALOG.find((t) => t.scanner_type === g.scanner_type && t.direction === g.direction)?.description ??
@@ -788,7 +795,8 @@ export default function GuardrailsPage() {
               </a>
             </div>
           );
-        })}
+        });
+        })()}
       </div>
     </div>
   );

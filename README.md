@@ -1,5 +1,9 @@
 # Seraph — LLM Security Platform
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=bugs)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=coverage)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+
 **Open-source, production-ready guardrails for Large Language Models**
 
 Seraph wraps [llm-guard](https://github.com/protectai/llm-guard) with a FastAPI backend, SQLite-persisted config, audit logging, multi-tenant org support, and a Next.js admin dashboard. Integrate as a standalone API gateway or drop into Kong, Nginx, Traefik, Envoy, LiteLLM, or AWS API Gateway via a single HTTP hook.

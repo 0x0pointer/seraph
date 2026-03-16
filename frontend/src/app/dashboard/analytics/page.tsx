@@ -7,9 +7,9 @@ import {
   ComposedChart, AreaChart, Area, Bar,
   Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { Sk, ChartTip, AdminBanner, OrgOption } from "@/components/dashboard/shared";
 
 interface UserInfo { role: string; }
-interface OrgOption { id: number; name: string; }
 
 interface TrendPoint { date: string; total: number; violations: number; }
 interface HourlyPoint { hour: string; total: number; violations: number; }
@@ -22,34 +22,69 @@ interface Summary {
   avg_risk_score: number;
 }
 
-function Sk({ h = "h-52" }: { h?: string }) {
-  return <div className={`${h} rounded animate-pulse`} style={{ background: "var(--card2)" }} />;
-}
-
-const ChartTip = ({ active, payload, label }: {
-  active?: boolean;
-  payload?: { value: number; name: string; color: string }[];
-  label?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded border border-white/10 px-3 py-2 text-xs" style={{ background: "var(--card)" }}>
-      <p className="text-slate-500 mb-1 font-mono">{label}</p>
-      {payload.map((p) => (
-        <p key={p.name} style={{ color: p.color }} className="font-mono">
-          {p.name}: {p.name.includes("%") ? `${p.value.toFixed(1)}%` : p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
-
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="rounded border border-white/5 p-4" style={{ background: "var(--card)" }}>
       <p className="text-xs uppercase tracking-wider mb-1 truncate" style={{ color: "var(--text-dim)" }}>{label}</p>
       <p className="text-2xl font-bold tracking-tight" style={{ color: color ?? "#e2e8f0" }}>{value}</p>
       {sub && <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{sub}</p>}
+    </div>
+  );
+}
+
+function rateColor(rate: number, thresholdHigh: number, thresholdLow: number, invert = false): string {
+  if (invert) {
+    if (rate < thresholdLow) return "#5CF097";
+    if (rate < thresholdHigh) return "#fbbf24";
+    return "#f87171";
+  }
+  if (rate >= thresholdHigh) return "#5CF097";
+  if (rate >= thresholdLow) return "#fbbf24";
+  return "#f87171";
+}
+
+/* ── Top violated scanners panel ── */
+function TopScannersPanel({
+  topViolations, maxViolCount, totalViolations,
+}: Readonly<{
+  topViolations: TopViolation[] | undefined;
+  maxViolCount: number;
+  totalViolations: number;
+}>) {
+  if (!topViolations) return <Sk />;
+  if (topViolations.length === 0) {
+    return <p className="text-xs text-slate-600 py-14 text-center font-mono">No violations recorded yet.</p>;
+  }
+  return (
+    <div className="space-y-3">
+      {topViolations.slice(0, 8).map((v) => {
+        const barPct = Math.round((v.count / maxViolCount) * 100);
+        const sharePct = totalViolations > 0
+          ? ((v.count / totalViolations) * 100).toFixed(0)
+          : "0";
+        return (
+          <div key={v.scanner} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">
+                {v.scanner}
+              </span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs text-slate-600 font-mono">{sharePct}% of violations</span>
+                <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
+              </div>
+            </div>
+            <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div
+                className="h-1 rounded-full transition-all"
+                style={{
+                  width: `${barPct}%`,
+                  background: `rgba(248,113,113,${0.35 + barPct / 180})`,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -112,36 +147,7 @@ export default function AnalyticsPage() {
 
       {/* ── Platform-wide banner + org filter (super admins only) ── */}
       {isAdmin && (
-        <div className="flex items-center gap-3">
-          <div
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded flex-1"
-            style={{ background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.15)" }}
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "#f87171" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <p className="text-xs font-mono" style={{ color: "#f87171" }}>
-              Platform-wide view — showing analytics from{" "}
-              <span className="font-semibold">
-                {filterOrgId && adminOrgs
-                  ? (adminOrgs.find((o) => String(o.id) === filterOrgId)?.name ?? "selected org")
-                  : "all organizations"}
-              </span>
-            </p>
-          </div>
-          <select
-            value={filterOrgId}
-            onChange={(e) => setFilterOrgId(e.target.value)}
-            className="text-sm rounded px-3 py-2 outline-none shrink-0"
-            style={{ background: "var(--card)", border: "1px solid var(--border-input)", color: "var(--text-muted)" }}
-          >
-            <option value="">All organizations</option>
-            {adminOrgs?.map((o) => (
-              <option key={o.id} value={String(o.id)}>{o.name}</option>
-            ))}
-          </select>
-        </div>
+        <AdminBanner filterOrgId={filterOrgId} adminOrgs={adminOrgs} setFilterOrgId={setFilterOrgId} label="analytics" />
       )}
 
       {/* ── Stat cards ───────────────────────────────────────────── */}
@@ -161,13 +167,13 @@ export default function AnalyticsPage() {
         <StatCard
           label="Pass Rate (30d)"
           value={`${passRate30d.toFixed(1)}%`}
-          color={passRate30d >= 95 ? "#5CF097" : passRate30d >= 80 ? "#fbbf24" : "#f87171"}
+          color={rateColor(passRate30d, 95, 80)}
           sub="clean scans"
         />
         <StatCard
           label="Violation Rate (30d)"
           value={`${violRate30d.toFixed(1)}%`}
-          color={violRate30d < 5 ? "#5CF097" : violRate30d < 20 ? "#fbbf24" : "#f87171"}
+          color={rateColor(violRate30d, 20, 5, true)}
           sub="of all scans"
         />
         <StatCard
@@ -267,41 +273,11 @@ export default function AnalyticsPage() {
         {/* Top violated scanners — custom bars */}
         <div className="lg:col-span-2 rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
-          {!topViolations ? <Sk /> :
-            topViolations.length === 0 ? (
-              <p className="text-xs text-slate-600 py-14 text-center font-mono">No violations recorded yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {topViolations.slice(0, 8).map((v) => {
-                  const barPct = Math.round((v.count / maxViolCount) * 100);
-                  const sharePct = (summary?.total_violations ?? 0) > 0
-                    ? ((v.count / (summary?.total_violations ?? 1)) * 100).toFixed(0)
-                    : "0";
-                  return (
-                    <div key={v.scanner} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">
-                          {v.scanner}
-                        </span>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-xs text-slate-600 font-mono">{sharePct}% of violations</span>
-                          <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
-                        </div>
-                      </div>
-                      <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
-                        <div
-                          className="h-1 rounded-full transition-all"
-                          style={{
-                            width: `${barPct}%`,
-                            background: `rgba(248,113,113,${0.35 + barPct / 180})`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <TopScannersPanel
+            topViolations={topViolations}
+            maxViolCount={maxViolCount}
+            totalViolations={summary?.total_violations ?? 0}
+          />
         </div>
 
         {/* Input vs Output */}

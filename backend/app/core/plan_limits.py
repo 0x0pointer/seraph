@@ -20,5 +20,5 @@ def is_same_month(dt: datetime | None, now: datetime) -> bool:
     return dt is not None and dt.year == now.year and dt.month == now.month
 
 
-async def get_effective_plan(_user, _session) -> str:
+def get_effective_plan(_user, _session) -> str:
     return "default"

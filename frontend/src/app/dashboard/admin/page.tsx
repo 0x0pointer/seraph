@@ -420,10 +420,12 @@ const ALL_ROLES: { value: string; label: string }[] = [
   { value: "admin",    label: "Admin" },
 ];
 
-function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, onAssignOrg, roleLoading }: {
+interface UserActionsProps {
   user: AdminUser; onRoleChange: (role: string) => void;
   onResetPw: () => void; onDelete: () => void; onImpersonate: () => void; onAssignOrg: () => void; roleLoading: boolean;
-}) {
+}
+
+function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, onAssignOrg, roleLoading }: Readonly<UserActionsProps>) {
   const [open, setOpen] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
@@ -450,7 +452,9 @@ function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, o
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setShowRoles(false); }} />
+          <button type="button" className="fixed inset-0 z-10" style={{ all: "unset", position: "fixed", inset: 0, zIndex: 10 }}
+            onClick={() => { setOpen(false); setShowRoles(false); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { setOpen(false); setShowRoles(false); } }} />
           <div className="w-52 rounded border z-20 py-1"
             style={{ ...menuStyle, background: "var(--bg)", borderColor: "var(--border-input)" }}>
             <button onClick={() => { setShowRoles(!showRoles); }} disabled={roleLoading}
@@ -487,11 +491,51 @@ function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, o
   );
 }
 
+// ── Shared color helpers ──────────────────────────────────────────────────────
+
+function getRiskColor(score: number): string {
+  if (score >= 0.8) return "#f87171";
+  if (score >= 0.5) return "#fbbf24";
+  return "#94a3b8";
+}
+
+function getBarColor(isViol: boolean, score: number): string {
+  if (isViol) return "#f87171";
+  if (score > 0.4) return "#fbbf24";
+  return "#5CF097";
+}
+
+function getHealthLabel(passRate: number): string {
+  if (passRate >= 95) return "Good";
+  if (passRate >= 80) return "Degraded";
+  return "Poor";
+}
+
+function getHealthColor(passRate: number): string {
+  if (passRate >= 95) return "#5CF097";
+  if (passRate >= 80) return "#fbbf24";
+  return "#f87171";
+}
+
+const getPassRateColor = getHealthColor;
+
+function getActivityBarColor(isViol: boolean, score: number): string {
+  if (isViol) return "#f87171";
+  if (score > 0.5) return "#fbbf24";
+  return "#5CF097";
+}
+
+function getSpendColor(spendPct: number | null): string {
+  if (spendPct !== null && spendPct >= 90) return "#f87171";
+  if (spendPct !== null && spendPct >= 70) return "#fbbf24";
+  return "#a78bfa";
+}
+
 // ── Audit log expandable row ──────────────────────────────────────────────────
 
 function AuditRow({ entry }: { entry: AuditEntry }) {
   const [expanded, setExpanded] = useState(false);
-  const riskColor = entry.max_risk_score >= 0.8 ? "#f87171" : entry.max_risk_score >= 0.5 ? "#fbbf24" : "#94a3b8";
+  const riskColor = getRiskColor(entry.max_risk_score);
   const envStyle = entry.connection_environment
     ? (ENV_COLOR[entry.connection_environment] ?? ENV_COLOR.staging) : null;
 
@@ -572,7 +616,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
                       .map(([name, score]) => {
                         const pct = Math.round(score * 100);
                         const isViol = entry.violation_scanners.includes(name);
-                        const barColor = isViol ? "#f87171" : score > 0.4 ? "#fbbf24" : "#5CF097";
+                        const barColor = getBarColor(isViol, score);
                         return (
                           <div key={name} className="rounded px-3 py-2 border border-white/5"
                             style={{ background: isViol ? "rgba(248,113,113,0.04)" : "var(--card)" }}>
@@ -851,7 +895,7 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {isLoading && (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
                     <td colSpan={6} className="px-4 py-3">
@@ -859,13 +903,15 @@ function SystemEventsTab({ isAdmin }: { isAdmin: boolean }) {
                     </td>
                   </tr>
                 ))
-              ) : !data || data.items.length === 0 ? (
+              )}
+              {!isLoading && (!data || data.items.length === 0) && (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-xs text-slate-600 font-mono">
                     No system events recorded yet. Events will appear here as users make changes.
                   </td>
                 </tr>
-              ) : data.items.map((e) => {
+              )}
+              {!isLoading && data && data.items.length > 0 && data.items.map((e) => {
                 const style = EVENT_STYLES[e.event_type] ?? { background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" };
                 const isExpanded = expanded === e.id;
                 return (
@@ -1081,7 +1127,7 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {isLoading ? (
+                  {isLoading && (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i} className="border-b border-white/5">
                         <td colSpan={10} className="px-4 py-3">
@@ -1089,13 +1135,15 @@ function AuditsTab({ isAdmin }: { isAdmin: boolean }) {
                         </td>
                       </tr>
                     ))
-                  ) : !data || data.items.length === 0 ? (
+                  )}
+                  {!isLoading && (!data || data.items.length === 0) && (
                     <tr>
                       <td colSpan={10} className="px-4 py-16 text-center text-xs text-slate-600 font-mono">
                         No audit logs match the current filters.
                       </td>
                     </tr>
-                  ) : (
+                  )}
+                  {!isLoading && data && data.items.length > 0 && (
                     data.items.map((entry) => <AuditRow key={entry.id} entry={entry} />)
                   )}
                 </tbody>
@@ -1217,15 +1265,17 @@ function OrgsTab() {
       )}
 
       <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-        {isLoading ? (
+        {isLoading && (
           <div className="p-6 space-y-3">{Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-10 rounded animate-pulse" style={{ background: "var(--card2)" }} />
           ))}</div>
-        ) : !orgs || orgs.length === 0 ? (
+        )}
+        {!isLoading && (!orgs || orgs.length === 0) && (
           <div className="px-4 py-16 text-center text-xs text-slate-600 font-mono">
             No organizations yet. Create one to get started.
           </div>
-        ) : orgs.map((org) => (
+        )}
+        {!isLoading && orgs && orgs.length > 0 && orgs.map((org) => (
           <div key={org.id}>
             {/* Org row */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 hover:bg-white/[0.01] transition-colors">
@@ -1292,11 +1342,13 @@ function OrgsTab() {
             {isOpen(org.id, "members") && (
               <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(92,240,151,0.02)" }}>
                 <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-2">Members</p>
-                {!orgMembers[org.id] ? (
+                {!orgMembers[org.id] && (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
-                ) : orgMembers[org.id].length === 0 ? (
+                )}
+                {orgMembers[org.id]?.length === 0 && (
                   <p className="text-xs text-slate-600 font-mono">No members yet.</p>
-                ) : (
+                )}
+                {(orgMembers[org.id]?.length ?? 0) > 0 && (
                   <div className="space-y-1.5">
                     {orgMembers[org.id].map((m) => (
                       <div key={m.id} className="flex items-center gap-3 text-xs">
@@ -1319,11 +1371,13 @@ function OrgsTab() {
             {isOpen(org.id, "teams") && (
               <div className="px-5 py-3 border-b border-white/5" style={{ background: "rgba(99,102,241,0.02)" }}>
                 <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "#a5b4fc" }}>Teams</p>
-                {!orgTeams[org.id] ? (
+                {!orgTeams[org.id] && (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
-                ) : orgTeams[org.id].length === 0 ? (
+                )}
+                {orgTeams[org.id]?.length === 0 && (
                   <p className="text-xs text-slate-600 font-mono">No teams in this org yet.</p>
-                ) : (
+                )}
+                {(orgTeams[org.id]?.length ?? 0) > 0 && (
                   <div className="space-y-2">
                     {orgTeams[org.id].map((t) => (
                       <div key={t.id} className="flex items-center justify-between py-1.5 px-3 rounded"
@@ -1594,7 +1648,7 @@ function ActivityScannerRows({ entry }: { entry: ActivityEntry }) {
       {pairs.map(([name, score]) => {
         const isViol = entry.violation_scanners.includes(name);
         const pct = Math.min(Math.round(score * 100), 100);
-        const color = isViol ? "#f87171" : score > 0.5 ? "#fbbf24" : "#5CF097";
+        const color = getActivityBarColor(isViol, score);
         return (
           <div key={name}>
             <div className="flex items-center justify-between mb-1">
@@ -1655,10 +1709,12 @@ function ActivityFeed({
           {entries.map((entry) => {
             const isNew = newIds.has(entry.id);
             const isSel = selected?.id === entry.id;
+            const defaultBg = isSel ? "rgba(255,255,255,0.03)" : "transparent";
+            const rowBg = isNew ? "rgba(92,240,151,0.06)" : defaultBg;
             return (
               <button key={entry.id} onClick={() => onSelect(entry)} className="w-full text-left px-4 py-3 transition-all"
                 style={{
-                  background: isNew ? "rgba(92,240,151,0.06)" : isSel ? "rgba(255,255,255,0.03)" : "transparent",
+                  background: rowBg,
                   borderLeft: isSel ? "2px solid #5CF097" : "2px solid transparent",
                 }}>
                 <div className="flex items-center gap-3">
@@ -1933,6 +1989,686 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: "settings", label: "Settings" },
 ];
 
+// ── Overview sub-component ─────────────────────────────────────────────────────
+
+function ActivityRow({ a, ovis }: Readonly<{ a: ActivityEntry; ovis: (k: OverviewScanColKey) => boolean }>) {
+  const riskColor = getRiskColor(a.max_risk_score);
+  const envStyle = a.connection_environment ? (ENV_COLOR[a.connection_environment] ?? ENV_COLOR.staging) : null;
+  return (
+    <tr className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+      {ovis("time") && (
+        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+          {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "\u2014"}
+        </td>
+      )}
+      {ovis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>}
+      {ovis("status") && (
+        <td className="px-4 py-3">
+          <span className="text-xs font-mono px-2 py-0.5 rounded"
+            style={a.is_valid ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
+            {a.is_valid ? "pass" : "block"}
+          </span>
+        </td>
+      )}
+      {ovis("risk") && (
+        <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
+      )}
+      {ovis("connection") && (
+        <td className="px-4 py-3">
+          {a.connection_name ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
+              {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
+            </div>
+          ) : <span className="text-xs text-slate-700 font-mono">token</span>}
+        </td>
+      )}
+      {ovis("violations") && (
+        <td className="px-4 py-3 text-xs font-mono"
+          style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
+          {(() => {
+            if (a.violation_scanners.length === 0) return "\u2014";
+            const label = a.violation_scanners.slice(0, 2).join(", ");
+            return a.violation_scanners.length > 2 ? `${label} \u2026` : label;
+          })()}
+        </td>
+      )}
+      {ovis("preview") && (
+        <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
+      )}
+    </tr>
+  );
+}
+
+interface OverviewTabProps {
+  stats: AdminStats | undefined;
+  activity: ActivityEntry[] | undefined;
+  guardrails: GuardrailEntry[] | undefined;
+  topViolations: TopViolation[] | undefined;
+  setTab: (tab: AdminTab) => void;
+  overviewHiddenCols: Set<OverviewScanColKey>;
+  toggleOverviewCol: (k: string) => void;
+}
+
+function TopViolationsPanel({ topViolations }: Readonly<{ topViolations: OverviewTabProps["topViolations"] }>) {
+  const maxViol = topViolations?.[0]?.count ?? 1;
+  if (!topViolations) return <Sk h="h-40" />;
+  if (topViolations.length === 0) return <p className="text-xs text-slate-600 py-10 text-center font-mono">No violations recorded.</p>;
+  return (
+    <div className="space-y-3">
+      {topViolations.map((v) => {
+        const pct = Math.round((v.count / maxViol) * 100);
+        return (
+          <div key={v.scanner} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{v.scanner}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs text-slate-600 font-mono">{pct}%</span>
+                <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
+              </div>
+            </div>
+            <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="h-1 rounded-full transition-all"
+                style={{ width: `${pct}%`, background: `rgba(248,113,113,${0.35 + pct / 180})` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GuardrailHealthPanel({ guardrails, setTab }: Readonly<{ guardrails: OverviewTabProps["guardrails"]; setTab: OverviewTabProps["setTab"] }>) {
+  return (
+    <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Guardrail Health</p>
+        <button onClick={() => setTab("guardrails")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
+          All guardrails →
+        </button>
+      </div>
+      {!guardrails ? <Sk h="h-40" /> : (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+          {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
+            <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#5CF097" }} />
+                <span className="text-xs text-slate-400 truncate">{g.name}</span>
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
+                  style={{ background: g.direction === "input" ? "rgba(92,240,151,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#5CF097" : "#a78bfa" }}>
+                  {g.direction}
+                </span>
+              </div>
+            </div>
+          ))}
+          {guardrails.filter((g) => !g.is_active).length > 0 && (
+            <p className="text-xs text-slate-700 font-mono pt-1">
+              + {guardrails.filter((g) => !g.is_active).length} inactive
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverviewTabContent({
+  stats, activity, guardrails, topViolations, setTab,
+  overviewHiddenCols, toggleOverviewCol,
+}: Readonly<OverviewTabProps>) {
+  const ovis = (k: OverviewScanColKey) => !overviewHiddenCols.has(k);
+  const overviewColSpan = OVERVIEW_SCAN_COLS.filter((c) => ovis(c.key)).length;
+
+  return (
+    <>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+        {!stats ? <Sk h="h-20" cols={10} /> : (
+          <>
+            <StatCard label="Total Users" value={stats.total_users.toString()} color="#e2e8f0"
+              sub={`${stats.new_users_week} new this week`} />
+            <StatCard label="Admins / Viewers" value={`${stats.admin_users} / ${stats.viewer_users}`}
+              color="#f87171" sub="role split" />
+            <StatCard label="Platform Scans" value={stats.total_scans.toLocaleString()} color="#e2e8f0"
+              sub={`${stats.scans_today.toLocaleString()} today`} />
+            <StatCard label="Pass Rate" value={`${stats.pass_rate.toFixed(1)}%`}
+              color={getPassRateColor(stats.pass_rate)}
+              sub={`${stats.pass_rate_today.toFixed(1)}% today`} />
+            <StatCard label="Violations" value={stats.total_violations.toLocaleString()}
+              color={stats.total_violations > 0 ? "#f87171" : "#5CF097"}
+              sub={`${stats.violations_today} today`} />
+            <StatCard label="Active Guardrails" value={`${stats.active_guardrails} / ${stats.total_guardrails}`}
+              color="#5CF097" sub="scanning now" />
+            <StatCard label="API Connections" value={stats.total_connections.toString()}
+              color={stats.blocked_connections > 0 ? "#f87171" : "#5CF097"}
+              sub={stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "all active"}
+              warn={stats.blocked_connections > 0} />
+            <StatCard label="Month Spend" value={`$${stats.total_month_spend.toFixed(2)}`}
+              color="#a78bfa" sub="across all connections" />
+            <StatCard label="New Users / Week" value={stats.new_users_week.toString()}
+              color="#fbbf24" sub="registrations" />
+            <StatCard label="Platform Health"
+              value={getHealthLabel(stats.pass_rate)}
+              color={getHealthColor(stats.pass_rate)}
+              sub="based on pass rate" />
+          </>
+        )}
+      </div>
+
+      {/* Violation bars + system status */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#5CF097" },
+            { label: "All-Time Violations", big: stats.total_violations, total: stats.total_scans, color: "#fbbf24" },
+          ].map(({ label, big, total, color }) => (
+            <div key={label} className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
+              <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-3">{label}</p>
+              <div className="flex items-end gap-2">
+                <p className="text-3xl font-bold" style={{ color }}>{big.toLocaleString()}</p>
+                <p className="text-xs text-slate-600 pb-1 font-mono">of {total.toLocaleString()} scans</p>
+              </div>
+              <div className="mt-3 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
+                <div className="h-1.5 rounded-full transition-all"
+                  style={{ width: `${total > 0 ? Math.min((big / total) * 100, 100) : 0}%`, background: color }} />
+              </div>
+            </div>
+          ))}
+          <div className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
+            <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-4">System Status</p>
+            <div className="space-y-3">
+              {[
+                { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#5CF097" : "#f87171" },
+                { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#5CF097" },
+                { label: "Platform health", val: getHealthLabel(stats.pass_rate), color: getHealthColor(stats.pass_rate) },
+                { label: "Month spend", val: `$${stats.total_month_spend.toFixed(2)}`, color: "#a78bfa" },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{label}</span>
+                  <span className="text-xs font-mono font-semibold" style={{ color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blocked connections alert */}
+      {stats && stats.blocked_connections > 0 && (
+        <div className="rounded border-l-2 px-4 py-3 flex items-start gap-3"
+          style={{ background: "rgba(248,113,113,0.05)", borderColor: "#f87171" }}>
+          <svg className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#f87171" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            <span className="font-semibold" style={{ color: "#f87171" }}>
+              {stats.blocked_connections} API connection{stats.blocked_connections !== 1 ? "s" : ""} blocked
+            </span>{" "}
+            — violation alert thresholds exceeded. Review in the{" "}
+            <button onClick={() => setTab("connections")} className="underline" style={{ color: "#f87171" }}>Connections tab</button>.
+          </p>
+        </div>
+      )}
+
+      {/* Top violated scanners + Guardrail health */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
+          <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
+          <TopViolationsPanel topViolations={topViolations} />
+        </div>
+        <GuardrailHealthPanel guardrails={guardrails} setTab={setTab} />
+      </div>
+
+      {/* Recent platform activity */}
+      <Section title="Recent Platform Activity"
+        action={
+          <div className="flex items-center gap-3">
+            <ColVis cols={[...OVERVIEW_SCAN_COLS]} hidden={overviewHiddenCols} onToggle={toggleOverviewCol} />
+            <button onClick={() => setTab("audits")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
+              Full audit log →
+            </button>
+          </div>
+        }
+      >
+        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/5">
+                {ovis("time")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Time</th>}
+                {ovis("dir")        && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Dir</th>}
+                {ovis("status")     && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Status</th>}
+                {ovis("risk")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Risk</th>}
+                {ovis("connection") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Connection</th>}
+                {ovis("violations") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Violations</th>}
+                {ovis("preview")    && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Preview</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {!activity ? Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} className="border-b border-white/5">
+                  <td colSpan={overviewColSpan} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
+                </tr>
+              )) : activity.map((a) => (
+                <ActivityRow key={a.id} a={a} ovis={ovis} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ── Users sub-component ───────────────────────────────────────────────────────
+
+interface UsersTabProps {
+  users: AdminUser[] | undefined;
+  mutateUsers: () => Promise<unknown>;
+  adminOrgs: OrgEntry[] | undefined;
+  showCreate: boolean;
+  setShowCreate: (v: boolean) => void;
+  deleteTarget: AdminUser | null;
+  setDeleteTarget: (u: AdminUser | null) => void;
+  resetPwTarget: AdminUser | null;
+  setResetPwTarget: (u: AdminUser | null) => void;
+  assignOrgTarget: AdminUser | null;
+  setAssignOrgTarget: (u: AdminUser | null) => void;
+  roleLoading: number | null;
+  handleRoleChange: (user: AdminUser, role: string) => void;
+  handleDelete: () => void;
+  handleImpersonate: (user: AdminUser) => void;
+}
+
+function UsersTabContent({
+  users, mutateUsers, adminOrgs, showCreate, setShowCreate,
+  deleteTarget, setDeleteTarget, resetPwTarget, setResetPwTarget,
+  assignOrgTarget, setAssignOrgTarget, roleLoading,
+  handleRoleChange, handleDelete, handleImpersonate,
+}: Readonly<UsersTabProps>) {
+  const [roleFilter, setRoleFilter] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(20);
+
+  const allFilteredUsers = users?.filter((u) => {
+    if (roleFilter && u.role !== roleFilter) return false;
+    if (userSearch) {
+      const q = userSearch.toLowerCase();
+      return u.username.toLowerCase().includes(q) ||
+        (u.full_name ?? "").toLowerCase().includes(q) ||
+        (u.email ?? "").toLowerCase().includes(q);
+    }
+    return true;
+  });
+  const userTotalPages = Math.ceil((allFilteredUsers?.length ?? 0) / userPageSize);
+  const filteredUsers = allFilteredUsers?.slice((userPage - 1) * userPageSize, userPage * userPageSize);
+
+  return (
+    <>
+      <Section
+        title="User Management"
+        action={
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search users…"
+              value={userSearch}
+              onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
+              className="rounded px-3 py-1.5 text-sm outline-none w-44"
+              style={inputStyle}
+            />
+            <div className="flex gap-1 p-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)" }}>
+              {(["", "admin", "viewer"] as const).map((r) => (
+                <button key={r || "all"} onClick={() => { setRoleFilter(r); setUserPage(1); }}
+                  className="text-xs px-2.5 py-1 rounded transition-colors"
+                  style={roleFilter === r ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
+                  {r === "" ? "All" : r}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 font-mono">Rows:</span>
+              {[10, 20, 50].map((n) => (
+                <button key={n} onClick={() => { setUserPageSize(n); setUserPage(1); }}
+                  className="text-xs px-2 py-1 rounded font-mono transition-colors"
+                  style={userPageSize === n
+                    ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
+                    : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => downloadCSV("/admin/export/users", "seraph-users.csv")}
+              className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
+              ↓ Export CSV
+            </button>
+            <button onClick={() => setShowCreate(!showCreate)}
+              className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
+              style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#5CF097", color: "#fff" }}>
+              {showCreate ? "✕ Cancel" : "+ New user"}
+            </button>
+          </div>
+        }
+      >
+        {showCreate && (
+          <CreateUserPanel
+            onCreated={async () => { await mutateUsers(); setShowCreate(false); }}
+            onCancel={() => setShowCreate(false)}
+          />
+        )}
+        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/5">
+                {["User", "Email", "Role", "Org", "Connections", "Last Active", "Joined", "Actions"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!users && Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-b border-white/5">
+                  <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
+                </tr>
+              ))}
+              {users && filteredUsers?.length === 0 && (
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No users found.</td></tr>
+              )}
+              {users && filteredUsers && filteredUsers.length > 0 && filteredUsers.map((u) => (
+                <tr key={u.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(92,240,151,0.1)", color: u.role === "admin" ? "#f87171" : "#5CF097" }}>
+                        {u.username[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-white">{u.username}</p>
+                        {u.full_name && <p className="text-xs text-slate-600">{u.full_name}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{u.email ?? <span className="text-slate-700">—</span>}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
+                      style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.org_name ? (
+                      <span className="text-xs font-mono px-2 py-0.5 rounded truncate max-w-[100px] block"
+                        style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
+                        {u.org_name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-700 font-mono">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">
+                    {u.connection_count} conn · {u.total_requests.toLocaleString()} req
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{timeAgo(u.last_active_at)}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 font-mono">
+                    {u.created_at ? format(new Date(u.created_at), "MM/dd/yy") : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <UserActions user={u} onRoleChange={(role) => handleRoleChange(u, role)}
+                      onResetPw={() => setResetPwTarget(u)} onDelete={() => setDeleteTarget(u)}
+                      onImpersonate={() => handleImpersonate(u)}
+                      onAssignOrg={() => setAssignOrgTarget(u)}
+                      roleLoading={roleLoading === u.id} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {users && (
+            <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+              <p className="text-xs text-slate-700 font-mono">
+                {filteredUsers?.length ?? 0} shown · {allFilteredUsers?.length ?? 0} filtered · {users.length} total
+              </p>
+              <div className="flex items-center gap-2">
+                {userTotalPages > 1 && (
+                  <>
+                    <button disabled={userPage <= 1} onClick={() => setUserPage((p) => p - 1)}
+                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                      ← Prev
+                    </button>
+                    <span className="text-xs text-slate-600 font-mono">{userPage} / {userTotalPages}</span>
+                    <button disabled={userPage >= userTotalPages} onClick={() => setUserPage((p) => p + 1)}
+                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                      Next →
+                    </button>
+                  </>
+                )}
+                <p className="text-xs text-slate-700 font-mono ml-2">
+                  {users.filter((u) => u.role === "admin").length} admin · {users.filter((u) => u.role === "viewer").length} viewer
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </Section>
+
+      {/* Modals */}
+      {deleteTarget && <DeleteModal user={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />}
+      {resetPwTarget && <ResetPasswordModal user={resetPwTarget} onClose={() => setResetPwTarget(null)} />}
+      {assignOrgTarget && (
+        <AssignOrgModal
+          user={assignOrgTarget}
+          orgs={adminOrgs ?? []}
+          onClose={() => setAssignOrgTarget(null)}
+          onSaved={async () => { await mutateUsers(); setAssignOrgTarget(null); }}
+        />
+      )}
+    </>
+  );
+}
+
+// ── Connections sub-component ─────────────────────────────────────────────────
+
+interface ConnectionsTabProps {
+  connections: AdminConnection[] | undefined;
+}
+
+function ConnectionsTabContent({ connections }: Readonly<ConnectionsTabProps>) {
+  const [connSearch, setConnSearch] = useState("");
+  const [connPage, setConnPage] = useState(1);
+  const [connPageSize, setConnPageSize] = useState(20);
+
+  const allFilteredConns = connections?.filter((c) => {
+    if (!connSearch) return true;
+    const q = connSearch.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q) || c.environment.toLowerCase().includes(q);
+  });
+  const connTotalPages = Math.ceil((allFilteredConns?.length ?? 0) / connPageSize);
+  const filteredConns = allFilteredConns?.slice((connPage - 1) * connPageSize, connPage * connPageSize);
+
+  return (
+    <Section title="All API Connections"
+      action={
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search connections…"
+            value={connSearch}
+            onChange={(e) => { setConnSearch(e.target.value); setConnPage(1); }}
+            className="rounded px-3 py-1.5 text-sm outline-none w-44"
+            style={inputStyle}
+          />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-600 font-mono">Rows:</span>
+            {[10, 20, 50].map((n) => (
+              <button key={n} onClick={() => { setConnPageSize(n); setConnPage(1); }}
+                className="text-xs px-2 py-1 rounded font-mono transition-colors"
+                style={connPageSize === n
+                  ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
+                  : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/5">
+              {["Connection", "Owner", "Env", "Status", "Requests", "Violations", "Month Spend", "Last Active"].map((h) => (
+                <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {!connections && Array.from({ length: 3 }).map((_, i) => (
+              <tr key={i} className="border-b border-white/5">
+                <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
+              </tr>
+            ))}
+            {connections && (filteredConns ?? []).length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No API connections found.</td></tr>
+            )}
+            {connections && (filteredConns ?? []).length > 0 && (filteredConns ?? []).map((c) => {
+              const envStyle = ENV_COLOR[c.environment] ?? ENV_COLOR.staging;
+              const violRate = c.total_requests > 0 ? (c.total_violations / c.total_requests) * 100 : 0;
+              const spendPct = c.max_monthly_spend && c.max_monthly_spend > 0
+                ? (c.month_spend / c.max_monthly_spend) * 100 : null;
+              return (
+                <tr key={c.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="text-xs font-medium text-white">{c.name}</p>
+                    <p className="text-xs text-slate-600 font-mono">id:{c.id}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-slate-400">{c.username}</p>
+                    {c.full_name && <p className="text-xs text-slate-600">{c.full_name}</p>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono px-1.5 py-0.5 rounded capitalize" style={envStyle}>{c.environment}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono px-1.5 py-0.5 rounded"
+                      style={c.status === "active" ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
+                      {c.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-400 font-mono">{c.total_requests.toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono" style={{ color: c.total_violations > 0 ? "#f87171" : "#475569" }}>
+                      {c.total_violations}
+                    </span>
+                    {c.total_requests > 0 && (
+                      <span className="text-xs text-slate-700 font-mono ml-1">({violRate.toFixed(0)}%)</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-mono" style={{
+                      color: getSpendColor(spendPct),
+                    }}>
+                      ${c.month_spend.toFixed(2)}
+                    </span>
+                    {c.max_monthly_spend && (
+                      <span className="text-xs text-slate-700 font-mono ml-1">/ ${c.max_monthly_spend.toFixed(0)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{timeAgo(c.last_active_at)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {connections && (
+          <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+            <p className="text-xs text-slate-700 font-mono">
+              {(filteredConns ?? []).length} shown · {connections.length} total · {connections.filter((c) => c.status === "blocked").length} blocked ·{" "}
+              ${connections.reduce((s, c) => s + c.month_spend, 0).toFixed(2)} month spend
+            </p>
+            {connTotalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button disabled={connPage <= 1} onClick={() => setConnPage((p) => p - 1)}
+                  className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                  ← Prev
+                </button>
+                <span className="text-xs text-slate-600 font-mono">{connPage} / {connTotalPages}</span>
+                <button disabled={connPage >= connTotalPages} onClick={() => setConnPage((p) => p + 1)}
+                  className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+// ── Guardrails sub-component ──────────────────────────────────────────────────
+
+interface GuardrailsTabProps {
+  guardrails: GuardrailEntry[] | undefined;
+  toggling: number | null;
+  handleToggleGuardrail: (id: number) => void;
+}
+
+function GuardrailsTabContent({ guardrails, toggling, handleToggleGuardrail }: Readonly<GuardrailsTabProps>) {
+  return (
+    <Section title="All Guardrails">
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+        {!guardrails ? (
+          <div className="p-6 space-y-2"><Sk h="h-10" cols={6} /></div>
+        ) : (
+          <>
+            {(["input", "output"] as const).map((dir) => {
+              const list = guardrails.filter((g) => g.direction === dir);
+              return (
+                <div key={dir}>
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"
+                    style={{ background: "rgba(255,255,255,0.01)" }}>
+                    <span className="text-xs font-mono font-semibold capitalize px-2 py-0.5 rounded"
+                      style={dir === "input" ? { background: "rgba(92,240,151,0.1)", color: "#5CF097" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
+                      {dir}
+                    </span>
+                    <span className="text-xs text-slate-600 font-mono">
+                      {list.filter((g) => g.is_active).length} active · {list.filter((g) => !g.is_active).length} inactive
+                    </span>
+                  </div>
+                  {list.map((g) => (
+                    <div key={g.id} className="flex items-center justify-between px-5 py-3 border-b border-white/5 last:border-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#5CF097" : "#334155" }} />
+                        <span className="text-xs text-slate-300 truncate">{g.name}</span>
+                        <span className="text-xs font-mono text-slate-600 shrink-0">{g.scanner_type}</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleGuardrail(g.id)}
+                        disabled={toggling === g.id}
+                        className="text-xs px-3 py-1 rounded border ml-4 shrink-0 transition-colors disabled:opacity-40"
+                        style={g.is_active
+                          ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
+                          : { borderColor: "var(--border-input)", color: "#475569" }}>
+                        {toggling === g.id ? "\u2026" : (g.is_active ? "On" : "Off")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            <div className="px-5 py-3 border-t border-white/5">
+              <p className="text-xs text-slate-700 font-mono">
+                {guardrails.filter((g) => g.is_active).length} active · {guardrails.filter((g) => !g.is_active).length} inactive · {guardrails.length} total
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>("overview");
   const router = useRouter();
@@ -1984,32 +2720,22 @@ export default function AdminPage() {
   const [resetPwTarget, setResetPwTarget] = useState<AdminUser | null>(null);
   const [assignOrgTarget, setAssignOrgTarget] = useState<AdminUser | null>(null);
   const [roleLoading, setRoleLoading] = useState<number | null>(null);
-  const [roleFilter, setRoleFilter] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [userPage, setUserPage] = useState(1);
-  const [userPageSize, setUserPageSize] = useState(20);
-  const [connSearch, setConnSearch] = useState("");
-  const [connPage, setConnPage] = useState(1);
-  const [connPageSize, setConnPageSize] = useState(20);
   const [toggling, setToggling] = useState<number | null>(null);
   const [overviewHiddenCols, setOverviewHiddenCols] = useState<Set<OverviewScanColKey>>(new Set());
-  function toggleOverviewCol(k: string) {
+  const toggleOverviewCol = useCallback((k: string) => {
     setOverviewHiddenCols((prev) => {
       const next = new Set(prev) as Set<OverviewScanColKey>;
       if (next.has(k as OverviewScanColKey)) next.delete(k as OverviewScanColKey);
       else next.add(k as OverviewScanColKey);
       return next;
     });
-  }
-  const ovis = (k: OverviewScanColKey) => !overviewHiddenCols.has(k);
-  const overviewColSpan = OVERVIEW_SCAN_COLS.filter((c) => ovis(c.key)).length;
+  }, []);
 
   const { data: platformSettings, mutate: mutatePlatform } = useSWR<Record<string, string>>(
     isAdmin ? "/admin/platform" : null,
     () => api.get<Record<string, string>>("/admin/platform"),
     { revalidateOnFocus: false },
   );
-
 
   async function handleRoleChange(user: AdminUser, newRole: string) {
     setRoleLoading(user.id);
@@ -2048,29 +2774,6 @@ export default function AdminPage() {
   if (meLoading) return <div className="h-64 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   if (!isAdmin) return <AccessDenied />;
 
-  const allFilteredUsers = users?.filter((u) => {
-    if (roleFilter && u.role !== roleFilter) return false;
-    if (userSearch) {
-      const q = userSearch.toLowerCase();
-      return u.username.toLowerCase().includes(q) ||
-        (u.full_name ?? "").toLowerCase().includes(q) ||
-        (u.email ?? "").toLowerCase().includes(q);
-    }
-    return true;
-  });
-  const userTotalPages = Math.ceil((allFilteredUsers?.length ?? 0) / userPageSize);
-  const filteredUsers = allFilteredUsers?.slice((userPage - 1) * userPageSize, userPage * userPageSize);
-
-  const allFilteredConns = connections?.filter((c) => {
-    if (!connSearch) return true;
-    const q = connSearch.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q) || c.environment.toLowerCase().includes(q);
-  });
-  const connTotalPages = Math.ceil((allFilteredConns?.length ?? 0) / connPageSize);
-  const filteredConns = allFilteredConns?.slice((connPage - 1) * connPageSize, connPage * connPageSize);
-
-  const maxViol = topViolations?.[0]?.count ?? 1;
-
   return (
     <div className="space-y-6 max-w-6xl">
 
@@ -2093,554 +2796,34 @@ export default function AdminPage() {
 
       {/* ── Overview ───────────────────────────────────────────────── */}
       {tab === "overview" && (
-        <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-            {!stats ? <Sk h="h-20" cols={10} /> : (
-              <>
-                <StatCard label="Total Users" value={stats.total_users.toString()} color="#e2e8f0"
-                  sub={`${stats.new_users_week} new this week`} />
-                <StatCard label="Admins / Viewers" value={`${stats.admin_users} / ${stats.viewer_users}`}
-                  color="#f87171" sub="role split" />
-                <StatCard label="Platform Scans" value={stats.total_scans.toLocaleString()} color="#e2e8f0"
-                  sub={`${stats.scans_today.toLocaleString()} today`} />
-                <StatCard label="Pass Rate" value={`${stats.pass_rate.toFixed(1)}%`}
-                  color={stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
-                  sub={`${stats.pass_rate_today.toFixed(1)}% today`} />
-                <StatCard label="Violations" value={stats.total_violations.toLocaleString()}
-                  color={stats.total_violations > 0 ? "#f87171" : "#5CF097"}
-                  sub={`${stats.violations_today} today`} />
-                <StatCard label="Active Guardrails" value={`${stats.active_guardrails} / ${stats.total_guardrails}`}
-                  color="#5CF097" sub="scanning now" />
-                <StatCard label="API Connections" value={stats.total_connections.toString()}
-                  color={stats.blocked_connections > 0 ? "#f87171" : "#5CF097"}
-                  sub={stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "all active"}
-                  warn={stats.blocked_connections > 0} />
-                <StatCard label="Month Spend" value={`$${stats.total_month_spend.toFixed(2)}`}
-                  color="#a78bfa" sub="across all connections" />
-                <StatCard label="New Users / Week" value={stats.new_users_week.toString()}
-                  color="#fbbf24" sub="registrations" />
-                <StatCard label="Platform Health"
-                  value={stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor"}
-                  color={stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171"}
-                  sub="based on pass rate" />
-              </>
-            )}
-          </div>
-
-          {/* Violation bars + system status */}
-          {stats && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Violations Today", big: stats.violations_today, total: stats.scans_today, color: stats.violations_today > 0 ? "#f87171" : "#5CF097" },
-                { label: "All-Time Violations", big: stats.total_violations, total: stats.total_scans, color: "#fbbf24" },
-              ].map(({ label, big, total, color }) => (
-                <div key={label} className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
-                  <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-3">{label}</p>
-                  <div className="flex items-end gap-2">
-                    <p className="text-3xl font-bold" style={{ color }}>{big.toLocaleString()}</p>
-                    <p className="text-xs text-slate-600 pb-1 font-mono">of {total.toLocaleString()} scans</p>
-                  </div>
-                  <div className="mt-3 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
-                    <div className="h-1.5 rounded-full transition-all"
-                      style={{ width: `${total > 0 ? Math.min((big / total) * 100, 100) : 0}%`, background: color }} />
-                  </div>
-                </div>
-              ))}
-              <div className="rounded border border-white/5 px-5 py-4" style={{ background: "var(--card)" }}>
-                <p className="text-xs text-slate-600 font-mono uppercase tracking-wider mb-4">System Status</p>
-                <div className="space-y-3">
-                  {[
-                    { label: "Guardrail coverage", val: stats.active_guardrails > 0 ? "Active" : "None active", color: stats.active_guardrails > 0 ? "#5CF097" : "#f87171" },
-                    { label: "API connections", val: stats.blocked_connections > 0 ? `${stats.blocked_connections} blocked` : "All active", color: stats.blocked_connections > 0 ? "#f87171" : "#5CF097" },
-                    { label: "Platform health", val: stats.pass_rate >= 95 ? "Good" : stats.pass_rate >= 80 ? "Degraded" : "Poor", color: stats.pass_rate >= 95 ? "#5CF097" : stats.pass_rate >= 80 ? "#fbbf24" : "#f87171" },
-                    { label: "Month spend", val: `$${stats.total_month_spend.toFixed(2)}`, color: "#a78bfa" },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{label}</span>
-                      <span className="text-xs font-mono font-semibold" style={{ color }}>{val}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Blocked connections alert */}
-          {stats && stats.blocked_connections > 0 && (
-            <div className="rounded border-l-2 px-4 py-3 flex items-start gap-3"
-              style={{ background: "rgba(248,113,113,0.05)", borderColor: "#f87171" }}>
-              <svg className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#f87171" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                <span className="font-semibold" style={{ color: "#f87171" }}>
-                  {stats.blocked_connections} API connection{stats.blocked_connections !== 1 ? "s" : ""} blocked
-                </span>{" "}
-                — violation alert thresholds exceeded. Review in the{" "}
-                <button onClick={() => setTab("connections")} className="underline" style={{ color: "#f87171" }}>Connections tab</button>.
-              </p>
-            </div>
-          )}
-
-          {/* Top violated scanners + Guardrail health */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
-              <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
-              {!topViolations ? <Sk h="h-40" /> : topViolations.length === 0 ? (
-                <p className="text-xs text-slate-600 py-10 text-center font-mono">No violations recorded.</p>
-              ) : (
-                <div className="space-y-3">
-                  {topViolations.map((v) => {
-                    const pct = Math.round((v.count / maxViol) * 100);
-                    return (
-                      <div key={v.scanner} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{v.scanner}</span>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className="text-xs text-slate-600 font-mono">{pct}%</span>
-                            <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
-                          </div>
-                        </div>
-                        <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
-                          <div className="h-1 rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: `rgba(248,113,113,${0.35 + pct / 180})` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Guardrail Health</p>
-                <button onClick={() => setTab("guardrails")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
-                  All guardrails →
-                </button>
-              </div>
-              {!guardrails ? <Sk h="h-40" /> : (
-                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                  {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
-                    <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#5CF097" }} />
-                        <span className="text-xs text-slate-400 truncate">{g.name}</span>
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                          style={{ background: g.direction === "input" ? "rgba(92,240,151,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#5CF097" : "#a78bfa" }}>
-                          {g.direction}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {guardrails.filter((g) => !g.is_active).length > 0 && (
-                    <p className="text-xs text-slate-700 font-mono pt-1">
-                      + {guardrails.filter((g) => !g.is_active).length} inactive
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent platform activity */}
-          <Section title="Recent Platform Activity"
-            action={
-              <div className="flex items-center gap-3">
-                <ColVis cols={[...OVERVIEW_SCAN_COLS]} hidden={overviewHiddenCols} onToggle={toggleOverviewCol} />
-                <button onClick={() => setTab("audits")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
-                  Full audit log →
-                </button>
-              </div>
-            }
-          >
-            <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    {ovis("time")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Time</th>}
-                    {ovis("dir")        && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Dir</th>}
-                    {ovis("status")     && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Status</th>}
-                    {ovis("risk")       && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Risk</th>}
-                    {ovis("connection") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Connection</th>}
-                    {ovis("violations") && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Violations</th>}
-                    {ovis("preview")    && <th className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">Preview</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {!activity ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="border-b border-white/5">
-                      <td colSpan={overviewColSpan} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
-                    </tr>
-                  )) : activity.map((a) => {
-                    const riskColor = a.max_risk_score >= 0.8 ? "#f87171" : a.max_risk_score >= 0.5 ? "#fbbf24" : "#94a3b8";
-                    const envStyle = a.connection_environment ? (ENV_COLOR[a.connection_environment] ?? ENV_COLOR.staging) : null;
-                    return (
-                      <tr key={a.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                        {ovis("time") && (
-                          <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
-                            {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "—"}
-                          </td>
-                        )}
-                        {ovis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>}
-                        {ovis("status") && (
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-mono px-2 py-0.5 rounded"
-                              style={a.is_valid ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
-                              {a.is_valid ? "pass" : "block"}
-                            </span>
-                          </td>
-                        )}
-                        {ovis("risk") && (
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
-                        )}
-                        {ovis("connection") && (
-                          <td className="px-4 py-3">
-                            {a.connection_name ? (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
-                                {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
-                              </div>
-                            ) : <span className="text-xs text-slate-700 font-mono">token</span>}
-                          </td>
-                        )}
-                        {ovis("violations") && (
-                          <td className="px-4 py-3 text-xs font-mono"
-                            style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
-                            {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " …" : "") : "—"}
-                          </td>
-                        )}
-                        {ovis("preview") && (
-                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-        </>
+        <OverviewTabContent
+          stats={stats} activity={activity} guardrails={guardrails}
+          topViolations={topViolations} setTab={setTab}
+          overviewHiddenCols={overviewHiddenCols} toggleOverviewCol={toggleOverviewCol}
+        />
       )}
 
       {/* ── Users ──────────────────────────────────────────────────── */}
       {tab === "users" && (
-        <Section
-          title="User Management"
-          action={
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="text"
-                placeholder="Search users…"
-                value={userSearch}
-                onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
-                className="rounded px-3 py-1.5 text-sm outline-none w-44"
-                style={inputStyle}
-              />
-              <div className="flex gap-1 p-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)" }}>
-                {(["", "admin", "viewer"] as const).map((r) => (
-                  <button key={r || "all"} onClick={() => { setRoleFilter(r); setUserPage(1); }}
-                    className="text-xs px-2.5 py-1 rounded transition-colors"
-                    style={roleFilter === r ? { background: "#5CF097", color: "#fff" } : { color: "var(--text-dim)" }}>
-                    {r === "" ? "All" : r}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-600 font-mono">Rows:</span>
-                {[10, 20, 50].map((n) => (
-                  <button key={n} onClick={() => { setUserPageSize(n); setUserPage(1); }}
-                    className="text-xs px-2 py-1 rounded font-mono transition-colors"
-                    style={userPageSize === n
-                      ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
-                      : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => downloadCSV("/admin/export/users", "seraph-users.csv")}
-                className="text-xs px-3 py-1.5 rounded font-mono border border-white/10 text-slate-400 hover:text-white transition-colors">
-                ↓ Export CSV
-              </button>
-              <button onClick={() => setShowCreate(!showCreate)}
-                className="text-xs font-medium px-3 py-1.5 rounded transition-colors"
-                style={showCreate ? { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" } : { background: "#5CF097", color: "#fff" }}>
-                {showCreate ? "✕ Cancel" : "+ New user"}
-              </button>
-            </div>
-          }
-        >
-          {showCreate && (
-            <CreateUserPanel
-              onCreated={async () => { await mutateUsers(); setShowCreate(false); }}
-              onCancel={() => setShowCreate(false)}
-            />
-          )}
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/5">
-                  {["User", "Email", "Role", "Org", "Connections", "Last Active", "Joined", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!users ? Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/5">
-                    <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
-                  </tr>
-                )) : filteredUsers?.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No users found.</td></tr>
-                ) : filteredUsers?.map((u) => (
-                  <tr key={u.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: u.role === "admin" ? "rgba(248,113,113,0.15)" : "rgba(92,240,151,0.1)", color: u.role === "admin" ? "#f87171" : "#5CF097" }}>
-                          {u.username[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-white">{u.username}</p>
-                          {u.full_name && <p className="text-xs text-slate-600">{u.full_name}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 font-mono">{u.email ?? <span className="text-slate-700">—</span>}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-mono px-2 py-0.5 rounded capitalize"
-                        style={u.role === "admin" ? { background: "rgba(248,113,113,0.1)", color: "#f87171" } : { background: "rgba(92,240,151,0.08)", color: "#5CF097" }}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.org_name ? (
-                        <span className="text-xs font-mono px-2 py-0.5 rounded truncate max-w-[100px] block"
-                          style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
-                          {u.org_name}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-700 font-mono">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 font-mono">
-                      {u.connection_count} conn · {u.total_requests.toLocaleString()} req
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 font-mono">{timeAgo(u.last_active_at)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 font-mono">
-                      {u.created_at ? format(new Date(u.created_at), "MM/dd/yy") : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <UserActions user={u} onRoleChange={(role) => handleRoleChange(u, role)}
-                        onResetPw={() => setResetPwTarget(u)} onDelete={() => setDeleteTarget(u)}
-                        onImpersonate={() => handleImpersonate(u)}
-                        onAssignOrg={() => setAssignOrgTarget(u)}
-                        roleLoading={roleLoading === u.id} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {users && (
-              <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-                <p className="text-xs text-slate-700 font-mono">
-                  {filteredUsers?.length ?? 0} shown · {allFilteredUsers?.length ?? 0} filtered · {users.length} total
-                </p>
-                <div className="flex items-center gap-2">
-                  {userTotalPages > 1 && (
-                    <>
-                      <button disabled={userPage <= 1} onClick={() => setUserPage((p) => p - 1)}
-                        className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
-                        ← Prev
-                      </button>
-                      <span className="text-xs text-slate-600 font-mono">{userPage} / {userTotalPages}</span>
-                      <button disabled={userPage >= userTotalPages} onClick={() => setUserPage((p) => p + 1)}
-                        className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
-                        Next →
-                      </button>
-                    </>
-                  )}
-                  <p className="text-xs text-slate-700 font-mono ml-2">
-                    {users.filter((u) => u.role === "admin").length} admin · {users.filter((u) => u.role === "viewer").length} viewer
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </Section>
+        <UsersTabContent
+          users={users} mutateUsers={mutateUsers} adminOrgs={adminOrgs}
+          showCreate={showCreate} setShowCreate={setShowCreate}
+          deleteTarget={deleteTarget} setDeleteTarget={setDeleteTarget}
+          resetPwTarget={resetPwTarget} setResetPwTarget={setResetPwTarget}
+          assignOrgTarget={assignOrgTarget} setAssignOrgTarget={setAssignOrgTarget}
+          roleLoading={roleLoading} handleRoleChange={handleRoleChange}
+          handleDelete={handleDelete} handleImpersonate={handleImpersonate}
+        />
       )}
 
       {/* ── Connections ─────────────────────────────────────────────── */}
       {tab === "connections" && (
-        <Section title="All API Connections"
-          action={
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Search connections…"
-                value={connSearch}
-                onChange={(e) => { setConnSearch(e.target.value); setConnPage(1); }}
-                className="rounded px-3 py-1.5 text-sm outline-none w-44"
-                style={inputStyle}
-              />
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-600 font-mono">Rows:</span>
-                {[10, 20, 50].map((n) => (
-                  <button key={n} onClick={() => { setConnPageSize(n); setConnPage(1); }}
-                    className="text-xs px-2 py-1 rounded font-mono transition-colors"
-                    style={connPageSize === n
-                      ? { background: "rgba(92,240,151,0.2)", color: "#818cf8", border: "1px solid rgba(92,240,151,0.3)" }
-                      : { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          }
-        >
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/5">
-                  {["Connection", "Owner", "Env", "Status", "Requests", "Violations", "Month Spend", "Last Active"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!connections ? Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/5">
-                    <td colSpan={8} className="px-4 py-3"><div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
-                  </tr>
-                )) : (filteredConns ?? []).length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-slate-600 font-mono">No API connections found.</td></tr>
-                ) : (filteredConns ?? []).map((c) => {
-                  const envStyle = ENV_COLOR[c.environment] ?? ENV_COLOR.staging;
-                  const violRate = c.total_requests > 0 ? (c.total_violations / c.total_requests) * 100 : 0;
-                  const spendPct = c.max_monthly_spend && c.max_monthly_spend > 0
-                    ? (c.month_spend / c.max_monthly_spend) * 100 : null;
-                  return (
-                    <tr key={c.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="text-xs font-medium text-white">{c.name}</p>
-                        <p className="text-xs text-slate-600 font-mono">id:{c.id}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-xs text-slate-400">{c.username}</p>
-                        {c.full_name && <p className="text-xs text-slate-600">{c.full_name}</p>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded capitalize" style={envStyle}>{c.environment}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                          style={c.status === "active" ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
-                          {c.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-400 font-mono">{c.total_requests.toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono" style={{ color: c.total_violations > 0 ? "#f87171" : "#475569" }}>
-                          {c.total_violations}
-                        </span>
-                        {c.total_requests > 0 && (
-                          <span className="text-xs text-slate-700 font-mono ml-1">({violRate.toFixed(0)}%)</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono" style={{
-                          color: spendPct !== null && spendPct >= 90 ? "#f87171" : spendPct !== null && spendPct >= 70 ? "#fbbf24" : "#a78bfa",
-                        }}>
-                          ${c.month_spend.toFixed(2)}
-                        </span>
-                        {c.max_monthly_spend && (
-                          <span className="text-xs text-slate-700 font-mono ml-1">/ ${c.max_monthly_spend.toFixed(0)}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 font-mono">{timeAgo(c.last_active_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {connections && (
-              <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-                <p className="text-xs text-slate-700 font-mono">
-                  {(filteredConns ?? []).length} shown · {connections.length} total · {connections.filter((c) => c.status === "blocked").length} blocked ·{" "}
-                  ${connections.reduce((s, c) => s + c.month_spend, 0).toFixed(2)} month spend
-                </p>
-                {connTotalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button disabled={connPage <= 1} onClick={() => setConnPage((p) => p - 1)}
-                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
-                      ← Prev
-                    </button>
-                    <span className="text-xs text-slate-600 font-mono">{connPage} / {connTotalPages}</span>
-                    <button disabled={connPage >= connTotalPages} onClick={() => setConnPage((p) => p + 1)}
-                      className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-500 hover:text-white disabled:opacity-30 transition-colors">
-                      Next →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </Section>
+        <ConnectionsTabContent connections={connections} />
       )}
 
       {/* ── Guardrails ──────────────────────────────────────────────── */}
       {tab === "guardrails" && (
-        <Section title="All Guardrails">
-          <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-            {!guardrails ? (
-              <div className="p-6 space-y-2"><Sk h="h-10" cols={6} /></div>
-            ) : (
-              <>
-                {(["input", "output"] as const).map((dir) => {
-                  const list = guardrails.filter((g) => g.direction === dir);
-                  return (
-                    <div key={dir}>
-                      <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"
-                        style={{ background: "rgba(255,255,255,0.01)" }}>
-                        <span className="text-xs font-mono font-semibold capitalize px-2 py-0.5 rounded"
-                          style={dir === "input" ? { background: "rgba(92,240,151,0.1)", color: "#5CF097" } : { background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
-                          {dir}
-                        </span>
-                        <span className="text-xs text-slate-600 font-mono">
-                          {list.filter((g) => g.is_active).length} active · {list.filter((g) => !g.is_active).length} inactive
-                        </span>
-                      </div>
-                      {list.map((g) => (
-                        <div key={g.id} className="flex items-center justify-between px-5 py-3 border-b border-white/5 last:border-0">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.is_active ? "#5CF097" : "#334155" }} />
-                            <span className="text-xs text-slate-300 truncate">{g.name}</span>
-                            <span className="text-xs font-mono text-slate-600 shrink-0">{g.scanner_type}</span>
-                          </div>
-                          <button
-                            onClick={() => handleToggleGuardrail(g.id)}
-                            disabled={toggling === g.id}
-                            className="text-xs px-3 py-1 rounded border ml-4 shrink-0 transition-colors disabled:opacity-40"
-                            style={g.is_active
-                              ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
-                              : { borderColor: "var(--border-input)", color: "#475569" }}>
-                            {toggling === g.id ? "…" : g.is_active ? "On" : "Off"}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-                <div className="px-5 py-3 border-t border-white/5">
-                  <p className="text-xs text-slate-700 font-mono">
-                    {guardrails.filter((g) => g.is_active).length} active · {guardrails.filter((g) => !g.is_active).length} inactive · {guardrails.length} total
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </Section>
+        <GuardrailsTabContent guardrails={guardrails} toggling={toggling} handleToggleGuardrail={handleToggleGuardrail} />
       )}
 
       {/* ── Activity ────────────────────────────────────────────────── */}
@@ -2663,18 +2846,6 @@ export default function AdminPage() {
       {/* ── Settings ────────────────────────────────────────────── */}
       {tab === "settings" && (
         <SettingsTab platformSettings={platformSettings} mutatePlatform={mutatePlatform} />
-      )}
-
-      {/* Modals */}
-      {deleteTarget && <DeleteModal user={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />}
-      {resetPwTarget && <ResetPasswordModal user={resetPwTarget} onClose={() => setResetPwTarget(null)} />}
-      {assignOrgTarget && (
-        <AssignOrgModal
-          user={assignOrgTarget}
-          orgs={adminOrgs ?? []}
-          onClose={() => setAssignOrgTarget(null)}
-          onSaved={async () => { await mutateUsers(); setAssignOrgTarget(null); }}
-        />
       )}
     </div>
   );

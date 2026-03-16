@@ -53,6 +53,47 @@ function groupNotifs(items: UnifiedNotif[]): Group[] {
   return groups;
 }
 
+function NotificationItem({ n, onClick }: Readonly<{ n: UnifiedNotif; onClick: (n: UnifiedNotif) => void }>) {
+  const s = getStyle(n.type);
+  return (
+    <button
+      key={`${n.source}-${n.id}`}
+      onClick={() => onClick(n)}
+      className="w-full flex items-start gap-3 px-4 py-3 border-b border-white/5 last:border-0 text-left transition-colors hover:bg-white/5"
+      style={!n.is_read ? { background: "rgba(255,255,255,0.015)" } : {}}
+    >
+      <div
+        className="w-7 h-7 rounded flex items-center justify-center shrink-0 mt-0.5 text-sm font-bold"
+        style={{ background: s.bg, color: s.color }}
+      >
+        {s.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <span
+              className="text-xs font-mono mr-1.5 px-1 py-0.5 rounded"
+              style={{ background: s.bg, color: s.color, fontSize: "9px" }}
+            >
+              {s.label}
+            </span>
+            <p className={`text-xs leading-snug mt-0.5 ${n.is_read ? "text-slate-400" : "text-white font-medium"}`}>
+              {n.title}
+            </p>
+          </div>
+          {!n.is_read && (
+            <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#5CF097" }} />
+          )}
+        </div>
+        {n.body && (
+          <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">{n.body}</p>
+        )}
+        <p className="text-xs mt-1" style={{ color: "#2d3f52" }}>{timeAgo(n.created_at)}</p>
+      </div>
+    </button>
+  );
+}
+
 export default function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -102,6 +143,37 @@ export default function NotificationBell() {
 
   const groups = notifications ? groupNotifs(notifications) : [];
   const totalItems = notifications?.length ?? 0;
+
+  function renderNotificationBody() {
+    if (!notifications) {
+      return (
+        <div className="p-4 space-y-2">
+          {(["nb-sk-1", "nb-sk-2", "nb-sk-3"] as const).map((k) => (
+            <div key={k} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />
+          ))}
+        </div>
+      );
+    }
+    if (totalItems === 0) {
+      return (
+        <div className="px-4 py-10 text-center">
+          <p className="text-xs text-slate-600">Nothing here yet.</p>
+        </div>
+      );
+    }
+    return groups.map((group) => (
+      <div key={group.label}>
+        <div className="px-4 py-2 border-b border-white/5" style={{ background: "var(--bg)" }}>
+          <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "#334155" }}>
+            {group.label}
+          </p>
+        </div>
+        {group.items.map((n) => (
+          <NotificationItem key={`${n.source}-${n.id}`} n={n} onClick={handleClick} />
+        ))}
+      </div>
+    ));
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -154,72 +226,7 @@ export default function NotificationBell() {
 
           {/* Body */}
           <div className="max-h-96 overflow-y-auto">
-            {!notifications ? (
-              <div className="p-4 space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-12 rounded animate-pulse" style={{ background: "var(--bg)" }} />
-                ))}
-              </div>
-            ) : totalItems === 0 ? (
-              <div className="px-4 py-10 text-center">
-                <p className="text-xs text-slate-600">Nothing here yet.</p>
-              </div>
-            ) : (
-              groups.map((group) => (
-                <div key={group.label}>
-                  {/* Section header */}
-                  <div className="px-4 py-2 border-b border-white/5" style={{ background: "var(--bg)" }}>
-                    <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "#334155" }}>
-                      {group.label}
-                    </p>
-                  </div>
-
-                  {group.items.map((n) => {
-                    const s = getStyle(n.type);
-                    return (
-                      <button
-                        key={`${n.source}-${n.id}`}
-                        onClick={() => handleClick(n)}
-                        className="w-full flex items-start gap-3 px-4 py-3 border-b border-white/5 last:border-0 text-left transition-colors hover:bg-white/5"
-                        style={!n.is_read ? { background: "rgba(255,255,255,0.015)" } : {}}
-                      >
-                        {/* Icon */}
-                        <div
-                          className="w-7 h-7 rounded flex items-center justify-center shrink-0 mt-0.5 text-sm font-bold"
-                          style={{ background: s.bg, color: s.color }}
-                        >
-                          {s.icon}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <span
-                                className="text-xs font-mono mr-1.5 px-1 py-0.5 rounded"
-                                style={{ background: s.bg, color: s.color, fontSize: "9px" }}
-                              >
-                                {s.label}
-                              </span>
-                              <p className={`text-xs leading-snug mt-0.5 ${n.is_read ? "text-slate-400" : "text-white font-medium"}`}>
-                                {n.title}
-                              </p>
-                            </div>
-                            {!n.is_read && (
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: "#5CF097" }} />
-                            )}
-                          </div>
-                          {n.body && (
-                            <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">{n.body}</p>
-                          )}
-                          <p className="text-xs mt-1" style={{ color: "#2d3f52" }}>{timeAgo(n.created_at)}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))
-            )}
+            {renderNotificationBody()}
           </div>
 
           {/* Footer */}

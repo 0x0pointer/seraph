@@ -38,7 +38,7 @@ Gateway config examples live in: gateway-examples/
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-from typing import Any
+from typing import Annotated, Any
 import logging
 
 import httpx
@@ -56,6 +56,10 @@ from app.api.routes.scan import (
 from app.core.database import get_session
 from app.models.user import User
 from app.services import audit_service, scanner_engine
+
+# Annotated dependency types for FastAPI
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -260,8 +264,8 @@ async def _run_output(
 async def litellm_pre_call(
     request: Request,
     data: LiteLLMPreCallRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    session: SessionDep,
+    current_user: CurrentUser,
 ):
     """
     LiteLLM custom guardrail — pre_call hook.
@@ -283,8 +287,8 @@ async def litellm_pre_call(
 async def litellm_post_call(
     request: Request,
     data: LiteLLMPostCallRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    session: SessionDep,
+    current_user: CurrentUser,
 ):
     """
     LiteLLM custom guardrail — post_call hook.
@@ -307,8 +311,8 @@ async def litellm_post_call(
 async def litellm_during_call(
     request: Request,
     data: LiteLLMPreCallRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    session: SessionDep,
+    current_user: CurrentUser,
 ):
     """
     LiteLLM custom guardrail — during_call hook (streaming).
@@ -335,8 +339,8 @@ class HookRequest(BaseModel):
 async def universal_hook(
     request: Request,
     data: HookRequest,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    session: SessionDep,
+    current_user: CurrentUser,
 ):
     """
     Universal guardrail hook — works with ANY gateway.
@@ -382,10 +386,10 @@ _HOP_HEADERS = {
 @router.post("/proxy/{path:path}")
 async def transparent_proxy(
     request: Request,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    x_upstream_url: str | None = Header(default=None, alias="X-Upstream-URL"),
-    x_upstream_auth: str | None = Header(default=None, alias="X-Upstream-Auth"),
+    session: SessionDep,
+    current_user: CurrentUser,
+    x_upstream_url: Annotated[str | None, Header(alias="X-Upstream-URL")] = None,
+    x_upstream_auth: Annotated[str | None, Header(alias="X-Upstream-Auth")] = None,
     path: str = "",
 ):
     """

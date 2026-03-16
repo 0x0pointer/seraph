@@ -13,6 +13,117 @@ const inputStyle = {
   color: "var(--text)",
 };
 
+/* ── Account section loading skeleton ── */
+const SKELETON_KEYS = ["sk-1", "sk-2", "sk-3"] as const;
+
+function AccountSkeleton() {
+  return (
+    <div className="space-y-2">
+      {SKELETON_KEYS.map((k) => (
+        <div key={k} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+      ))}
+    </div>
+  );
+}
+
+/* ── Read-only profile display ── */
+function ProfileDisplay({ user, profileMsg, profileErr }: Readonly<{
+  user: UserInfo;
+  profileMsg: string;
+  profileErr: boolean;
+}>) {
+  return (
+    <div className="space-y-3">
+      {profileMsg && !profileErr && (
+        <p className="text-xs px-3 py-2.5 rounded border font-mono mb-2"
+          style={{ color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
+          {profileMsg}
+        </p>
+      )}
+      {[
+        { label: "Username", value: user.username, color: "var(--text)" },
+        { label: "Full name", value: user.full_name ?? "---", color: "var(--text)" },
+        { label: "Email", value: user.email ?? "---", color: "var(--text)" },
+        { label: "Role", value: user.role, color: "#5CF097" },
+        { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
+      ].map(({ label, value, color }) => (
+        <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+          <span className="text-xs text-slate-500">{label}</span>
+          <span className="text-xs font-mono capitalize" style={{ color }}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Profile edit form ── */
+function ProfileEditForm({
+  user, profileForm, setProfileForm, profileMsg, profileErr, profileSaving,
+  onSubmit, onCancel,
+}: Readonly<{
+  user: UserInfo;
+  profileForm: { username: string; full_name: string; email: string };
+  setProfileForm: React.Dispatch<React.SetStateAction<{ username: string; full_name: string; email: string }>>;
+  profileMsg: string;
+  profileErr: boolean;
+  profileSaving: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}>) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {[
+        { label: "Username", key: "username" as const, type: "text", placeholder: user.username },
+        { label: "Full name", key: "full_name" as const, type: "text", placeholder: user.full_name ?? "" },
+        { label: "Email", key: "email" as const, type: "email", placeholder: user.email ?? "" },
+      ].map(({ label, key, type, placeholder }) => (
+        <div key={key}>
+          <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">{label}</label>
+          <input
+            type={type}
+            value={profileForm[key]}
+            onChange={(e) => setProfileForm((f) => ({ ...f, [key]: e.target.value }))}
+            placeholder={placeholder}
+            className="w-full rounded px-3 py-2 text-sm outline-none placeholder:text-slate-700"
+            style={inputStyle}
+          />
+        </div>
+      ))}
+      {/* Read-only fields */}
+      {[
+        { label: "Role", value: user.role, color: "#5CF097" },
+        { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
+      ].map(({ label, value, color }) => (
+        <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+          <span className="text-xs text-slate-500">{label}</span>
+          <span className="text-xs font-mono" style={{ color }}>{value}</span>
+        </div>
+      ))}
+      {profileMsg && (
+        <p className="text-xs px-3 py-2.5 rounded border font-mono"
+          style={profileErr
+            ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
+            : { color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
+          {profileMsg}
+        </p>
+      )}
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          type="submit"
+          disabled={profileSaving}
+          className="text-xs font-medium px-4 py-2 rounded disabled:opacity-50"
+          style={{ background: "#5CF097", color: "#0A0F1F" }}
+        >
+          {profileSaving ? "Saving..." : "Save changes"}
+        </button>
+        <button type="button" onClick={onCancel} className="text-xs text-slate-500 hover:text-white transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -175,80 +286,21 @@ const data = await res.json();`,
           )}
         </div>
 
-        {!user ? (
-          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />)}</div>
-        ) : editingProfile ? (
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            {[
-              { label: "Username", key: "username" as const, type: "text", placeholder: user.username },
-              { label: "Full name", key: "full_name" as const, type: "text", placeholder: user.full_name ?? "" },
-              { label: "Email", key: "email" as const, type: "email", placeholder: user.email ?? "" },
-            ].map(({ label, key, type, placeholder }) => (
-              <div key={key}>
-                <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wider">{label}</label>
-                <input
-                  type={type}
-                  value={profileForm[key]}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full rounded px-3 py-2 text-sm outline-none placeholder:text-slate-700"
-                  style={inputStyle}
-                />
-              </div>
-            ))}
-            {/* Read-only fields */}
-            {[
-              { label: "Role", value: user.role, color: "#5CF097" },
-              { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                <span className="text-xs text-slate-500">{label}</span>
-                <span className="text-xs font-mono" style={{ color }}>{value}</span>
-              </div>
-            ))}
-            {profileMsg && (
-              <p className="text-xs px-3 py-2.5 rounded border font-mono"
-                style={profileErr
-                  ? { color: "#f87171", background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }
-                  : { color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
-                {profileMsg}
-              </p>
-            )}
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="submit"
-                disabled={profileSaving}
-                className="text-xs font-medium px-4 py-2 rounded disabled:opacity-50"
-                style={{ background: "#5CF097", color: "#0A0F1F" }}
-              >
-                {profileSaving ? "Saving…" : "Save changes"}
-              </button>
-              <button type="button" onClick={cancelEditProfile} className="text-xs text-slate-500 hover:text-white transition-colors">
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="space-y-3">
-            {profileMsg && !profileErr && (
-              <p className="text-xs px-3 py-2.5 rounded border font-mono mb-2"
-                style={{ color: "#5CF097", background: "rgba(92,240,151,0.05)", borderColor: "rgba(92,240,151,0.15)" }}>
-                {profileMsg}
-              </p>
-            )}
-            {[
-              { label: "Username", value: user.username, color: "var(--text)" },
-              { label: "Full name", value: user.full_name ?? "—", color: "var(--text)" },
-              { label: "Email", value: user.email ?? "—", color: "var(--text)" },
-              { label: "Role", value: user.role, color: "#5CF097" },
-              { label: "User ID", value: `#${user.id}`, color: "var(--text)" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                <span className="text-xs text-slate-500">{label}</span>
-                <span className="text-xs font-mono capitalize" style={{ color }}>{value}</span>
-              </div>
-            ))}
-          </div>
+        {!user && <AccountSkeleton />}
+        {user && editingProfile && (
+          <ProfileEditForm
+            user={user}
+            profileForm={profileForm}
+            setProfileForm={setProfileForm}
+            profileMsg={profileMsg}
+            profileErr={profileErr}
+            profileSaving={profileSaving}
+            onSubmit={handleSaveProfile}
+            onCancel={cancelEditProfile}
+          />
+        )}
+        {user && !editingProfile && (
+          <ProfileDisplay user={user} profileMsg={profileMsg} profileErr={profileErr} />
         )}
       </div>
 

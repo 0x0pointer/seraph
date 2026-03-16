@@ -74,7 +74,7 @@ function timeAgo(iso: string | null): string {
 
 function InviteLink({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
-  const link = `${typeof window !== "undefined" ? window.location.origin : ""}/join?invite=${token}`;
+  const link = `${typeof globalThis !== "undefined" && globalThis.location ? globalThis.location.origin : ""}/join?invite=${token}`;
 
   function copy() {
     navigator.clipboard.writeText(link).then(() => {
@@ -389,6 +389,337 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   );
 }
 
+// ── Create org form (no-org state) ───────────────────────────────────────────
+
+function CreateOrgForm() {
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [createOrgErr, setCreateOrgErr] = useState("");
+
+  async function handleCreateOrg(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateOrgErr(""); setCreatingOrg(true);
+    try {
+      await api.post("/org", { name: newOrgName.trim() });
+      globalThis.location.reload();
+    } catch (err) {
+      setCreateOrgErr(err instanceof Error ? err.message : "Failed to create organization");
+    } finally { setCreatingOrg(false); }
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto">
+      <div className="w-14 h-14 rounded-full flex items-center justify-center"
+        style={{ background: "rgba(92,240,151,0.08)" }}>
+        <svg className="w-7 h-7" style={{ color: "#5CF097" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <p className="text-white font-semibold mb-1">No organization yet</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Create one to manage members, teams, and shared connections — or accept an invite link from an existing org.
+        </p>
+      </div>
+      <form onSubmit={handleCreateOrg} className="w-full space-y-3">
+        <input
+          value={newOrgName}
+          onChange={(e) => setNewOrgName(e.target.value)}
+          placeholder="Organization name"
+          required
+          className="w-full rounded px-3 py-2 text-sm outline-none"
+          style={inputStyle}
+        />
+        {createOrgErr && <p className="text-xs" style={{ color: "#f87171" }}>{createOrgErr}</p>}
+        <button type="submit" disabled={creatingOrg || !newOrgName.trim()}
+          className="w-full py-2 rounded text-sm font-medium disabled:opacity-40 transition-opacity"
+          style={{ background: "#5CF097", color: "#fff" }}>
+          {creatingOrg ? "Creating…" : "Create Organization"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ── Org header ───────────────────────────────────────────────────────────────
+
+function OrgHeader({
+  org, orgLoading, canManage, myRole, mutateOrg,
+}: Readonly<{
+  org: OrgInfo | undefined; orgLoading: boolean; canManage: boolean; myRole: string;
+  mutateOrg: () => Promise<OrgInfo | undefined>;
+}>) {
+  const [editingName, setEditingName] = useState(false);
+  const [orgName, setOrgName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  async function handleSaveName(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingName(true);
+    try {
+      await api.put("/org", { name: orgName });
+      await mutateOrg();
+      setEditingName(false);
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  return (
+    <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
+      {orgLoading ? (
+        <div className="h-10 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+      ) : (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold"
+                style={{ background: "rgba(92,240,151,0.12)", color: "#5CF097" }}>
+                {org?.name?.[0]?.toUpperCase() ?? "O"}
+              </div>
+              {editingName ? (
+                <form onSubmit={handleSaveName} className="flex items-center gap-2">
+                  <input
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    autoFocus
+                    className="rounded px-3 py-1.5 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                  <button type="submit" disabled={savingName}
+                    className="text-xs px-3 py-1.5 rounded font-medium disabled:opacity-50"
+                    style={{ background: "#5CF097", color: "#0A0F1F" }}>
+                    {savingName ? "…" : "Save"}
+                  </button>
+                  <button type="button" onClick={() => setEditingName(false)}
+                    className="text-xs text-slate-600 hover:text-slate-400">Cancel</button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-white">{org?.name}</h2>
+                  {canManage && (
+                    <button
+                      onClick={() => { setOrgName(org?.name ?? ""); setEditingName(true); }}
+                      className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+                      Edit
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-500 font-mono pl-12">
+              <span>{org?.member_count ?? 0} member{(org?.member_count ?? 0) === 1 ? "" : "s"}</span>
+              {org?.owner_username && <span>Owner: <span className="text-slate-400">{org.owner_username}</span></span>}
+              {org?.created_at && <span>Created {timeAgo(org.created_at)}</span>}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <RolePill role={myRole} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Members table ────────────────────────────────────────────────────────────
+
+function MembersTable({
+  members, canManage, myId,
+  mutateMembers,
+}: Readonly<{
+  members: OrgMember[] | undefined; canManage: boolean; myId: number;
+  mutateMembers: () => Promise<OrgMember[] | undefined>;
+}>) {
+  const [roleLoading, setRoleLoading] = useState<number | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
+  async function handleRoleChange(member: OrgMember, newRole: string) {
+    setRoleLoading(member.id);
+    try {
+      await api.patch(`/org/members/${member.id}/role`, { role: newRole });
+      await mutateMembers();
+    } catch { /* silently ignore */ }
+    finally { setRoleLoading(null); }
+  }
+
+  async function handleRemove(member: OrgMember) {
+    if (!confirm(`Remove ${member.username} from the organization?`)) return;
+    setRemovingId(member.id);
+    try {
+      await api.delete(`/org/members/${member.id}`);
+      await mutateMembers();
+    } finally { setRemovingId(null); }
+  }
+
+  function renderBody() {
+    if (!members) {
+      return Array.from({ length: 3 }).map((_, i) => (
+        <tr key={i} className="border-b border-white/5">
+          <td colSpan={canManage ? 5 : 4} className="px-4 py-3">
+            <div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+          </td>
+        </tr>
+      ));
+    }
+    if (members.length === 0) {
+      return (
+        <tr>
+          <td colSpan={canManage ? 5 : 4} className="px-4 py-12 text-center text-xs text-slate-600 font-mono">
+            No members yet. Invite someone to get started.
+          </td>
+        </tr>
+      );
+    }
+    return members.map((m) => (
+      <tr key={m.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={ROLE_STYLES[m.role] ?? ROLE_STYLES.viewer}>
+              {m.username[0].toUpperCase()}
+            </div>
+            <div>
+              <p className="text-xs font-medium text-white">{m.username}</p>
+              {m.full_name && <p className="text-xs text-slate-600">{m.full_name}</p>}
+            </div>
+            {m.id === myId && (
+              <span className="text-xs text-slate-700 font-mono">(you)</span>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{m.email ?? "—"}</td>
+        <td className="px-4 py-3"><RolePill role={m.role} /></td>
+        <td className="px-4 py-3 text-xs text-slate-600 font-mono">
+          {m.created_at ? format(new Date(m.created_at), "MM/dd/yy") : "—"}
+        </td>
+        {canManage && (
+          <td className="px-4 py-3">
+            {m.id !== myId && m.role !== "admin" && (
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={m.role}
+                    onChange={(e) => handleRoleChange(m, e.target.value)}
+                    disabled={roleLoading === m.id}
+                    className="text-xs rounded px-2 py-1 outline-none appearance-none pr-5 disabled:opacity-40"
+                    style={{ ...inputStyle, fontSize: "11px" }}
+                  >
+                    <option value="viewer">Member</option>
+                    <option value="org_admin">Org Admin</option>
+                  </select>
+                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" style={{ fontSize: 9 }}>▾</span>
+                </div>
+                <button
+                  onClick={() => handleRemove(m)}
+                  disabled={removingId === m.id}
+                  className="text-xs px-2 py-1 rounded border transition-colors disabled:opacity-40"
+                  style={{ borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}>
+                  {removingId === m.id ? "…" : "Remove"}
+                </button>
+              </div>
+            )}
+          </td>
+        )}
+      </tr>
+    ));
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Members</p>
+        <p className="text-xs text-slate-600 font-mono">{members?.length ?? 0} total</p>
+      </div>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/5">
+              {["Member", "Email", "Role", "Joined", ...(canManage ? ["Actions"] : [])].map((h) => (
+                <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {renderBody()}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Pending invites ──────────────────────────────────────────────────────────
+
+function PendingInvites({
+  invites, mutateInvites,
+}: Readonly<{
+  invites: OrgInvite[] | undefined; mutateInvites: () => Promise<OrgInvite[] | undefined>;
+}>) {
+  const [cancellingInvite, setCancellingInvite] = useState<number | null>(null);
+  const [expandedInvite, setExpandedInvite] = useState<number | null>(null);
+
+  async function handleCancelInvite(invite: OrgInvite) {
+    setCancellingInvite(invite.id);
+    try {
+      await api.delete(`/org/invites/${invite.id}`);
+      await mutateInvites();
+    } finally { setCancellingInvite(null); }
+  }
+
+  if (!invites || invites.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">
+        Pending Invites ({invites.length})
+      </p>
+      <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
+        {invites.map((inv) => (
+          <div key={inv.id} className="border-b border-white/5 last:border-0">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24" }}>
+                  ?
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-white font-mono truncate">{inv.email}</p>
+                  <p className="text-xs text-slate-600">
+                    Invited {timeAgo(inv.created_at)}
+                    {inv.invited_by_username && ` by ${inv.invited_by_username}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0 ml-4">
+                <RolePill role={inv.role} />
+                <button
+                  onClick={() => setExpandedInvite(expandedInvite === inv.id ? null : inv.id)}
+                  className="text-xs text-slate-600 hover:text-slate-300 font-mono transition-colors">
+                  link {expandedInvite === inv.id ? "▲" : "▼"}
+                </button>
+                <button
+                  onClick={() => handleCancelInvite(inv)}
+                  disabled={cancellingInvite === inv.id}
+                  className="text-xs px-2 py-1 rounded border transition-colors disabled:opacity-40"
+                  style={{ borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}>
+                  {cancellingInvite === inv.id ? "…" : "Revoke"}
+                </button>
+              </div>
+            </div>
+            {expandedInvite === inv.id && (
+              <div className="px-4 pb-3">
+                <InviteLink token={inv.token} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrganizationPage() {
@@ -415,252 +746,31 @@ export default function OrganizationPage() {
     { revalidateOnFocus: false },
   );
 
-  const [editingName, setEditingName] = useState(false);
-  const [orgName, setOrgName] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [roleLoading, setRoleLoading] = useState<number | null>(null);
-  const [removingId, setRemovingId] = useState<number | null>(null);
-  const [cancellingInvite, setCancellingInvite] = useState<number | null>(null);
-  const [expandedInvite, setExpandedInvite] = useState<number | null>(null);
-  const [creatingOrg, setCreatingOrg] = useState(false);
-  const [newOrgName, setNewOrgName] = useState("");
-  const [createOrgErr, setCreateOrgErr] = useState("");
-
-  async function handleSaveName(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingName(true);
-    try {
-      await api.put("/org", { name: orgName });
-      await mutateOrg();
-      setEditingName(false);
-    } finally {
-      setSavingName(false);
-    }
-  }
-
-  async function handleCreateOrg(e: React.FormEvent) {
-    e.preventDefault();
-    setCreateOrgErr(""); setCreatingOrg(true);
-    try {
-      await api.post("/org", { name: newOrgName.trim() });
-      window.location.reload();
-    } catch (err) {
-      setCreateOrgErr(err instanceof Error ? err.message : "Failed to create organization");
-    } finally { setCreatingOrg(false); }
-  }
-
-  async function handleRoleChange(member: OrgMember, newRole: string) {
-    setRoleLoading(member.id);
-    try {
-      await api.patch(`/org/members/${member.id}/role`, { role: newRole });
-      await mutateMembers();
-    } catch { /* silently ignore */ }
-    finally { setRoleLoading(null); }
-  }
-
-  async function handleRemove(member: OrgMember) {
-    if (!confirm(`Remove ${member.username} from the organization?`)) return;
-    setRemovingId(member.id);
-    try {
-      await api.delete(`/org/members/${member.id}`);
-      await mutateMembers();
-    } finally { setRemovingId(null); }
-  }
-
-  async function handleCancelInvite(invite: OrgInvite) {
-    setCancellingInvite(invite.id);
-    try {
-      await api.delete(`/org/invites/${invite.id}`);
-      await mutateInvites();
-    } finally { setCancellingInvite(null); }
-  }
-
   if (!me) {
     return <div className="h-48 rounded animate-pulse" style={{ background: "var(--card)" }} />;
   }
 
   if (!hasOrg) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ background: "rgba(92,240,151,0.08)" }}>
-          <svg className="w-7 h-7" style={{ color: "#5CF097" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-        </div>
-        <div className="text-center">
-          <p className="text-white font-semibold mb-1">No organization yet</p>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Create one to manage members, teams, and shared connections — or accept an invite link from an existing org.
-          </p>
-        </div>
-        <form onSubmit={handleCreateOrg} className="w-full space-y-3">
-          <input
-            value={newOrgName}
-            onChange={(e) => setNewOrgName(e.target.value)}
-            placeholder="Organization name"
-            required
-            className="w-full rounded px-3 py-2 text-sm outline-none"
-            style={inputStyle}
-          />
-          {createOrgErr && <p className="text-xs" style={{ color: "#f87171" }}>{createOrgErr}</p>}
-          <button type="submit" disabled={creatingOrg || !newOrgName.trim()}
-            className="w-full py-2 rounded text-sm font-medium disabled:opacity-40 transition-opacity"
-            style={{ background: "#5CF097", color: "#fff" }}>
-            {creatingOrg ? "Creating…" : "Create Organization"}
-          </button>
-        </form>
-      </div>
-    );
+    return <CreateOrgForm />;
   }
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <OrgHeader
+        org={org}
+        orgLoading={orgLoading}
+        canManage={canManage}
+        myRole={me.role}
+        mutateOrg={mutateOrg}
+      />
 
-      {/* ── Org header ─────────────────────────────────────────────── */}
-      <div className="rounded border border-white/5 p-6" style={{ background: "var(--card)" }}>
-        {orgLoading ? (
-          <div className="h-10 rounded animate-pulse" style={{ background: "var(--card2)" }} />
-        ) : (
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold"
-                  style={{ background: "rgba(92,240,151,0.12)", color: "#5CF097" }}>
-                  {org?.name?.[0]?.toUpperCase() ?? "O"}
-                </div>
-                {editingName ? (
-                  <form onSubmit={handleSaveName} className="flex items-center gap-2">
-                    <input
-                      value={orgName}
-                      onChange={(e) => setOrgName(e.target.value)}
-                      autoFocus
-                      className="rounded px-3 py-1.5 text-sm outline-none"
-                      style={inputStyle}
-                    />
-                    <button type="submit" disabled={savingName}
-                      className="text-xs px-3 py-1.5 rounded font-medium disabled:opacity-50"
-                      style={{ background: "#5CF097", color: "#0A0F1F" }}>
-                      {savingName ? "…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => setEditingName(false)}
-                      className="text-xs text-slate-600 hover:text-slate-400">Cancel</button>
-                  </form>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-white">{org?.name}</h2>
-                    {canManage && (
-                      <button
-                        onClick={() => { setOrgName(org?.name ?? ""); setEditingName(true); }}
-                        className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-xs text-slate-500 font-mono pl-12">
-                <span>{org?.member_count ?? 0} member{(org?.member_count ?? 0) !== 1 ? "s" : ""}</span>
-                {org?.owner_username && <span>Owner: <span className="text-slate-400">{org.owner_username}</span></span>}
-                {org?.created_at && <span>Created {timeAgo(org.created_at)}</span>}
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <RolePill role={me.role} />
-            </div>
-          </div>
-        )}
-      </div>
+      <MembersTable
+        members={members}
+        canManage={canManage}
+        myId={me.id}
+        mutateMembers={mutateMembers}
+      />
 
-      {/* ── Members ────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Members</p>
-          <p className="text-xs text-slate-600 font-mono">{members?.length ?? 0} total</p>
-        </div>
-        <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/5">
-                {["Member", "Email", "Role", "Joined", ...(canManage ? ["Actions"] : [])].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs text-slate-600 font-mono uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {!members ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/5">
-                    <td colSpan={canManage ? 5 : 4} className="px-4 py-3">
-                      <div className="h-4 rounded animate-pulse" style={{ background: "var(--card2)" }} />
-                    </td>
-                  </tr>
-                ))
-              ) : members.length === 0 ? (
-                <tr>
-                  <td colSpan={canManage ? 5 : 4} className="px-4 py-12 text-center text-xs text-slate-600 font-mono">
-                    No members yet. Invite someone to get started.
-                  </td>
-                </tr>
-              ) : members.map((m) => (
-                <tr key={m.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                        style={ROLE_STYLES[m.role] ?? ROLE_STYLES.viewer}>
-                        {m.username[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-white">{m.username}</p>
-                        {m.full_name && <p className="text-xs text-slate-600">{m.full_name}</p>}
-                      </div>
-                      {m.id === me.id && (
-                        <span className="text-xs text-slate-700 font-mono">(you)</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{m.email ?? "—"}</td>
-                  <td className="px-4 py-3"><RolePill role={m.role} /></td>
-                  <td className="px-4 py-3 text-xs text-slate-600 font-mono">
-                    {m.created_at ? format(new Date(m.created_at), "MM/dd/yy") : "—"}
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-3">
-                      {m.id !== me.id && m.role !== "admin" && (
-                        <div className="flex items-center gap-2">
-                          <div className="relative">
-                            <select
-                              value={m.role}
-                              onChange={(e) => handleRoleChange(m, e.target.value)}
-                              disabled={roleLoading === m.id}
-                              className="text-xs rounded px-2 py-1 outline-none appearance-none pr-5 disabled:opacity-40"
-                              style={{ ...inputStyle, fontSize: "11px" }}
-                            >
-                              <option value="viewer">Member</option>
-                              <option value="org_admin">Org Admin</option>
-                            </select>
-                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" style={{ fontSize: 9 }}>▾</span>
-                          </div>
-                          <button
-                            onClick={() => handleRemove(m)}
-                            disabled={removingId === m.id}
-                            className="text-xs px-2 py-1 rounded border transition-colors disabled:opacity-40"
-                            style={{ borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}>
-                            {removingId === m.id ? "…" : "Remove"}
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── Teams ──────────────────────────────────────────────────── */}
       <TeamsSection
         canManage={canManage}
         orgId={org?.id ?? 0}
@@ -668,60 +778,10 @@ export default function OrganizationPage() {
         allMembers={members ?? []}
       />
 
-      {/* ── Invite members ─────────────────────────────────────────── */}
       {canManage && (
         <>
           <InviteForm onInvited={() => mutateInvites()} />
-
-          {/* Pending invites */}
-          {invites && invites.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">
-                Pending Invites ({invites.length})
-              </p>
-              <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
-                {invites.map((inv) => (
-                  <div key={inv.id} className="border-b border-white/5 last:border-0">
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24" }}>
-                          ?
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs text-white font-mono truncate">{inv.email}</p>
-                          <p className="text-xs text-slate-600">
-                            Invited {timeAgo(inv.created_at)}
-                            {inv.invited_by_username && ` by ${inv.invited_by_username}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0 ml-4">
-                        <RolePill role={inv.role} />
-                        <button
-                          onClick={() => setExpandedInvite(expandedInvite === inv.id ? null : inv.id)}
-                          className="text-xs text-slate-600 hover:text-slate-300 font-mono transition-colors">
-                          link {expandedInvite === inv.id ? "▲" : "▼"}
-                        </button>
-                        <button
-                          onClick={() => handleCancelInvite(inv)}
-                          disabled={cancellingInvite === inv.id}
-                          className="text-xs px-2 py-1 rounded border transition-colors disabled:opacity-40"
-                          style={{ borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}>
-                          {cancellingInvite === inv.id ? "…" : "Revoke"}
-                        </button>
-                      </div>
-                    </div>
-                    {expandedInvite === inv.id && (
-                      <div className="px-4 pb-3">
-                        <InviteLink token={inv.token} />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <PendingInvites invites={invites} mutateInvites={mutateInvites} />
         </>
       )}
     </div>

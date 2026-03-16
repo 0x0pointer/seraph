@@ -26,8 +26,16 @@ const PASSWORD_RULES: PasswordRule[] = [
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
-  const color =
-    passed <= 2 ? "#f87171" : passed <= 3 ? "#fb923c" : passed === 4 ? "#facc15" : "#5CF097";
+  let color: string;
+  if (passed <= 2) {
+    color = "#f87171";
+  } else if (passed <= 3) {
+    color = "#fb923c";
+  } else if (passed === 4) {
+    color = "#facc15";
+  } else {
+    color = "#5CF097";
+  }
   const label = ["", "Weak", "Weak", "Fair", "Good", "Strong"][passed];
 
   return (
@@ -263,23 +271,25 @@ export default function RegisterPage() {
                 className="w-full rounded px-3 py-2.5 text-sm text-white outline-none transition-colors"
                 style={{
                   ...inputStyle,
-                  borderColor:
-                    confirm && password !== confirm
-                      ? "rgba(248,113,113,0.5)"
-                      : confirm && password === confirm
-                      ? "rgba(92,240,151,0.5)"
-                      : "rgba(255,255,255,0.08)",
+                  borderColor: (() => {
+                    if (confirm && password !== confirm) return "rgba(248,113,113,0.5)";
+                    if (confirm && password === confirm) return "rgba(92,240,151,0.5)";
+                    return "rgba(255,255,255,0.08)";
+                  })(),
                 }}
                 onFocus={(e) => {
                   if (!confirm || password === confirm) e.target.style.borderColor = "#5CF097";
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor =
-                    confirm && password !== confirm
-                      ? "rgba(248,113,113,0.5)"
-                      : confirm && password === confirm
-                      ? "rgba(92,240,151,0.5)"
-                      : "rgba(255,255,255,0.08)";
+                  let borderColor: string;
+                  if (confirm && password !== confirm) {
+                    borderColor = "rgba(248,113,113,0.5)";
+                  } else if (confirm && password === confirm) {
+                    borderColor = "rgba(92,240,151,0.5)";
+                  } else {
+                    borderColor = "rgba(255,255,255,0.08)";
+                  }
+                  e.target.style.borderColor = borderColor;
                 }}
               />
               {confirm && password !== confirm && (
