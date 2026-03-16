@@ -16,8 +16,8 @@ _WEAK_SECRETS = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Database
-    database_url: str = "sqlite+aiosqlite:///./seraph.db"
+    # Database — set DATABASE_URL in .env
+    database_url: str = ""
 
     # JWT
     secret_key: str = "changeme-super-secret-key-at-least-32-chars"
