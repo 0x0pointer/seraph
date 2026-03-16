@@ -382,3 +382,101 @@ class TestAcceptInvite:
         )
         assert resp.status_code == 400
         assert "Invalid or already used" in resp.json()["detail"]
+
+
+# ── Additional coverage: uncovered branches ──────────────────────────────────
+
+class TestOrgNotInOrg:
+    """Users without an org cannot access org endpoints."""
+
+    async def test_get_org_no_membership_returns_403(self, client, make_user, turnstile_mock):
+        """A user who is not part of any org gets 403 on GET /api/org."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "noorg")
+        resp = await client.get("/api/org", headers=headers)
+        assert resp.status_code == 403
+        assert "not part of" in resp.json()["detail"].lower()
+
+    async def test_put_org_no_membership_returns_403(self, client, make_user, turnstile_mock):
+        """A user who is not org_admin gets 403 on PUT /api/org."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "noorg2")
+        resp = await client.put("/api/org", json={"name": "Nope"}, headers=headers)
+        assert resp.status_code == 403
+
+    async def test_list_members_no_membership_returns_403(self, client, make_user, turnstile_mock):
+        """A user without an org gets 403 on GET /api/org/members."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "noorg3")
+        resp = await client.get("/api/org/members", headers=headers)
+        assert resp.status_code == 403
+
+
+class TestUpdateOrgShortName:
+    async def test_update_org_empty_name(self, client, make_user, turnstile_mock):
+        """PUT /api/org with empty name returns 422."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "uempty")
+        await _create_org(client, headers, "Valid Name")
+        resp = await client.put("/api/org", json={"name": ""}, headers=headers)
+        assert resp.status_code == 422
+        assert "at least 2 characters" in resp.json()["detail"]
+
+    async def test_update_org_single_char_name(self, client, make_user, turnstile_mock):
+        """PUT /api/org with single char name returns 422."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "u1ch")
+        await _create_org(client, headers, "Valid Name")
+        resp = await client.put("/api/org", json={"name": "A"}, headers=headers)
+        assert resp.status_code == 422
+        assert "at least 2 characters" in resp.json()["detail"]
+
+
+class TestInviteExistingMember:
+    async def test_invite_already_existing_member_returns_409(self, client, make_user, turnstile_mock):
+        """Inviting someone who is already a member of the org returns 409."""
+        admin_headers, member_headers, admin_user, member_info, org = (
+            await _create_org_and_invite_user(client, make_user, turnstile_mock)
+        )
+        # member_info has the member's username; get their email from the members list
+        members_resp = await client.get("/api/org/members", headers=admin_headers)
+        member = next(m for m in members_resp.json() if m["id"] == member_info["id"])
+        member_email = member["email"]
+
+        resp = await client.post(
+            "/api/org/invite",
+            json={"email": member_email, "role": "viewer"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 409
+        assert "already a member" in resp.json()["detail"].lower()
+
+
+class TestRemoveMemberSuperadminGuard:
+    async def test_change_role_nonexistent_member_returns_404(self, client, make_user, turnstile_mock):
+        """Changing role of a non-existent member returns 404."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "nfm")
+        await _create_org(client, headers, "NFM Org")
+        resp = await client.patch(
+            "/api/org/members/999999/role",
+            json={"role": "viewer"},
+            headers=headers,
+        )
+        assert resp.status_code == 404
+        assert "Member not found" in resp.json()["detail"]
+
+    async def test_change_role_invalid_role_returns_422(self, client, make_user, turnstile_mock):
+        """Changing to an invalid role returns 422."""
+        admin_headers, _, _, member_info, _ = await _create_org_and_invite_user(
+            client, make_user, turnstile_mock
+        )
+        resp = await client.patch(
+            f"/api/org/members/{member_info['id']}/role",
+            json={"role": "superuser"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 422
+        assert "Role must be" in resp.json()["detail"]
+
+    async def test_remove_nonexistent_member_returns_404(self, client, make_user, turnstile_mock):
+        """Removing a non-existent member returns 404."""
+        headers, _ = await _make_authenticated_user(client, make_user, turnstile_mock, "nfr")
+        await _create_org(client, headers, "NFR Org")
+        resp = await client.delete("/api/org/members/999999", headers=headers)
+        assert resp.status_code == 404
+        assert "Member not found" in resp.json()["detail"]

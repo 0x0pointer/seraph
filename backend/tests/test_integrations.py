@@ -3,7 +3,14 @@
 The heavy scanner_engine functions are mocked so tests don't load ML models.
 """
 import pytest
+import httpx
 from unittest.mock import AsyncMock, patch
+
+
+def _get_proxy_client():
+    """Return the module-level _PROXY_CLIENT from integrations so we can mock it."""
+    from app.api.routes.integrations import _PROXY_CLIENT
+    return _PROXY_CLIENT
 
 
 # ── Scan return-value helpers ─────────────────────────────────────────────────
@@ -261,3 +268,179 @@ class TestHelperFunctions:
         from app.api.routes.integrations import _assistant_reply
 
         assert _assistant_reply({"choices": []}) == ""
+
+
+# ── LiteLLM during_call tests ────────────────────────────────────────────────
+
+class TestLiteLLMDuringCall:
+    """POST /api/integrations/litellm/during_call"""
+
+    async def test_during_call_clean_message(self, client, registered_user):
+        with patch(
+            "app.services.scanner_engine.run_input_scan",
+            new_callable=AsyncMock,
+            return_value=_clean_scan_result("What is AI?"),
+        ):
+            resp = await client.post(
+                "/api/integrations/litellm/during_call",
+                json={
+                    "messages": [
+                        {"role": "user", "content": "What is AI?"},
+                    ],
+                },
+                headers=registered_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "allowed"
+        assert data["sanitized_text"] == "What is AI?"
+
+    async def test_during_call_no_user_message(self, client, registered_user):
+        resp = await client.post(
+            "/api/integrations/litellm/during_call",
+            json={
+                "messages": [
+                    {"role": "system", "content": "You are a bot."},
+                ],
+            },
+            headers=registered_user["headers"],
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "allowed"
+        assert data["detail"] == "No user message to scan"
+
+    async def test_during_call_blocked(self, client, registered_user):
+        with patch(
+            "app.services.scanner_engine.run_input_scan",
+            new_callable=AsyncMock,
+            return_value=_blocked_scan_result("inject this"),
+        ):
+            resp = await client.post(
+                "/api/integrations/litellm/during_call",
+                json={
+                    "messages": [
+                        {"role": "user", "content": "inject this"},
+                    ],
+                },
+                headers=registered_user["headers"],
+            )
+
+        assert resp.status_code == 400
+        assert "PromptInjection" in resp.json()["detail"]
+
+
+# ── Transparent Proxy tests ──────────────────────────────────────────────────
+
+class TestTransparentProxy:
+    """POST /api/integrations/proxy"""
+
+    async def test_proxy_missing_upstream_url_returns_400(self, client, registered_user):
+        """No X-Upstream-URL header → 400."""
+        resp = await client.post(
+            "/api/integrations/proxy",
+            json={"messages": [{"role": "user", "content": "hi"}]},
+            headers=registered_user["headers"],
+        )
+        assert resp.status_code == 400
+        assert "X-Upstream-URL" in resp.json()["detail"]
+
+    async def test_proxy_forwards_and_returns(self, client, registered_user):
+        """Successful proxy round-trip with mocked upstream + scanner."""
+        upstream_response = httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Hello!"}}
+                ]
+            },
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("Hello!"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = await client.post(
+                "/api/integrations/proxy/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={
+                    **registered_user["headers"],
+                    "X-Upstream-URL": "https://api.openai.com",
+                    "X-Upstream-Auth": "Bearer sk-fake",
+                },
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["choices"][0]["message"]["content"] == "Hello!"
+
+    async def test_proxy_upstream_error_relayed(self, client, registered_user):
+        """Upstream returns non-200 → error is relayed back."""
+        upstream_response = httpx.Response(
+            429,
+            json={"error": "rate limited"},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = await client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={
+                    **registered_user["headers"],
+                    "X-Upstream-URL": "https://api.openai.com",
+                },
+            )
+
+        assert resp.status_code == 429
+
+    async def test_proxy_upstream_unreachable_returns_502(self, client, registered_user):
+        """Upstream connection failure → 502."""
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                side_effect=httpx.ConnectError("Connection refused"),
+            ),
+        ):
+            resp = await client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={
+                    **registered_user["headers"],
+                    "X-Upstream-URL": "https://api.openai.com",
+                },
+            )
+
+        assert resp.status_code == 502
+        assert "Upstream LLM unreachable" in resp.json()["detail"]

@@ -373,3 +373,149 @@ class TestApplyThresholdOverrides:
         result = _apply_threshold_overrides(entries, {1: 0.9}, "input")
         assert result[0][0] is original_scanner
         assert result[0] is entries[0]
+
+
+# ── BanCode routing tests ────────────────────────────────────────────────────
+
+class TestBuildScannerBanCode:
+    """Cover _build_scanner BanCode branches."""
+
+    @patch("app.services.scanner_engine._import_scanner")
+    def test_bancode_with_languages_routes_to_code_scanner(self, mock_import):
+        """BanCode + languages → delegates to Code scanner with normalized languages."""
+        mock_import.return_value = MagicMock()
+        result = _build_scanner("BanCode", "output", {"languages": ["python", "javascript"]})
+        mock_import.assert_called_once()
+        call_args = mock_import.call_args
+        assert call_args[0][0] == "Code"  # scanner_type
+        assert call_args[0][1] == "output"  # direction
+        params = call_args[0][2]
+        assert "Python" in params["languages"]
+        assert "JavaScript" in params["languages"]
+        assert params["is_blocked"] is True
+
+    @patch("app.services.scanner_engine._import_scanner")
+    def test_bancode_with_invalid_languages_falls_back(self, mock_import):
+        """BanCode + all-invalid languages → falls back to BanCode (block all)."""
+        mock_import.return_value = MagicMock()
+        # Empty strings normalize to nothing
+        result = _build_scanner("BanCode", "output", {"languages": ["", ""]})
+        mock_import.assert_called_once()
+        call_args = mock_import.call_args
+        assert call_args[0][0] == "BanCode"
+
+    @patch("app.services.scanner_engine._import_scanner")
+    def test_bancode_no_languages_output_wraps_with_bancode_class(self, mock_import):
+        """BanCode with no languages + output direction → wrapped in BanCode class."""
+        from app.services.scanner_engine import BanCode as BanCodeClass
+        inner = MagicMock()
+        mock_import.return_value = inner
+        result = _build_scanner("BanCode", "output", {})
+        assert isinstance(result, BanCodeClass)
+
+    @patch("app.services.scanner_engine._import_scanner")
+    def test_bancode_no_languages_input_no_wrap(self, mock_import):
+        """BanCode with no languages + input direction → NOT wrapped."""
+        from app.services.scanner_engine import BanCode as BanCodeClass
+        inner = MagicMock()
+        mock_import.return_value = inner
+        result = _build_scanner("BanCode", "input", {})
+        assert result is inner
+        assert not isinstance(result, BanCodeClass)
+
+    @patch("app.services.scanner_engine._import_scanner")
+    def test_bancode_no_languages_strips_invalid_keys(self, mock_import):
+        """BanCode with no languages strips 'languages' and 'is_blocked' keys."""
+        mock_import.return_value = MagicMock()
+        _build_scanner("BanCode", "input", {"languages": None, "is_blocked": True, "threshold": 0.5})
+        call_args = mock_import.call_args
+        params = call_args[0][2]
+        assert "languages" not in params
+        assert "is_blocked" not in params
+        assert params.get("threshold") == 0.5
+
+
+# ── BanCode wrapper class tests ──────────────────────────────────────────────
+
+class TestBanCodeWrapper:
+    """Test the BanCode output wrapper class."""
+
+    def test_scan_with_markdown_fence_blocks(self):
+        """When output contains a markdown code fence, scan returns blocked."""
+        from app.services.scanner_engine import BanCode as BanCodeClass
+        inner = MagicMock()
+        wrapper = BanCodeClass(inner)
+
+        output_with_fence = "Here is some code:\n```python\nprint('hello')\n```"
+        result = wrapper.scan("prompt", output_with_fence)
+        assert result == (output_with_fence, False, 1.0)
+        inner.scan.assert_not_called()
+
+    def test_scan_without_fence_delegates_to_inner(self):
+        """When output has no markdown fence, delegates to the inner scanner."""
+        from app.services.scanner_engine import BanCode as BanCodeClass
+        inner = MagicMock()
+        inner.scan.return_value = ("clean output", True, 0.1)
+        wrapper = BanCodeClass(inner)
+
+        result = wrapper.scan("prompt", "clean output without code")
+        assert result == ("clean output", True, 0.1)
+        inner.scan.assert_called_once_with("prompt", "clean output without code")
+
+    def test_scan_with_inline_backticks_not_blocked(self):
+        """Inline backticks (not fenced blocks) should not trigger the wrapper."""
+        from app.services.scanner_engine import BanCode as BanCodeClass
+        inner = MagicMock()
+        inner.scan.return_value = ("use `print()`", True, 0.05)
+        wrapper = BanCodeClass(inner)
+
+        result = wrapper.scan("prompt", "use `print()`")
+        assert result[1] is True  # valid
+        inner.scan.assert_called_once()
+
+
+# ── Normalize languages edge cases ───────────────────────────────────────────
+
+class TestNormalizeLanguagesExtended:
+    """Test _normalize_languages with specific constant aliases."""
+
+    def test_mathematica_alias(self):
+        result = _normalize_languages(["mathematica"])
+        from app.services.scanner_engine import _LANG_MATHEMATICA
+        assert result == [_LANG_MATHEMATICA]
+
+    def test_wolfram_alias(self):
+        result = _normalize_languages(["wolfram"])
+        from app.services.scanner_engine import _LANG_MATHEMATICA
+        assert result == [_LANG_MATHEMATICA]
+
+    def test_vb_net_alias(self):
+        result = _normalize_languages(["vb.net"])
+        from app.services.scanner_engine import _LANG_VB_NET
+        assert result == [_LANG_VB_NET]
+
+    def test_vb_alias(self):
+        result = _normalize_languages(["vb"])
+        from app.services.scanner_engine import _LANG_VB_NET
+        assert result == [_LANG_VB_NET]
+
+    def test_typescript_maps_to_javascript(self):
+        result = _normalize_languages(["typescript"])
+        assert result == ["JavaScript"]
+
+    def test_csharp_alias(self):
+        result = _normalize_languages(["csharp"])
+        assert result == ["C#"]
+
+    def test_bash_maps_to_powershell(self):
+        result = _normalize_languages(["bash"])
+        assert result == ["PowerShell"]
+
+    def test_shell_and_sh_aliases(self):
+        result = _normalize_languages(["shell", "sh"])
+        # Both map to PowerShell; dedup means only one entry
+        assert result == ["PowerShell"]
+
+    def test_mixed_valid_and_empty(self):
+        result = _normalize_languages(["", "python", "", "js", ""])
+        assert result == ["Python", "JavaScript"]
