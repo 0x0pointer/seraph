@@ -14,11 +14,13 @@ const inputStyle = {
 };
 
 /* ── Account section loading skeleton ── */
+const SKELETON_KEYS = ["sk-1", "sk-2", "sk-3"] as const;
+
 function AccountSkeleton() {
   return (
     <div className="space-y-2">
-      {Array.from({ length: 3 }).map((_, _i) => (
-        <div key={`skeleton-${_i}`} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+      {SKELETON_KEYS.map((k) => (
+        <div key={k} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />
       ))}
     </div>
   );

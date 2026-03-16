@@ -2026,7 +2026,11 @@ function ActivityRow({ a, ovis }: Readonly<{ a: ActivityEntry; ovis: (k: Overvie
       {ovis("violations") && (
         <td className="px-4 py-3 text-xs font-mono"
           style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
-          {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " \u2026" : "") : "\u2014"}
+          {(() => {
+            if (a.violation_scanners.length === 0) return "\u2014";
+            const label = a.violation_scanners.slice(0, 2).join(", ");
+            return a.violation_scanners.length > 2 ? `${label} \u2026` : label;
+          })()}
         </td>
       )}
       {ovis("preview") && (
@@ -2046,13 +2050,74 @@ interface OverviewTabProps {
   toggleOverviewCol: (k: string) => void;
 }
 
+function TopViolationsPanel({ topViolations }: Readonly<{ topViolations: OverviewTabProps["topViolations"] }>) {
+  const maxViol = topViolations?.[0]?.count ?? 1;
+  if (!topViolations) return <Sk h="h-40" />;
+  if (topViolations.length === 0) return <p className="text-xs text-slate-600 py-10 text-center font-mono">No violations recorded.</p>;
+  return (
+    <div className="space-y-3">
+      {topViolations.map((v) => {
+        const pct = Math.round((v.count / maxViol) * 100);
+        return (
+          <div key={v.scanner} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{v.scanner}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs text-slate-600 font-mono">{pct}%</span>
+                <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
+              </div>
+            </div>
+            <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="h-1 rounded-full transition-all"
+                style={{ width: `${pct}%`, background: `rgba(248,113,113,${0.35 + pct / 180})` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GuardrailHealthPanel({ guardrails, setTab }: Readonly<{ guardrails: OverviewTabProps["guardrails"]; setTab: OverviewTabProps["setTab"] }>) {
+  return (
+    <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Guardrail Health</p>
+        <button onClick={() => setTab("guardrails")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
+          All guardrails →
+        </button>
+      </div>
+      {!guardrails ? <Sk h="h-40" /> : (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+          {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
+            <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#5CF097" }} />
+                <span className="text-xs text-slate-400 truncate">{g.name}</span>
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
+                  style={{ background: g.direction === "input" ? "rgba(92,240,151,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#5CF097" : "#a78bfa" }}>
+                  {g.direction}
+                </span>
+              </div>
+            </div>
+          ))}
+          {guardrails.filter((g) => !g.is_active).length > 0 && (
+            <p className="text-xs text-slate-700 font-mono pt-1">
+              + {guardrails.filter((g) => !g.is_active).length} inactive
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OverviewTabContent({
   stats, activity, guardrails, topViolations, setTab,
   overviewHiddenCols, toggleOverviewCol,
 }: Readonly<OverviewTabProps>) {
   const ovis = (k: OverviewScanColKey) => !overviewHiddenCols.has(k);
   const overviewColSpan = OVERVIEW_SCAN_COLS.filter((c) => ovis(c.key)).length;
-  const maxViol = topViolations?.[0]?.count ?? 1;
 
   return (
     <>
@@ -2150,60 +2215,9 @@ function OverviewTabContent({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mb-4">Top Violated Scanners</p>
-          {!topViolations ? <Sk h="h-40" /> : topViolations.length === 0 ? (
-            <p className="text-xs text-slate-600 py-10 text-center font-mono">No violations recorded.</p>
-          ) : (
-            <div className="space-y-3">
-              {topViolations.map((v) => {
-                const pct = Math.round((v.count / maxViol) * 100);
-                return (
-                  <div key={v.scanner} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{v.scanner}</span>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-xs text-slate-600 font-mono">{pct}%</span>
-                        <span className="text-xs font-semibold font-mono text-white w-8 text-right">{v.count}</span>
-                      </div>
-                    </div>
-                    <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }}>
-                      <div className="h-1 rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: `rgba(248,113,113,${0.35 + pct / 180})` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <TopViolationsPanel topViolations={topViolations} />
         </div>
-        <div className="rounded border border-white/5 p-5" style={{ background: "var(--card)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Guardrail Health</p>
-            <button onClick={() => setTab("guardrails")} className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-mono">
-              All guardrails →
-            </button>
-          </div>
-          {!guardrails ? <Sk h="h-40" /> : (
-            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {guardrails.filter((g) => g.is_active).slice(0, 10).map((g) => (
-                <div key={g.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#5CF097" }} />
-                    <span className="text-xs text-slate-400 truncate">{g.name}</span>
-                    <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0"
-                      style={{ background: g.direction === "input" ? "rgba(92,240,151,0.08)" : "rgba(167,139,250,0.08)", color: g.direction === "input" ? "#5CF097" : "#a78bfa" }}>
-                      {g.direction}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {guardrails.filter((g) => !g.is_active).length > 0 && (
-                <p className="text-xs text-slate-700 font-mono pt-1">
-                  + {guardrails.filter((g) => !g.is_active).length} inactive
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        <GuardrailHealthPanel guardrails={guardrails} setTab={setTab} />
       </div>
 
       {/* Recent platform activity */}
@@ -2636,7 +2650,7 @@ function GuardrailsTabContent({ guardrails, toggling, handleToggleGuardrail }: R
                         style={g.is_active
                           ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
                           : { borderColor: "var(--border-input)", color: "#475569" }}>
-                        {toggling === g.id ? "\u2026" : g.is_active ? "On" : "Off"}
+                        {(() => { if (toggling === g.id) return "\u2026"; return g.is_active ? "On" : "Off"; })()}
                       </button>
                     </div>
                   ))}
