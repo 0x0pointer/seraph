@@ -68,11 +68,11 @@ function rateColor(rate: number, thresholdHigh: number, thresholdLow: number, in
 /* ── Admin org filter banner ── */
 function AdminBanner({
   filterOrgId, adminOrgs, setFilterOrgId,
-}: {
+}: Readonly<{
   filterOrgId: string;
   adminOrgs: OrgOption[] | undefined;
   setFilterOrgId: (v: string) => void;
-}) {
+}>) {
   return (
     <div className="flex items-center gap-3">
       <div
@@ -110,11 +110,11 @@ function AdminBanner({
 /* ── Top violated scanners panel ── */
 function TopScannersPanel({
   topViolations, maxViolCount, totalViolations,
-}: {
+}: Readonly<{
   topViolations: TopViolation[] | undefined;
   maxViolCount: number;
   totalViolations: number;
-}) {
+}>) {
   if (!topViolations) return <Sk />;
   if (topViolations.length === 0) {
     return <p className="text-xs text-slate-600 py-14 text-center font-mono">No violations recorded yet.</p>;

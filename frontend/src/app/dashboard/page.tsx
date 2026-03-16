@@ -70,11 +70,11 @@ function riskColor(r: number) {
 /* ── Admin org filter banner ── */
 function AdminBanner({
   filterOrgId, adminOrgs, setFilterOrgId,
-}: {
+}: Readonly<{
   filterOrgId: string;
   adminOrgs: OrgOption[] | undefined;
   setFilterOrgId: (v: string) => void;
-}) {
+}>) {
   return (
     <div className="flex items-center gap-3">
       <div
@@ -110,7 +110,7 @@ function AdminBanner({
 }
 
 /* ── Recent scans table ── */
-function RecentScansTable({ auditData }: { auditData: AuditList | undefined }) {
+function RecentScansTable({ auditData }: Readonly<{ auditData: AuditList | undefined }>) {
   return (
     <div className="rounded border border-white/5 overflow-hidden" style={{ background: "var(--card)" }}>
       <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
@@ -159,9 +159,12 @@ function RecentScansTable({ auditData }: { auditData: AuditList | undefined }) {
                   {item.connection_name ?? "---"}
                 </td>
                 <td className="px-5 py-3 text-xs font-mono" style={{ color: item.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
-                  {item.violation_scanners.length > 0
-                    ? item.violation_scanners.slice(0, 2).join(", ") + (item.violation_scanners.length > 2 ? " ..." : "")
-                    : "---"}
+                  {(() => {
+                    const scanners = item.violation_scanners;
+                    if (scanners.length === 0) return "---";
+                    const preview = scanners.slice(0, 2).join(", ");
+                    return scanners.length > 2 ? `${preview} ...` : preview;
+                  })()}
                 </td>
                 <td className="px-5 py-3 text-xs text-slate-500 max-w-xs truncate">
                   {item.raw_text.slice(0, 55)}

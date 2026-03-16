@@ -604,11 +604,10 @@ function GuardrailsPanel({
       style={{ background: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
     >
-      <div
-        className="relative w-full max-w-xl mx-4 rounded-lg border p-6 space-y-5"
-        style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.25)" }}
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
+        className="relative w-full max-w-xl mx-4 rounded-lg border p-6 space-y-5 text-left appearance-none bg-transparent cursor-default"
+        style={{ background: "var(--card)", borderColor: "rgba(92,240,151,0.25)", font: "inherit" }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
       >
@@ -841,7 +840,7 @@ function GuardrailsPanel({
             Cancel
           </button>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
@@ -898,7 +897,7 @@ function CardHeader({
   onGuardrails,
   onResetSpend,
   onToggle,
-}: {
+}: Readonly<{
   conn: ApiConnection;
   isActive: boolean;
   envStyle: { background: string; color: string };
@@ -907,7 +906,7 @@ function CardHeader({
   onGuardrails: (conn: ApiConnection) => void;
   onResetSpend: (id: number) => void;
   onToggle: (id: number) => void;
-}) {
+}>) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
@@ -1000,7 +999,7 @@ function CardHeader({
   );
 }
 
-function SpendBanner({ conn }: { conn: ApiConnection }) {
+function SpendBanner({ conn }: Readonly<{ conn: ApiConnection }>) {
   if (conn.max_spend_reached) {
     return (
       <div
@@ -1040,7 +1039,7 @@ function SpendBanner({ conn }: { conn: ApiConnection }) {
   return null;
 }
 
-function ApiKeyRow({ conn }: { conn: ApiConnection }) {
+function ApiKeyRow({ conn }: Readonly<{ conn: ApiConnection }>) {
   const [keyVisible, setKeyVisible] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -1091,7 +1090,7 @@ function ApiKeyRow({ conn }: { conn: ApiConnection }) {
   );
 }
 
-function CardMetrics({ conn, hasSpendTracking }: { conn: ApiConnection; hasSpendTracking: boolean }) {
+function CardMetrics({ conn, hasSpendTracking }: Readonly<{ conn: ApiConnection; hasSpendTracking: boolean }>) {
   const rate = conn.violation_rate;
   const innerRateColor = rate < 10 ? "#fbbf24" : "#f87171";
   const rateColor = rate === 0 ? "#5CF097" : innerRateColor;
@@ -1148,7 +1147,7 @@ function CardMetrics({ conn, hasSpendTracking }: { conn: ApiConnection; hasSpend
   );
 }
 
-function PricingFooter({ conn }: { conn: ApiConnection }) {
+function PricingFooter({ conn }: Readonly<{ conn: ApiConnection }>) {
   return (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded text-xs font-mono"
@@ -1175,7 +1174,7 @@ function PricingFooter({ conn }: { conn: ApiConnection }) {
   );
 }
 
-function AlertBadge({ conn }: { conn: ApiConnection }) {
+function AlertBadge({ conn }: Readonly<{ conn: ApiConnection }>) {
   if (!conn.alert_enabled || conn.alert_threshold === null) return null;
   return (
     <div

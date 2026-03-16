@@ -17,19 +17,19 @@ const inputStyle = {
 function AccountSkeleton() {
   return (
     <div className="space-y-2">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />
+      {Array.from({ length: 3 }).map((_, _i) => (
+        <div key={`skeleton-${_i}`} className="h-8 rounded animate-pulse" style={{ background: "var(--card2)" }} />
       ))}
     </div>
   );
 }
 
 /* ── Read-only profile display ── */
-function ProfileDisplay({ user, profileMsg, profileErr }: {
+function ProfileDisplay({ user, profileMsg, profileErr }: Readonly<{
   user: UserInfo;
   profileMsg: string;
   profileErr: boolean;
-}) {
+}>) {
   return (
     <div className="space-y-3">
       {profileMsg && !profileErr && (
@@ -58,7 +58,7 @@ function ProfileDisplay({ user, profileMsg, profileErr }: {
 function ProfileEditForm({
   user, profileForm, setProfileForm, profileMsg, profileErr, profileSaving,
   onSubmit, onCancel,
-}: {
+}: Readonly<{
   user: UserInfo;
   profileForm: { username: string; full_name: string; email: string };
   setProfileForm: React.Dispatch<React.SetStateAction<{ username: string; full_name: string; email: string }>>;
@@ -67,7 +67,7 @@ function ProfileEditForm({
   profileSaving: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
-}) {
+}>) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {[

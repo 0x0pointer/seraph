@@ -446,10 +446,10 @@ function CreateOrgForm() {
 
 function OrgHeader({
   org, orgLoading, canManage, myRole, mutateOrg,
-}: {
+}: Readonly<{
   org: OrgInfo | undefined; orgLoading: boolean; canManage: boolean; myRole: string;
   mutateOrg: () => Promise<OrgInfo | undefined>;
-}) {
+}>) {
   const [editingName, setEditingName] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -528,10 +528,10 @@ function OrgHeader({
 function MembersTable({
   members, canManage, myId,
   mutateMembers,
-}: {
+}: Readonly<{
   members: OrgMember[] | undefined; canManage: boolean; myId: number;
   mutateMembers: () => Promise<OrgMember[] | undefined>;
-}) {
+}>) {
   const [roleLoading, setRoleLoading] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
@@ -654,9 +654,9 @@ function MembersTable({
 
 function PendingInvites({
   invites, mutateInvites,
-}: {
+}: Readonly<{
   invites: OrgInvite[] | undefined; mutateInvites: () => Promise<OrgInvite[] | undefined>;
-}) {
+}>) {
   const [cancellingInvite, setCancellingInvite] = useState<number | null>(null);
   const [expandedInvite, setExpandedInvite] = useState<number | null>(null);
 

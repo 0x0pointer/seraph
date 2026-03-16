@@ -452,7 +452,7 @@ function UserActions({ user, onRoleChange, onResetPw, onDelete, onImpersonate, o
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" role="button" tabIndex={0}
+          <button type="button" className="fixed inset-0 z-10" style={{ all: "unset", position: "fixed", inset: 0, zIndex: 10 }}
             onClick={() => { setOpen(false); setShowRoles(false); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { setOpen(false); setShowRoles(false); } }} />
           <div className="w-52 rounded border z-20 py-1"
@@ -517,11 +517,7 @@ function getHealthColor(passRate: number): string {
   return "#f87171";
 }
 
-function getPassRateColor(passRate: number): string {
-  if (passRate >= 95) return "#5CF097";
-  if (passRate >= 80) return "#fbbf24";
-  return "#f87171";
-}
+const getPassRateColor = getHealthColor;
 
 function getActivityBarColor(isViol: boolean, score: number): string {
   if (isViol) return "#f87171";
@@ -1349,10 +1345,10 @@ function OrgsTab() {
                 {!orgMembers[org.id] && (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
                 )}
-                {orgMembers[org.id] && orgMembers[org.id].length === 0 && (
+                {orgMembers[org.id]?.length === 0 && (
                   <p className="text-xs text-slate-600 font-mono">No members yet.</p>
                 )}
-                {orgMembers[org.id] && orgMembers[org.id].length > 0 && (
+                {(orgMembers[org.id]?.length ?? 0) > 0 && (
                   <div className="space-y-1.5">
                     {orgMembers[org.id].map((m) => (
                       <div key={m.id} className="flex items-center gap-3 text-xs">
@@ -1378,10 +1374,10 @@ function OrgsTab() {
                 {!orgTeams[org.id] && (
                   <p className="text-xs text-slate-600 font-mono">Loading…</p>
                 )}
-                {orgTeams[org.id] && orgTeams[org.id].length === 0 && (
+                {orgTeams[org.id]?.length === 0 && (
                   <p className="text-xs text-slate-600 font-mono">No teams in this org yet.</p>
                 )}
-                {orgTeams[org.id] && orgTeams[org.id].length > 0 && (
+                {(orgTeams[org.id]?.length ?? 0) > 0 && (
                   <div className="space-y-2">
                     {orgTeams[org.id].map((t) => (
                       <div key={t.id} className="flex items-center justify-between py-1.5 px-3 rounded"
@@ -1995,6 +1991,51 @@ const TABS: { key: AdminTab; label: string }[] = [
 
 // ── Overview sub-component ─────────────────────────────────────────────────────
 
+function ActivityRow({ a, ovis }: Readonly<{ a: ActivityEntry; ovis: (k: OverviewScanColKey) => boolean }>) {
+  const riskColor = getRiskColor(a.max_risk_score);
+  const envStyle = a.connection_environment ? (ENV_COLOR[a.connection_environment] ?? ENV_COLOR.staging) : null;
+  return (
+    <tr className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+      {ovis("time") && (
+        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+          {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "\u2014"}
+        </td>
+      )}
+      {ovis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>}
+      {ovis("status") && (
+        <td className="px-4 py-3">
+          <span className="text-xs font-mono px-2 py-0.5 rounded"
+            style={a.is_valid ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
+            {a.is_valid ? "pass" : "block"}
+          </span>
+        </td>
+      )}
+      {ovis("risk") && (
+        <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
+      )}
+      {ovis("connection") && (
+        <td className="px-4 py-3">
+          {a.connection_name ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
+              {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
+            </div>
+          ) : <span className="text-xs text-slate-700 font-mono">token</span>}
+        </td>
+      )}
+      {ovis("violations") && (
+        <td className="px-4 py-3 text-xs font-mono"
+          style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
+          {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " \u2026" : "") : "\u2014"}
+        </td>
+      )}
+      {ovis("preview") && (
+        <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
+      )}
+    </tr>
+  );
+}
+
 interface OverviewTabProps {
   stats: AdminStats | undefined;
   activity: ActivityEntry[] | undefined;
@@ -2194,50 +2235,9 @@ function OverviewTabContent({
                 <tr key={i} className="border-b border-white/5">
                   <td colSpan={overviewColSpan} className="px-4 py-3"><div className="h-3 rounded animate-pulse" style={{ background: "var(--card2)" }} /></td>
                 </tr>
-              )) : activity.map((a) => {
-                const riskColor = getRiskColor(a.max_risk_score);
-                const envStyle = a.connection_environment ? (ENV_COLOR[a.connection_environment] ?? ENV_COLOR.staging) : null;
-                return (
-                  <tr key={a.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                    {ovis("time") && (
-                      <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
-                        {a.created_at ? format(new Date(a.created_at), "HH:mm:ss") : "—"}
-                      </td>
-                    )}
-                    {ovis("dir") && <td className="px-4 py-3 text-xs text-slate-600 font-mono">{a.direction}</td>}
-                    {ovis("status") && (
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono px-2 py-0.5 rounded"
-                          style={a.is_valid ? { background: "rgba(92,240,151,0.08)", color: "#5CF097" } : { background: "rgba(248,113,113,0.08)", color: "#f87171" }}>
-                          {a.is_valid ? "pass" : "block"}
-                        </span>
-                      </td>
-                    )}
-                    {ovis("risk") && (
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: riskColor }}>{a.max_risk_score.toFixed(2)}</td>
-                    )}
-                    {ovis("connection") && (
-                      <td className="px-4 py-3">
-                        {a.connection_name ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-400 truncate max-w-[80px]">{a.connection_name}</span>
-                            {envStyle && <span className="text-xs px-1 py-0.5 rounded font-mono capitalize shrink-0" style={envStyle}>{a.connection_environment}</span>}
-                          </div>
-                        ) : <span className="text-xs text-slate-700 font-mono">token</span>}
-                      </td>
-                    )}
-                    {ovis("violations") && (
-                      <td className="px-4 py-3 text-xs font-mono"
-                        style={{ color: a.violation_scanners.length > 0 ? "#f87171" : "#334155" }}>
-                        {a.violation_scanners.length > 0 ? a.violation_scanners.slice(0, 2).join(", ") + (a.violation_scanners.length > 2 ? " …" : "") : "—"}
-                      </td>
-                    )}
-                    {ovis("preview") && (
-                      <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">{a.preview}</td>
-                    )}
-                  </tr>
-                );
-              })}
+              )) : activity.map((a) => (
+                <ActivityRow key={a.id} a={a} ovis={ovis} />
+              ))}
             </tbody>
           </table>
         </div>
@@ -2636,7 +2636,7 @@ function GuardrailsTabContent({ guardrails, toggling, handleToggleGuardrail }: R
                         style={g.is_active
                           ? { borderColor: "rgba(92,240,151,0.3)", color: "#5CF097" }
                           : { borderColor: "var(--border-input)", color: "#475569" }}>
-                        {(() => { if (toggling === g.id) return "…"; return g.is_active ? "On" : "Off"; })()}
+                        {toggling === g.id ? "\u2026" : g.is_active ? "On" : "Off"}
                       </button>
                     </div>
                   ))}
