@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./seraph.db"
+    database_url: str = "postgresql+asyncpg://seraph:seraph@localhost:5432/seraph"
 
     # JWT
     secret_key: str = "changeme-super-secret-key-at-least-32-chars"

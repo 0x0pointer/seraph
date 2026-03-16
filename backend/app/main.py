@@ -147,60 +147,70 @@ async def _run_migrations():
     from sqlalchemy import text
     from app.core.database import async_session_maker
 
+    _is_pg = settings.database_url.startswith("postgresql")
+
+    # PostgreSQL supports IF NOT EXISTS on ADD COLUMN; SQLite does not (but
+    # silently ignores duplicate-column errors we catch below).
+    _IF = " IF NOT EXISTS" if _is_pg else ""
+    # Use TIMESTAMP WITH TIME ZONE on Postgres, DATETIME on SQLite
+    _TS = "TIMESTAMP WITH TIME ZONE" if _is_pg else "DATETIME"
+    _BOOL_FALSE = "BOOLEAN DEFAULT FALSE" if _is_pg else "BOOLEAN DEFAULT 0"
+    _JSON = "JSONB" if _is_pg else "JSON"
+
     migrations = [
         # users table
-        "ALTER TABLE users ADD COLUMN full_name VARCHAR(200)",
-        "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
-        "ALTER TABLE users ADD COLUMN api_token VARCHAR(80)",
+        f"ALTER TABLE users ADD COLUMN{_IF} full_name VARCHAR(200)",
+        f"ALTER TABLE users ADD COLUMN{_IF} email VARCHAR(255)",
+        f"ALTER TABLE users ADD COLUMN{_IF} api_token VARCHAR(80)",
         # audit_logs table — connection attribution
-        "ALTER TABLE audit_logs ADD COLUMN connection_id INTEGER",
-        "ALTER TABLE audit_logs ADD COLUMN connection_name VARCHAR(100)",
-        "ALTER TABLE audit_logs ADD COLUMN connection_environment VARCHAR(20)",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} connection_id INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} connection_name VARCHAR(100)",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} connection_environment VARCHAR(20)",
         # audit_logs table — token cost tracking
-        "ALTER TABLE audit_logs ADD COLUMN input_tokens INTEGER",
-        "ALTER TABLE audit_logs ADD COLUMN output_tokens INTEGER",
-        "ALTER TABLE audit_logs ADD COLUMN token_cost FLOAT",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} input_tokens INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} output_tokens INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} token_cost FLOAT",
         # users table — password reset
-        "ALTER TABLE users ADD COLUMN reset_token VARCHAR(80)",
-        "ALTER TABLE users ADD COLUMN reset_token_expires_at DATETIME",
+        f"ALTER TABLE users ADD COLUMN{_IF} reset_token VARCHAR(80)",
+        f"ALTER TABLE users ADD COLUMN{_IF} reset_token_expires_at {_TS}",
         # api_connections table — spend tracking
-        "ALTER TABLE api_connections ADD COLUMN cost_per_input_token FLOAT DEFAULT 0",
-        "ALTER TABLE api_connections ADD COLUMN cost_per_output_token FLOAT DEFAULT 0",
-        "ALTER TABLE api_connections ADD COLUMN monthly_alert_spend FLOAT",
-        "ALTER TABLE api_connections ADD COLUMN max_monthly_spend FLOAT",
-        "ALTER TABLE api_connections ADD COLUMN month_spend FLOAT DEFAULT 0",
-        "ALTER TABLE api_connections ADD COLUMN month_input_tokens INTEGER DEFAULT 0",
-        "ALTER TABLE api_connections ADD COLUMN month_output_tokens INTEGER DEFAULT 0",
-        "ALTER TABLE api_connections ADD COLUMN month_started_at DATETIME",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} cost_per_input_token FLOAT DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} cost_per_output_token FLOAT DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} monthly_alert_spend FLOAT",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} max_monthly_spend FLOAT",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} month_spend FLOAT DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} month_input_tokens INTEGER DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} month_output_tokens INTEGER DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} month_started_at {_TS}",
         # users table — org support
-        "ALTER TABLE users ADD COLUMN org_id INTEGER",
+        f"ALTER TABLE users ADD COLUMN{_IF} org_id INTEGER",
         # api_connections table — org-wide connections
-        "ALTER TABLE api_connections ADD COLUMN org_id INTEGER",
-        "ALTER TABLE api_connections ADD COLUMN created_by_username VARCHAR(100)",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} org_id INTEGER",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} created_by_username VARCHAR(100)",
         # audit_logs table — per-user / per-org scoping
-        "ALTER TABLE audit_logs ADD COLUMN user_id INTEGER",
-        "ALTER TABLE audit_logs ADD COLUMN org_id INTEGER",
-        "ALTER TABLE audit_logs ADD COLUMN team_id INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} user_id INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} org_id INTEGER",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} team_id INTEGER",
         # users table — team membership
-        "ALTER TABLE users ADD COLUMN team_id INTEGER",
+        f"ALTER TABLE users ADD COLUMN{_IF} team_id INTEGER",
         # api_connections table — team ownership
-        "ALTER TABLE api_connections ADD COLUMN team_id INTEGER",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} team_id INTEGER",
         # users table — plan & monthly usage tracking
-        "ALTER TABLE users ADD COLUMN plan VARCHAR(20) DEFAULT 'free'",
-        "ALTER TABLE users ADD COLUMN month_scan_count INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN month_started_at DATETIME",
+        f"ALTER TABLE users ADD COLUMN{_IF} plan VARCHAR(20) DEFAULT 'free'",
+        f"ALTER TABLE users ADD COLUMN{_IF} month_scan_count INTEGER DEFAULT 0",
+        f"ALTER TABLE users ADD COLUMN{_IF} month_started_at {_TS}",
         # organizations table — org-level plan
-        "ALTER TABLE organizations ADD COLUMN plan VARCHAR(20) DEFAULT 'free'",
+        f"ALTER TABLE organizations ADD COLUMN{_IF} plan VARCHAR(20) DEFAULT 'free'",
         # api_connections table — per-connection guardrail selection
-        "ALTER TABLE api_connections ADD COLUMN use_custom_guardrails BOOLEAN DEFAULT 0",
+        f"ALTER TABLE api_connections ADD COLUMN{_IF} use_custom_guardrails {_BOOL_FALSE}",
         # connection_guardrails table — per-guardrail threshold override
-        "ALTER TABLE connection_guardrails ADD COLUMN threshold_override FLOAT",
+        f"ALTER TABLE connection_guardrails ADD COLUMN{_IF} threshold_override FLOAT",
         # guardrail_configs table — on_fail_action (Guardrails AI-inspired)
-        "ALTER TABLE guardrail_configs ADD COLUMN on_fail_action VARCHAR(20) DEFAULT 'block'",
+        f"ALTER TABLE guardrail_configs ADD COLUMN{_IF} on_fail_action VARCHAR(20) DEFAULT 'block'",
         # audit_logs table — on_fail_action metadata
-        "ALTER TABLE audit_logs ADD COLUMN on_fail_actions JSON",
-        "ALTER TABLE audit_logs ADD COLUMN fix_applied BOOLEAN DEFAULT 0",
-        "ALTER TABLE audit_logs ADD COLUMN reask_context JSON",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} on_fail_actions {_JSON}",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} fix_applied {_BOOL_FALSE}",
+        f"ALTER TABLE audit_logs ADD COLUMN{_IF} reask_context {_JSON}",
     ]
     async with async_session_maker() as session:
         for stmt in migrations:

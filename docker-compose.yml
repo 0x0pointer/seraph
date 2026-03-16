@@ -1,6 +1,23 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: seraph
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seraph}
+      POSTGRES_DB: seraph
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -9,11 +26,13 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - backend_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - DATABASE_URL=sqlite+aiosqlite:///./data/seraph.db
+      - DATABASE_URL=postgresql+asyncpg://seraph:${POSTGRES_PASSWORD:-seraph}@postgres:5432/seraph
       - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
       - DEBUG=${DEBUG:-false}
     command: >
@@ -58,4 +77,4 @@ services:
   #   restart: unless-stopped
 
 volumes:
-  backend_data:
+  pgdata:
