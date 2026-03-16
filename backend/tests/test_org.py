@@ -203,3 +203,182 @@ class TestValidateInviteToken:
         resp = await client.get("/api/org/invite/validate?token=bogus-token-abc")
         assert resp.status_code == 404
         assert "Invalid or already used" in resp.json()["detail"]
+
+
+# ── Additional coverage tests ─────────────────────────────────────────────────
+
+async def _create_org_and_invite_user(client, make_user, turnstile_mock):
+    """
+    Helper: create an org (admin_user), invite a second user, accept the invite,
+    and return (admin_headers, member_headers, admin_user, member_user, org).
+    """
+    # Admin creates org
+    admin_headers, admin_user = await _make_authenticated_user(
+        client, make_user, turnstile_mock, "adm"
+    )
+    org = await _create_org(client, admin_headers, "TeamOrg")
+
+    # Invite a second user
+    uid = uuid.uuid4().hex[:8]
+    invite_email = f"member_{uid}@example.com"
+    inv_resp = await client.post(
+        "/api/org/invite",
+        json={"email": invite_email, "role": "viewer"},
+        headers=admin_headers,
+    )
+    assert inv_resp.status_code == 201
+    token = inv_resp.json()["token"]
+
+    # Accept invite (creates a new user account)
+    member_username = f"mem_{uid}"
+    accept_resp = await client.post(
+        "/api/org/invite/accept",
+        json={
+            "token": token,
+            "username": member_username,
+            "password": "StrongPassword123!",
+            "full_name": "Member User",
+        },
+    )
+    assert accept_resp.status_code == 200, accept_resp.text
+    member_token = accept_resp.json()["access_token"]
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+
+    # Get member id from members list
+    members_resp = await client.get("/api/org/members", headers=admin_headers)
+    members = members_resp.json()
+    member_info = next(m for m in members if m["username"] == member_username)
+
+    return admin_headers, member_headers, admin_user, member_info, org
+
+
+class TestUpdateOrgPermissions:
+    async def test_non_org_admin_gets_403(self, client, make_user, turnstile_mock):
+        """A viewer member cannot update the org name."""
+        admin_headers, member_headers, _, _, _ = await _create_org_and_invite_user(
+            client, make_user, turnstile_mock
+        )
+        resp = await client.put(
+            "/api/org", json={"name": "Hacked Name"}, headers=member_headers
+        )
+        assert resp.status_code == 403
+
+
+class TestMemberManagement:
+    async def test_change_member_role(self, client, make_user, turnstile_mock):
+        """Admin can change a member's role from viewer to org_admin."""
+        admin_headers, _, _, member_info, _ = await _create_org_and_invite_user(
+            client, make_user, turnstile_mock
+        )
+        resp = await client.patch(
+            f"/api/org/members/{member_info['id']}/role",
+            json={"role": "org_admin"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "org_admin"
+
+    async def test_remove_member(self, client, make_user, turnstile_mock):
+        """Admin can remove a member from the org."""
+        admin_headers, _, _, member_info, _ = await _create_org_and_invite_user(
+            client, make_user, turnstile_mock
+        )
+        resp = await client.delete(
+            f"/api/org/members/{member_info['id']}", headers=admin_headers
+        )
+        assert resp.status_code == 204
+
+        # Verify they no longer appear in the members list
+        members_resp = await client.get("/api/org/members", headers=admin_headers)
+        member_ids = [m["id"] for m in members_resp.json()]
+        assert member_info["id"] not in member_ids
+
+    async def test_cannot_remove_yourself(self, client, make_user, turnstile_mock):
+        """Admin cannot remove themselves from the org."""
+        admin_headers, admin_user = await _make_authenticated_user(
+            client, make_user, turnstile_mock, "selfr"
+        )
+        await _create_org(client, admin_headers, "SelfRemoveOrg")
+
+        # Get admin's own user id from members list
+        members_resp = await client.get("/api/org/members", headers=admin_headers)
+        admin_info = next(
+            m for m in members_resp.json() if m["username"] == admin_user["username"]
+        )
+
+        resp = await client.delete(
+            f"/api/org/members/{admin_info['id']}", headers=admin_headers
+        )
+        assert resp.status_code == 400
+        assert "Cannot remove yourself" in resp.json()["detail"]
+
+    async def test_cannot_change_own_role(self, client, make_user, turnstile_mock):
+        """Admin cannot change their own role."""
+        admin_headers, admin_user = await _make_authenticated_user(
+            client, make_user, turnstile_mock, "selfch"
+        )
+        await _create_org(client, admin_headers, "SelfChangeOrg")
+
+        members_resp = await client.get("/api/org/members", headers=admin_headers)
+        admin_info = next(
+            m for m in members_resp.json() if m["username"] == admin_user["username"]
+        )
+
+        resp = await client.patch(
+            f"/api/org/members/{admin_info['id']}/role",
+            json={"role": "viewer"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "Cannot change your own role" in resp.json()["detail"]
+
+
+class TestAcceptInvite:
+    async def test_accept_invite_creates_user_and_joins_org(
+        self, client, make_user, turnstile_mock
+    ):
+        """Accepting a valid invite creates a new user who belongs to the org."""
+        admin_headers, _ = await _make_authenticated_user(
+            client, make_user, turnstile_mock, "ainv"
+        )
+        org = await _create_org(client, admin_headers, "AcceptOrg")
+
+        uid = uuid.uuid4().hex[:8]
+        invite_email = f"accept_{uid}@example.com"
+        inv_resp = await client.post(
+            "/api/org/invite",
+            json={"email": invite_email, "role": "viewer"},
+            headers=admin_headers,
+        )
+        token = inv_resp.json()["token"]
+
+        accept_resp = await client.post(
+            "/api/org/invite/accept",
+            json={
+                "token": token,
+                "username": f"accepted_{uid}",
+                "password": "StrongPassword123!",
+                "full_name": "Accepted User",
+            },
+        )
+        assert accept_resp.status_code == 200
+        assert "access_token" in accept_resp.json()
+
+        # The new user should be visible in the org members list
+        members_resp = await client.get("/api/org/members", headers=admin_headers)
+        usernames = [m["username"] for m in members_resp.json()]
+        assert f"accepted_{uid}" in usernames
+
+    async def test_accept_invite_invalid_token_returns_400(self, client):
+        """Using an invalid/expired token returns 400."""
+        resp = await client.post(
+            "/api/org/invite/accept",
+            json={
+                "token": "totally-bogus-token",
+                "username": "nope_user",
+                "password": "StrongPassword123!",
+                "full_name": "No One",
+            },
+        )
+        assert resp.status_code == 400
+        assert "Invalid or already used" in resp.json()["detail"]
