@@ -14,7 +14,7 @@ venv/
 env/
 .venv/
 
-# Environment files — NEVER commit secrets
+# Environment files
 .env
 .env.local
 .env.production
@@ -24,14 +24,6 @@ env/
 *.db
 *.sqlite
 *.sqlite3
-
-# Node
-node_modules/
-.next/
-out/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # OS
 .DS_Store
@@ -51,8 +43,10 @@ logs/
 *.bak
 *.tmp
 
-# Local assets — not part of the project source
-langsmith_traces/
-backend/docs/
-frontend/docs/
-FullLogo_Transparent.png
+# Local config overrides
+config.local.yaml
+
+# Test / coverage
+.coverage
+.pytest_cache/
+htmlcov/

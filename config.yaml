@@ -1,0 +1,79 @@
+# Seraph — YAML-configured LLM guardrail proxy
+# Documentation: https://github.com/seraph-security/seraph
+
+listen: "0.0.0.0:8000"
+
+# Upstream LLM provider (used by /proxy when X-Upstream-URL header is not set)
+upstream: "https://api.openai.com"
+
+# API keys for authenticating with Seraph (leave empty for open mode)
+api_keys:
+  - "sk_seraph_abc123"
+
+logging:
+  level: info
+  audit: true
+  # Set to a file path for SQLite audit storage, null for stdout JSON
+  audit_file: null
+
+# Scanner configuration
+# Remove this section entirely to use the built-in guardrail_catalog defaults
+# (29 input + 15 output scanners with trained ban lists, regex patterns, etc.)
+scanners:
+  input:
+    - type: PromptInjection
+      threshold: 0.8
+      on_fail: block
+      params:
+        use_onnx: true
+
+    - type: Toxicity
+      threshold: 0.5
+      on_fail: block
+      params:
+        use_onnx: true
+
+    - type: Secrets
+      on_fail: fix
+      params: {}
+
+    - type: TokenLimit
+      on_fail: block
+      params:
+        limit: 4096
+
+    - type: BanSubstrings
+      on_fail: block
+      params:
+        substrings:
+          - "ignore previous instructions"
+          - "ignore all previous"
+          - "disregard your instructions"
+          - "forget your instructions"
+          - "override your instructions"
+        case_sensitive: false
+        contains_all: false
+
+    - type: InvisibleText
+      on_fail: block
+      params: {}
+
+  output:
+    - type: Toxicity
+      threshold: 0.5
+      on_fail: block
+      params:
+        use_onnx: true
+
+    - type: NoRefusal
+      on_fail: reask
+      params: {}
+
+    - type: BanSubstrings
+      on_fail: block
+      params:
+        substrings:
+          - "as an AI language model"
+          - "I cannot assist with"
+        case_sensitive: false
+        contains_all: false

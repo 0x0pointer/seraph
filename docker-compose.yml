@@ -1,80 +1,12 @@
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: seraph
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seraph}
-      POSTGRES_DB: seraph
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U seraph"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  seraph:
+    build: .
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - ./config.yaml:/app/config.yaml:ro
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - DATABASE_URL=postgresql+asyncpg://seraph:${POSTGRES_PASSWORD:-seraph}@postgres:5432/seraph
-      - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
-      - DEBUG=${DEBUG:-false}
-    command: >
-      sh -c "python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      - SERAPH_CONFIG=/app/config.yaml
     restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # ── Kong API Gateway (optional — enables gateway-level guardrail enforcement)
-  # Uncomment this service to route LLM traffic through Kong + Seraph.
-  # Clients send requests to Kong (:8080) instead of the LLM provider directly.
-  #
-  # kong:
-  #   image: kong:3.7-ubuntu
-  #   environment:
-  #     KONG_DATABASE: "off"
-  #     KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
-  #     KONG_PROXY_ACCESS_LOG: /dev/stdout
-  #     KONG_ADMIN_ACCESS_LOG: /dev/stdout
-  #     KONG_PROXY_ERROR_LOG: /dev/stderr
-  #     KONG_ADMIN_ERROR_LOG: /dev/stderr
-  #     KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-  #     SERAPH_URL: http://backend:8000
-  #     SERAPH_KEY: ${SERAPH_KEY:-ts_conn_replace_me}
-  #   volumes:
-  #     - ./kong/kong.yml:/etc/kong/kong.yml:ro
-  #     - ./kong/seraph_pre.lua:/usr/local/kong/seraph_pre.lua:ro
-  #     - ./kong/seraph_post.lua:/usr/local/kong/seraph_post.lua:ro
-  #   ports:
-  #     - "8080:8000"   # Kong proxy — point your LLM clients here
-  #     - "8081:8001"   # Kong Admin API
-  #   depends_on:
-  #     - backend
-  #   restart: unless-stopped
-
-volumes:
-  pgdata:

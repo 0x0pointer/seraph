@@ -1,0 +1,12 @@
+# Test configuration — no API keys (open mode), minimal scanners
+listen: "0.0.0.0:8000"
+upstream: "https://api.openai.com"
+api_keys: []
+
+logging:
+  level: warning
+  audit: false
+
+scanners:
+  input: []
+  output: []
