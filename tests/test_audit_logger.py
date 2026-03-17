@@ -166,3 +166,30 @@ class TestAuditLoggerClose:
         audit_logger._sqlite_conn = None
         _run(audit_logger.close())
         assert audit_logger._sqlite_conn is None
+
+
+class TestSqliteAuditErrors:
+    @pytest.fixture(autouse=True)
+    def _setup_broken_sqlite(self, tmp_path):
+        from app.core.config import get_config
+        config = get_config()
+        saved_audit = config.logging.audit
+        saved_file = config.logging.audit_file
+        config.logging.audit = True
+        # Point to a directory instead of a file — will cause sqlite error
+        config.logging.audit_file = str(tmp_path / "nonexistent_dir" / "audit.db")
+        audit_logger._sqlite_conn = None
+        yield
+        audit_logger._sqlite_conn = None
+        config.logging.audit = saved_audit
+        config.logging.audit_file = saved_file
+
+    def test_sqlite_write_failure_does_not_raise(self):
+        """SQLite errors are caught and logged, not propagated."""
+        _run(audit_logger.log_scan(
+            direction="input",
+            is_valid=True,
+            scanner_results={},
+            violations=[],
+        ))
+        # Should not raise — error is caught internally

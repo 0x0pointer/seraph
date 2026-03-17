@@ -398,3 +398,259 @@ class TestTransparentProxy:
 
         assert resp.status_code == 502
         assert "Upstream LLM unreachable" in resp.json()["detail"]
+
+    def test_proxy_input_sanitization_replaces_message(self, client):
+        """When input scan applies a fix, the sanitized text replaces the user message."""
+        fixed_result = (True, "REDACTED", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "Got it."}}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=fixed_result,
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("Got it."),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ) as mock_post,
+        ):
+            resp = client.post(
+                "/api/integrations/proxy/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "my secret key=abc"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        # Verify the forwarded body had the sanitized message
+        forwarded_body = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
+        assert forwarded_body["messages"][0]["content"] == "REDACTED"
+
+    def test_proxy_output_sanitization_replaces_content(self, client):
+        """When output scan applies a fix, the response content is replaced."""
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "leak secret=xyz"}}]},
+        )
+        output_fixed = (True, "leak secret=[REDACTED]", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=output_fixed,
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["choices"][0]["message"]["content"] == "leak secret=[REDACTED]"
+
+    def test_proxy_non_json_upstream_response_returns_502(self, client):
+        """When upstream returns non-JSON, proxy returns 502."""
+        upstream_response = httpx.Response(200, text="not json", headers={"content-type": "text/plain"})
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 502
+        assert "Non-JSON" in resp.json()["error"]
+
+    def test_proxy_input_blocked_returns_400(self, client):
+        """When input scan blocks, proxy returns 400 without forwarding."""
+        with patch(
+            "app.services.scanner_engine.run_input_scan",
+            new_callable=AsyncMock,
+            return_value=_blocked_scan_result("malicious"),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "malicious"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 400
+        assert "PromptInjection" in resp.json()["detail"]
+
+    def test_proxy_no_messages_skips_input_scan(self, client):
+        """When there are no messages, input scan is skipped."""
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "hi"}}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+            ) as mock_input,
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": []},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        mock_input.assert_not_called()
+
+    def test_proxy_no_assistant_content_skips_output_scan(self, client):
+        """When upstream has no assistant content, output scan is skipped."""
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": ""}}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+            ) as mock_output,
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        mock_output.assert_not_called()
+
+    def test_proxy_upstream_non_200_error_relayed_non_json(self, client):
+        """When upstream returns non-200 with non-JSON body, error text is relayed."""
+        upstream_response = httpx.Response(500, text="Internal Server Error")
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/api/integrations/proxy",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 500
+        assert "error" in resp.json()
+
+
+# ── Reask context tests ─────────────────────────────────────────────────────
+
+class TestReaskContext:
+    def test_hook_reask_context_in_error_detail(self, client):
+        """When reask_context is present, it appears in the 400 detail."""
+        reask_result = (False, "bad", {"Scanner": 0.9}, ["Scanner"], {"Scanner": "reask"},
+                        ["Please revise your message."], False)
+        with patch(
+            "app.services.scanner_engine.run_input_scan",
+            new_callable=AsyncMock,
+            return_value=reask_result,
+        ):
+            resp = client.post(
+                "/api/integrations/hook",
+                json={"text": "bad input", "direction": "input"},
+            )
+
+        assert resp.status_code == 400
+        assert "revise" in resp.json()["detail"].lower()
+
+    def test_output_hook_reask_context(self, client):
+        """Reask context works for output direction too."""
+        reask_result = (False, "bad output", {"Scanner": 0.9}, ["Scanner"], {"Scanner": "reask"},
+                        ["Please revise your output."], False)
+        with patch(
+            "app.services.scanner_engine.run_output_scan",
+            new_callable=AsyncMock,
+            return_value=reask_result,
+        ):
+            resp = client.post(
+                "/api/integrations/hook",
+                json={"text": "bad output", "direction": "output", "prompt": "test"},
+            )
+
+        assert resp.status_code == 400
+        assert "revise" in resp.json()["detail"].lower()
+
+
+# ── _assistant_reply edge cases ──────────────────────────────────────────────
+
+class TestAssistantReplyEdgeCases:
+    def test_choices_with_missing_content_key(self):
+        from app.api.routes.integrations import _assistant_reply
+        response = {"choices": [{"message": {"role": "assistant"}}]}
+        assert _assistant_reply(response) == ""
+
+    def test_choices_with_none_message(self):
+        from app.api.routes.integrations import _assistant_reply
+        response = {"choices": [{"message": None}]}
+        assert _assistant_reply(response) == ""
+
+    def test_non_dict_response(self):
+        from app.api.routes.integrations import _assistant_reply
+        assert _assistant_reply("not a dict") == ""

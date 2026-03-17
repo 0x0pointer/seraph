@@ -240,3 +240,42 @@ class TestScanGuard:
                 },
             )
         assert resp.status_code == 200
+
+    def test_guard_missing_messages_returns_422(self, client):
+        resp = client.post("/api/scan/guard", json={})
+        assert resp.status_code == 422
+
+
+class TestScanReaskContext:
+    def test_prompt_scan_with_reask_context(self, client):
+        reask_result = (False, "bad", {"Scanner": 0.9}, ["Scanner"],
+                        {"Scanner": "reask"}, ["Please revise."], False)
+        with patch(
+            "app.services.scanner_engine.run_input_scan",
+            new_callable=AsyncMock,
+            return_value=reask_result,
+        ):
+            resp = client.post("/api/scan/prompt", json={"text": "bad input"})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_valid"] is False
+        assert data["reask_context"] == ["Please revise."]
+
+    def test_output_scan_with_fix(self, client):
+        fix_result = (True, "cleaned output", {"Secrets": 0.99}, [],
+                      {"Secrets": "fixed"}, None, True)
+        with patch(
+            "app.services.scanner_engine.run_output_scan",
+            new_callable=AsyncMock,
+            return_value=fix_result,
+        ):
+            resp = client.post(
+                "/api/scan/output",
+                json={"text": "output with secret=abc", "prompt": "show info"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["fix_applied"] is True
+        assert data["sanitized_text"] == "cleaned output"
