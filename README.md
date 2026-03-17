@@ -136,4 +136,4 @@ poetry run pytest tests/ -v
 
 ## License
 
-GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
