@@ -1,6 +1,7 @@
 import os
 import pytest
 import pytest_asyncio
+from contextlib import asynccontextmanager
 from httpx import AsyncClient, ASGITransport
 
 # Point to test config before any app module is imported
@@ -18,15 +19,21 @@ async def setup_test_config():
 @pytest_asyncio.fixture
 async def client():
     """
-    HTTP test client with startup events cleared (no ML warmup).
+    HTTP test client with lifespan disabled (no ML warmup).
     API key auth is open mode (no keys in test config).
     """
     from app.main import app
 
-    saved_startup = list(app.router.on_startup)
-    app.router.on_startup.clear()
+    # Replace the real lifespan (which spawns ML model warmup) with a no-op
+    saved_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def noop_lifespan(a):
+        yield
+
+    app.router.lifespan_context = noop_lifespan
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
-    app.router.on_startup[:] = saved_startup
+    app.router.lifespan_context = saved_lifespan
