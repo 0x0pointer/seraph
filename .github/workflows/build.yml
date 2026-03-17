@@ -1,36 +1,41 @@
-name: Build
+name: CI
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: [main]
+
 jobs:
-  sonarqube:
-    name: SonarQube
+  test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0  # SonarCloud needs full history
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry
 
       - name: Install dependencies
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi
+        run: poetry install --with dev
 
-      - name: Run tests
-        run: pytest --cov=app --cov-report=xml:coverage.xml --cov-report=term-missing -v
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarcloud-github-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
