@@ -1,5 +1,9 @@
 # Seraph — LLM Guardrail Proxy
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=bugs)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=coverage)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
+
 A single-binary, YAML-configured LLM guardrail proxy. Scans inputs and outputs using [llm-guard](https://llm-guard.com/) scanners with parallel execution, text canonicalization for evasion resistance, and semantic embedding detection.
 
 ## Quick Start
@@ -136,4 +140,4 @@ poetry run pytest tests/ -v
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
