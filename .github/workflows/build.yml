@@ -20,10 +20,13 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install poetry && poetry install
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi
 
       - name: Run tests
-        run: poetry run pytest --cov=app --cov-report=xml:coverage.xml --cov-report=term-missing -v
+        run: pytest --cov=app --cov-report=xml:coverage.xml --cov-report=term-missing -v
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
