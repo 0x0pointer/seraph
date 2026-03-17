@@ -1,11 +1,11 @@
 """Integration tests for app/main.py — health, reload, middleware."""
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 
 
 class TestHealthEndpoint:
-    async def test_returns_200_ok(self, client):
-        resp = await client.get("/health")
+    def test_returns_200_ok(self, client):
+        resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -13,8 +13,8 @@ class TestHealthEndpoint:
 
 
 class TestSecurityHeaders:
-    async def test_security_headers_present(self, client):
-        resp = await client.get("/health")
+    def test_security_headers_present(self, client):
+        resp = client.get("/health")
         assert resp.headers["X-Content-Type-Options"] == "nosniff"
         assert resp.headers["X-Frame-Options"] == "DENY"
         assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
@@ -23,19 +23,19 @@ class TestSecurityHeaders:
 
 
 class TestReloadEndpoint:
-    async def test_reload_returns_status(self, client):
+    def test_reload_returns_status(self, client):
         with patch(
             "app.services.scanner_engine.reload_scanners",
         ) as mock_reload:
-            resp = await client.post("/reload")
+            resp = client.post("/reload")
         assert resp.status_code == 200
         assert resp.json()["status"] == "reloaded"
         mock_reload.assert_called_once()
 
 
 class TestValidationErrorHandler:
-    async def test_invalid_json_returns_422(self, client):
-        resp = await client.post(
+    def test_invalid_json_returns_422(self, client):
+        resp = client.post(
             "/api/scan/prompt",
             json={"wrong_field": "no text field"},
         )

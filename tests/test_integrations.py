@@ -23,13 +23,13 @@ def _blocked_scan_result(text: str = "bad content"):
 # ── Universal Hook tests ─────────────────────────────────────────────────────
 
 class TestUniversalHook:
-    async def test_input_scan_allowed(self, client):
+    def test_input_scan_allowed(self, client):
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
             return_value=_clean_scan_result("safe prompt"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/hook",
                 json={"text": "safe prompt", "direction": "input"},
             )
@@ -39,13 +39,13 @@ class TestUniversalHook:
         assert data["status"] == "allowed"
         assert data["sanitized_text"] == "safe prompt"
 
-    async def test_input_scan_blocked(self, client):
+    def test_input_scan_blocked(self, client):
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
             return_value=_blocked_scan_result("malicious input"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/hook",
                 json={"text": "malicious input", "direction": "input"},
             )
@@ -54,13 +54,13 @@ class TestUniversalHook:
         data = resp.json()
         assert "PromptInjection" in data["detail"]
 
-    async def test_output_scan_allowed(self, client):
+    def test_output_scan_allowed(self, client):
         with patch(
             "app.services.scanner_engine.run_output_scan",
             new_callable=AsyncMock,
             return_value=_clean_scan_result("helpful answer"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/hook",
                 json={
                     "text": "helpful answer",
@@ -74,8 +74,8 @@ class TestUniversalHook:
         assert data["status"] == "allowed"
         assert data["sanitized_text"] == "helpful answer"
 
-    async def test_empty_input_text_returns_allowed(self, client):
-        resp = await client.post(
+    def test_empty_input_text_returns_allowed(self, client):
+        resp = client.post(
             "/api/integrations/hook",
             json={"text": "", "direction": "input"},
         )
@@ -85,8 +85,8 @@ class TestUniversalHook:
         assert data["status"] == "allowed"
         assert data["detail"] == "No input text to scan"
 
-    async def test_empty_output_text_returns_allowed(self, client):
-        resp = await client.post(
+    def test_empty_output_text_returns_allowed(self, client):
+        resp = client.post(
             "/api/integrations/hook",
             json={"text": "", "direction": "output"},
         )
@@ -100,13 +100,13 @@ class TestUniversalHook:
 # ── LiteLLM pre_call tests ───────────────────────────────────────────────────
 
 class TestLiteLLMPreCall:
-    async def test_clean_message_allowed(self, client):
+    def test_clean_message_allowed(self, client):
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
             return_value=_clean_scan_result("What is Python?"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/litellm/pre_call",
                 json={
                     "messages": [
@@ -120,8 +120,8 @@ class TestLiteLLMPreCall:
         assert data["status"] == "allowed"
         assert data["sanitized_text"] == "What is Python?"
 
-    async def test_no_user_message_returns_allowed(self, client):
-        resp = await client.post(
+    def test_no_user_message_returns_allowed(self, client):
+        resp = client.post(
             "/api/integrations/litellm/pre_call",
             json={
                 "messages": [
@@ -139,13 +139,13 @@ class TestLiteLLMPreCall:
 # ── LiteLLM post_call tests ──────────────────────────────────────────────────
 
 class TestLiteLLMPostCall:
-    async def test_clean_response_allowed(self, client):
+    def test_clean_response_allowed(self, client):
         with patch(
             "app.services.scanner_engine.run_output_scan",
             new_callable=AsyncMock,
             return_value=_clean_scan_result("Python is a programming language."),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/litellm/post_call",
                 json={
                     "messages": [
@@ -169,8 +169,8 @@ class TestLiteLLMPostCall:
         assert data["status"] == "allowed"
         assert data["sanitized_text"] == "Python is a programming language."
 
-    async def test_no_response_returns_allowed(self, client):
-        resp = await client.post(
+    def test_no_response_returns_allowed(self, client):
+        resp = client.post(
             "/api/integrations/litellm/post_call",
             json={
                 "messages": [
@@ -234,13 +234,13 @@ class TestHelperFunctions:
 # ── LiteLLM during_call tests ────────────────────────────────────────────────
 
 class TestLiteLLMDuringCall:
-    async def test_during_call_clean_message(self, client):
+    def test_during_call_clean_message(self, client):
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
             return_value=_clean_scan_result("What is AI?"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/litellm/during_call",
                 json={
                     "messages": [
@@ -254,8 +254,8 @@ class TestLiteLLMDuringCall:
         assert data["status"] == "allowed"
         assert data["sanitized_text"] == "What is AI?"
 
-    async def test_during_call_no_user_message(self, client):
-        resp = await client.post(
+    def test_during_call_no_user_message(self, client):
+        resp = client.post(
             "/api/integrations/litellm/during_call",
             json={
                 "messages": [
@@ -269,13 +269,13 @@ class TestLiteLLMDuringCall:
         assert data["status"] == "allowed"
         assert data["detail"] == "No user message to scan"
 
-    async def test_during_call_blocked(self, client):
+    def test_during_call_blocked(self, client):
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
             return_value=_blocked_scan_result("inject this"),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/litellm/during_call",
                 json={
                     "messages": [
@@ -291,14 +291,14 @@ class TestLiteLLMDuringCall:
 # ── Transparent Proxy tests ──────────────────────────────────────────────────
 
 class TestTransparentProxy:
-    async def test_proxy_missing_upstream_url_returns_400(self, client):
+    def test_proxy_missing_upstream_url_returns_400(self, client):
         """No X-Upstream-URL header and no config.upstream → 400."""
         from app.core.config import get_config
         config = get_config()
         saved = config.upstream
         config.upstream = ""
         try:
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/proxy",
                 json={"messages": [{"role": "user", "content": "hi"}]},
             )
@@ -307,7 +307,7 @@ class TestTransparentProxy:
         finally:
             config.upstream = saved
 
-    async def test_proxy_forwards_and_returns(self, client):
+    def test_proxy_forwards_and_returns(self, client):
         upstream_response = httpx.Response(
             200,
             json={
@@ -334,7 +334,7 @@ class TestTransparentProxy:
                 return_value=upstream_response,
             ),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/proxy/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={
@@ -347,7 +347,7 @@ class TestTransparentProxy:
         data = resp.json()
         assert data["choices"][0]["message"]["content"] == "Hello!"
 
-    async def test_proxy_upstream_error_relayed(self, client):
+    def test_proxy_upstream_error_relayed(self, client):
         upstream_response = httpx.Response(
             429,
             json={"error": "rate limited"},
@@ -365,7 +365,7 @@ class TestTransparentProxy:
                 return_value=upstream_response,
             ),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/proxy",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={
@@ -375,7 +375,7 @@ class TestTransparentProxy:
 
         assert resp.status_code == 429
 
-    async def test_proxy_upstream_unreachable_returns_502(self, client):
+    def test_proxy_upstream_unreachable_returns_502(self, client):
         with (
             patch(
                 "app.services.scanner_engine.run_input_scan",
@@ -388,7 +388,7 @@ class TestTransparentProxy:
                 side_effect=httpx.ConnectError("Connection refused"),
             ),
         ):
-            resp = await client.post(
+            resp = client.post(
                 "/api/integrations/proxy",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={

@@ -42,7 +42,15 @@ logger = logging.getLogger(__name__)
 _CANONICAL_SCANNERS = {"BanSubstrings", "Regex"}
 
 # Shared thread-pool for blocking scanner inference.
-_executor = concurrent.futures.ThreadPoolExecutor()
+_executor: concurrent.futures.ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
+    """Lazily create the thread pool so it's not spawned on import."""
+    global _executor
+    if _executor is None:
+        _executor = concurrent.futures.ThreadPoolExecutor()
+    return _executor
 
 # Keys consumed by the engine, never forwarded to llm-guard scanner constructors.
 _META_PARAMS = {"custom_blocked_phrases", "_description"}
@@ -452,7 +460,7 @@ async def run_input_scan(
     loop = asyncio.get_event_loop()
     tasks = [
         loop.run_in_executor(
-            _executor, _scan_one_input, e[0],
+            _get_executor(), _scan_one_input, e[0],
             canonical_text if _has_canonical and e[1] in _CANONICAL_SCANNERS else text,
         )
         for e in entries
@@ -508,7 +516,7 @@ async def run_output_scan(
     loop = asyncio.get_event_loop()
     tasks = [
         loop.run_in_executor(
-            _executor, _scan_one_output, e[0], prompt,
+            _get_executor(), _scan_one_output, e[0], prompt,
             canonical_output if _has_canonical_out and e[1] in _CANONICAL_SCANNERS else output,
         )
         for e in entries
