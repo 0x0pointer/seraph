@@ -1,57 +1,41 @@
-name: Build
+name: CI
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: [main]
+
 jobs:
-  sonarqube:
-    name: SonarQube
+  test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0  # SonarCloud needs full history
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Install Poetry
+        run: pip install poetry
 
-      - name: Install backend dependencies
-        run: pip install -r backend/requirements.txt -r backend/requirements-test.txt
+      - name: Install dependencies
+        run: poetry install --with dev
 
-      - name: Run backend tests
-        working-directory: backend
-        run: pytest --cov=app --cov-report=xml:coverage.xml --cov-report=term-missing -v
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
         env:
-          SECRET_KEY: "ci-test-secret-key-at-least-32-characters-long"
-          DEBUG: "true"
-
-      - name: Install chatbot dependencies
-        run: pip install -r chatbot/requirements.txt -r chatbot/requirements-test.txt
-
-      - name: Run chatbot tests
-        working-directory: chatbot
-        run: pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing -v
-        env:
-          OPENAI_API_KEY: "test-fake-key"
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Run frontend tests
-        working-directory: frontend
-        run: npm test -- --coverage --watchAll=false
-
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
