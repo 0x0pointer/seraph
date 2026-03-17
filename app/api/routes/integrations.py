@@ -150,7 +150,7 @@ async def _run_output(
 
 # ── LiteLLM endpoints ──────────────────────────────────────────────────────────
 
-@router.post("/litellm/pre_call")
+@router.post("/litellm/pre_call", responses={400: {"description": "Blocked by guardrail"}})
 async def litellm_pre_call(
     request: Request,
     data: LiteLLMPreCallRequest,
@@ -175,7 +175,7 @@ async def litellm_post_call(
     return await _run_output(request, assistant_text, prompt_text)
 
 
-@router.post("/litellm/during_call")
+@router.post("/litellm/during_call", responses={400: {"description": "Blocked by guardrail"}})
 async def litellm_during_call(
     request: Request,
     data: LiteLLMPreCallRequest,
@@ -195,7 +195,7 @@ class HookRequest(BaseModel):
     prompt: str | None = None
 
 
-@router.post("/hook")
+@router.post("/hook", responses={400: {"description": "Blocked by guardrail"}})
 async def universal_hook(
     request: Request,
     data: HookRequest,
@@ -225,8 +225,48 @@ _HOP_HEADERS = {
 }
 
 
-@router.post("/proxy")
-@router.post("/proxy/{path:path}")
+def _extract_user_text(messages: list[dict]) -> str:
+    """Extract last user message text from a list of message dicts."""
+    class _Msg:
+        def __init__(self, role: str, content: str):
+            self.role = role
+            self.content = content
+    return _last_user_message([_Msg(m.get("role", ""), m.get("content", "")) for m in messages])
+
+
+def _apply_input_fix(messages: list[dict], body: dict, sanitized: str) -> dict:
+    """Replace the last user message with sanitized text in the request body."""
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].get("role") == "user":
+            messages[i] = {**messages[i], "content": sanitized}
+            break
+    return {**body, "messages": messages}
+
+
+async def _forward_to_upstream(
+    request: Request, forward_url: str, body: dict, x_upstream_auth: str | None,
+) -> httpx.Response:
+    """Forward request to the upstream LLM and return the response."""
+    forward_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _HOP_HEADERS
+    }
+    if x_upstream_auth:
+        forward_headers["Authorization"] = x_upstream_auth
+    try:
+        return await _PROXY_CLIENT.post(forward_url, json=body, headers=forward_headers)
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
+
+
+@router.post(
+    "/proxy",
+    responses={400: {"description": "Bad request"}, 502: {"description": "Upstream error"}},
+)
+@router.post(
+    "/proxy/{path:path}",
+    responses={400: {"description": "Bad request"}, 502: {"description": "Upstream error"}},
+)
 async def transparent_proxy(
     request: Request,
     _api_key: ApiKey,
@@ -243,10 +283,7 @@ async def transparent_proxy(
     if not upstream_base:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "No upstream URL configured. "
-                "Set 'upstream' in config.yaml or pass X-Upstream-URL header."
-            ),
+            detail="No upstream URL configured. Set 'upstream' in config.yaml or pass X-Upstream-URL header.",
         )
 
     try:
@@ -257,37 +294,16 @@ async def transparent_proxy(
     messages: list[dict] = body.get("messages") or []
 
     # ── Step 1: Input scan ────────────────────────────────────────────────────
-    class _Msg:
-        def __init__(self, role: str, content: str):
-            self.role = role
-            self.content = content
-
-    user_text = _last_user_message([_Msg(m.get("role", ""), m.get("content", "")) for m in messages])
-
+    user_text = _extract_user_text(messages)
     if user_text:
         scan_result = await _run_input(request, user_text)
         if scan_result.get("fix_applied") and scan_result.get("sanitized_text") != user_text:
-            for i in range(len(messages) - 1, -1, -1):
-                if messages[i].get("role") == "user":
-                    messages[i] = {**messages[i], "content": scan_result["sanitized_text"]}
-                    break
-            body = {**body, "messages": messages}
+            body = _apply_input_fix(messages, body, scan_result["sanitized_text"])
 
     # ── Step 2: Forward to upstream ───────────────────────────────────────────
     upstream_path = path.lstrip("/")
     forward_url = f"{upstream_base.rstrip('/')}/{upstream_path}" if upstream_path else upstream_base.rstrip("/")
-
-    forward_headers = {
-        k: v for k, v in request.headers.items()
-        if k.lower() not in _HOP_HEADERS
-    }
-    if x_upstream_auth:
-        forward_headers["Authorization"] = x_upstream_auth
-
-    try:
-        upstream_resp = await _PROXY_CLIENT.post(forward_url, json=body, headers=forward_headers)
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
+    upstream_resp = await _forward_to_upstream(request, forward_url, body, x_upstream_auth)
 
     if upstream_resp.status_code != 200:
         try:
@@ -302,11 +318,7 @@ async def transparent_proxy(
     except Exception:
         return JSONResponse(content={"error": "Non-JSON upstream response"}, status_code=502)
 
-    choices = upstream_body.get("choices") or []
-    assistant_text = ""
-    if choices:
-        assistant_text = (choices[0].get("message") or {}).get("content") or ""
-
+    assistant_text = _assistant_reply(upstream_body)
     if assistant_text:
         out_result = await _run_output(request, assistant_text, user_text)
         if out_result.get("fix_applied") and out_result.get("sanitized_text") != assistant_text:

@@ -32,9 +32,11 @@ async def lifespan(application: FastAPI):
     except (NotImplementedError, AttributeError):
         pass  # Windows doesn't support SIGHUP
 
-    asyncio.create_task(_warmup_scanners())
+    warmup_task = asyncio.create_task(_warmup_scanners())
 
     yield
+
+    warmup_task.cancel()
 
     # ── shutdown ─────────────────────────────────────────────────────────────
     from app.services import audit_logger
@@ -92,11 +94,14 @@ async def health():
     return {"status": "ok", "app": "Seraph"}
 
 
+from typing import Annotated  # noqa: E402
 from fastapi import Depends  # noqa: E402
+
+ReloadApiKey = Annotated[str | None, Depends(verify_api_key)]
 
 
 @app.post("/reload")
-async def reload(api_key: str | None = Depends(verify_api_key)):
+async def reload(api_key: ReloadApiKey):
     """Hot-reload config and scanners."""
     from app.services.scanner_engine import reload_scanners
     reload_config()

@@ -4,7 +4,7 @@ Simple API key authentication for the guardrail proxy.
 Checks Bearer token against config.api_keys list.
 If api_keys is empty, all requests are allowed (open mode).
 """
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_config
@@ -12,8 +12,7 @@ from app.core.config import get_config
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def verify_api_key(
-    request: Request,
+def verify_api_key(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> str | None:
     """

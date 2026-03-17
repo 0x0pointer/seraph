@@ -86,7 +86,7 @@ def _result_cache_put(key: str, value) -> None:
 
 def invalidate_cache() -> None:
     global _cache_valid
-    _cache_valid = set()
+    _cache_valid.clear()
     _cache.clear()
     _result_cache.clear()
 
@@ -205,6 +205,35 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
     return _import_scanner(scanner_type, direction, params)
 
 
+def _scanner_configs_from_catalog(direction: str) -> list:
+    """Build ScannerConfig list from the guardrail_catalog defaults."""
+    from app.core.guardrail_catalog import GUARDRAIL_CATALOG
+    return [
+        ScannerConfig(
+            type=e["scanner_type"],
+            threshold=e.get("params", {}).get("threshold"),
+            params=e.get("params", {}),
+            on_fail=e.get("on_fail_action", "block"),
+        )
+        for e in GUARDRAIL_CATALOG
+        if e["direction"] == direction and e.get("is_active", False)
+    ]
+
+
+def _prepare_scanner_params(sc: ScannerConfig) -> tuple[dict, list[str], str]:
+    """Extract clean params, custom phrases, and on_fail from a ScannerConfig."""
+    raw_params = dict(sc.params)
+    if sc.threshold is not None and "threshold" not in raw_params:
+        raw_params["threshold"] = sc.threshold
+    custom_phrases = [
+        str(p).strip()
+        for p in raw_params.pop("custom_blocked_phrases", [])
+        if str(p).strip()
+    ]
+    scanner_params = {k: v for k, v in raw_params.items() if k not in _META_PARAMS}
+    return scanner_params, custom_phrases, sc.on_fail
+
+
 def _load_scanners_from_config(
     direction: str,
 ) -> list[tuple[Any, str, list[str], int, dict, str]]:
@@ -220,40 +249,15 @@ def _load_scanners_from_config(
     config = get_config()
 
     if config.scanners is not None:
-        # Use YAML config
         scanner_configs: list[ScannerConfig] = (
             config.scanners.input if direction == "input" else config.scanners.output
         )
     else:
-        # Fall back to guardrail_catalog defaults
-        from app.core.guardrail_catalog import GUARDRAIL_CATALOG
-        scanner_configs = []
-        for cat_entry in GUARDRAIL_CATALOG:
-            if cat_entry["direction"] == direction and cat_entry.get("is_active", False):
-                scanner_configs.append(ScannerConfig(
-                    type=cat_entry["scanner_type"],
-                    threshold=cat_entry.get("params", {}).get("threshold"),
-                    params=cat_entry.get("params", {}),
-                    on_fail=cat_entry.get("on_fail_action", "block"),
-                ))
+        scanner_configs = _scanner_configs_from_catalog(direction)
 
     entries: list[tuple[Any, str, list[str], int, dict, str]] = []
     for idx, sc in enumerate(scanner_configs):
-        raw_params = dict(sc.params)
-
-        # If threshold is set at top level, inject into params
-        if sc.threshold is not None and "threshold" not in raw_params:
-            raw_params["threshold"] = sc.threshold
-
-        # Extract meta-params
-        custom_phrases: list[str] = [
-            str(p).strip()
-            for p in raw_params.pop("custom_blocked_phrases", [])
-            if str(p).strip()
-        ]
-        scanner_params = {k: v for k, v in raw_params.items() if k not in _META_PARAMS}
-        on_fail_action = sc.on_fail
-
+        scanner_params, custom_phrases, on_fail_action = _prepare_scanner_params(sc)
         try:
             scanner = _build_scanner(sc.type, direction, scanner_params)
             entries.append((scanner, sc.type, custom_phrases, idx, scanner_params, on_fail_action))
@@ -541,6 +545,23 @@ async def run_output_scan(
     return result
 
 
+def _merge_scan_results(
+    merged_results: dict[str, float],
+    merged_violations: list[str],
+    results: dict[str, float],
+    violations: list[str],
+    suffix: str = "",
+) -> None:
+    """Merge scan results/violations into the running totals, with optional namespace suffix."""
+    for k, v in results.items():
+        key = f"{k} ({suffix})" if suffix and k in merged_results else k
+        merged_results[key] = v
+    for v in violations:
+        name = f"{v} ({suffix})" if suffix and v in merged_violations else v
+        if name not in merged_violations:
+            merged_violations.append(name)
+
+
 async def run_guard_scan(
     messages: list[dict],
     allowed_input_types: set[str] | None = None,
@@ -553,55 +574,22 @@ async def run_guard_scan(
     merged_results: dict[str, float] = {}
     merged_violations: list[str] = []
 
-    run_p1 = bool(user_text.strip())
-    run_p2 = bool(assistant_text.strip())
-
     coros = []
-    if run_p1:
-        coros.append(run_input_scan(
-            user_text,
-            allowed_types=allowed_input_types,
-        ))
-    if run_p2:
-        coros.append(run_output_scan(
-            user_text or "", assistant_text,
-            allowed_types=allowed_output_types,
-        ))
+    if user_text.strip():
+        coros.append(("input", run_input_scan(user_text, allowed_types=allowed_input_types)))
+    if assistant_text.strip():
+        coros.append(("output", run_output_scan(user_text or "", assistant_text, allowed_types=allowed_output_types)))
 
-    gathered = await asyncio.gather(*coros)
-    idx = 0
-
-    if run_p1:
-        _, _, r1, v1, *_ = gathered[idx]; idx += 1
-        merged_results.update(r1)
-        for v in v1:
-            if v not in merged_violations:
-                merged_violations.append(v)
-
-    if run_p2:
-        _, _, r2, v2, *_ = gathered[idx]
-        for k, v in r2.items():
-            key = f"{k} (output)" if k in merged_results else k
-            merged_results[key] = v
-        for v in v2:
-            namespaced = f"{v} (output)" if v in merged_violations else v
-            if namespaced not in merged_violations:
-                merged_violations.append(namespaced)
+    gathered = await asyncio.gather(*(c for _, c in coros))
+    for i, (label, _) in enumerate(coros):
+        _, _, results, violations, *_ = gathered[i]
+        suffix = "output" if label == "output" else ""
+        _merge_scan_results(merged_results, merged_violations, results, violations, suffix)
 
     # Pass 3 — full conversation through PromptInjection only (indirect injection)
     if full_convo.strip():
-        _, _, r3, v3, *_ = await run_input_scan(
-            full_convo,
-            allowed_types={"PromptInjection"},
-        )
-        for k, score in r3.items():
-            key = f"{k} (indirect)"
-            if key not in merged_results or score > merged_results[key]:
-                merged_results[key] = score
-        for v in v3:
-            key = f"{v} (indirect)"
-            if key not in merged_violations:
-                merged_violations.append(key)
+        _, _, r3, v3, *_ = await run_input_scan(full_convo, allowed_types={"PromptInjection"})
+        _merge_scan_results(merged_results, merged_violations, r3, v3, "indirect")
 
     return len(merged_violations) > 0, merged_results, merged_violations
 

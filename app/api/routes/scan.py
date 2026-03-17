@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
@@ -9,12 +10,14 @@ from app.services import audit_logger
 
 router = APIRouter(prefix="/scan", tags=["scan"])
 
+ApiKey = Annotated[str | None, Depends(verify_api_key)]
+
 
 @router.post("/prompt", response_model=ScanResponse)
 async def scan_prompt(
     request: Request,
     data: ScanRequest,
-    _api_key: str | None = Depends(verify_api_key),
+    _api_key: ApiKey,
 ):
     ip = request.client.host if request.client else None
 
@@ -52,7 +55,7 @@ async def scan_prompt(
 async def scan_output(
     request: Request,
     data: ScanRequest,
-    _api_key: str | None = Depends(verify_api_key),
+    _api_key: ApiKey,
 ):
     ip = request.client.host if request.client else None
     prompt = data.prompt or ""
@@ -91,7 +94,7 @@ async def scan_output(
 async def scan_guard(
     request: Request,
     data: GuardRequest,
-    _api_key: str | None = Depends(verify_api_key),
+    _api_key: ApiKey,
 ):
     ip = request.client.host if request.client else None
 

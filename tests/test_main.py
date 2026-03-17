@@ -1,6 +1,5 @@
 """Integration tests for app/main.py — health, reload, middleware."""
-import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 
 class TestHealthEndpoint:
@@ -56,7 +55,6 @@ class TestBodySizeLimiting:
 
     def test_normal_body_passes(self, client):
         """POST with small Content-Length passes through to normal handling."""
-        from unittest.mock import AsyncMock, patch
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
@@ -77,7 +75,7 @@ class TestLifespan:
         from app.main import _handle_sighup
         with (
             patch("app.main.reload_config") as mock_rc,
-            patch("app.main.reload_scanners") as mock_rs,
+            patch("app.services.scanner_engine.reload_scanners") as mock_rs,
         ):
             _handle_sighup()
         mock_rc.assert_called_once()
