@@ -1,4 +1,4 @@
-"""Integration tests for /api/integrations endpoints (hook, litellm pre/post call).
+"""Tests for the transparent proxy (the sole integration pattern).
 
 The heavy scanner_engine functions are mocked so tests don't load ML models.
 """
@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 
 def _get_proxy_client():
-    from app.api.routes.integrations import _PROXY_CLIENT
+    from app.api.routes.proxy import _PROXY_CLIENT
     return _PROXY_CLIENT
 
 
@@ -20,286 +20,118 @@ def _blocked_scan_result(text: str = "bad content"):
     return (False, text, {"PromptInjection": 0.97}, ["PromptInjection"], {"PromptInjection": "blocked"}, None, False)
 
 
-# ── Universal Hook tests ─────────────────────────────────────────────────────
+# ── Message extraction tests ────────────────────────────────────────────────
 
-class TestUniversalHook:
-    def test_input_scan_allowed(self, client):
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=_clean_scan_result("safe prompt"),
-        ):
-            resp = client.post(
-                "/api/integrations/hook",
-                json={"text": "safe prompt", "direction": "input"},
-            )
+class TestMessageExtraction:
+    def test_extract_openai_format(self):
+        from app.api.routes.proxy import _extract_user_text
+        body = {"messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hello!"},
+        ]}
+        assert _extract_user_text(body) == "Hello!"
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["sanitized_text"] == "safe prompt"
+    def test_extract_anthropic_format(self):
+        from app.api.routes.proxy import _extract_user_text
+        body = {"messages": [
+            {"role": "user", "content": [
+                {"type": "text", "text": "Hello from"},
+                {"type": "text", "text": "Anthropic!"},
+            ]},
+        ]}
+        assert _extract_user_text(body) == "Hello from Anthropic!"
 
-    def test_input_scan_blocked(self, client):
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=_blocked_scan_result("malicious input"),
-        ):
-            resp = client.post(
-                "/api/integrations/hook",
-                json={"text": "malicious input", "direction": "input"},
-            )
+    def test_extract_anthropic_with_image_blocks(self):
+        from app.api.routes.proxy import _extract_user_text
+        body = {"messages": [
+            {"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "data": "..."}},
+                {"type": "text", "text": "What is this?"},
+            ]},
+        ]}
+        assert _extract_user_text(body) == "What is this?"
 
-        assert resp.status_code == 400
-        data = resp.json()
-        assert "PromptInjection" in data["detail"]
+    def test_extract_empty_messages(self):
+        from app.api.routes.proxy import _extract_user_text
+        assert _extract_user_text({"messages": []}) == ""
+        assert _extract_user_text({}) == ""
 
-    def test_output_scan_allowed(self, client):
-        with patch(
-            "app.services.scanner_engine.run_output_scan",
-            new_callable=AsyncMock,
-            return_value=_clean_scan_result("helpful answer"),
-        ):
-            resp = client.post(
-                "/api/integrations/hook",
-                json={
-                    "text": "helpful answer",
-                    "direction": "output",
-                    "prompt": "What is AI?",
-                },
-            )
+    def test_extract_no_user_message(self):
+        from app.api.routes.proxy import _extract_user_text
+        body = {"messages": [{"role": "system", "content": "You are a bot."}]}
+        assert _extract_user_text(body) == ""
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["sanitized_text"] == "helpful answer"
-
-    def test_empty_input_text_returns_allowed(self, client):
-        resp = client.post(
-            "/api/integrations/hook",
-            json={"text": "", "direction": "input"},
-        )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["detail"] == "No input text to scan"
-
-    def test_empty_output_text_returns_allowed(self, client):
-        resp = client.post(
-            "/api/integrations/hook",
-            json={"text": "", "direction": "output"},
-        )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["detail"] == "No output text to scan"
+    def test_extract_last_user_message(self):
+        from app.api.routes.proxy import _extract_user_text
+        body = {"messages": [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "reply"},
+            {"role": "user", "content": "second"},
+        ]}
+        assert _extract_user_text(body) == "second"
 
 
-# ── LiteLLM pre_call tests ───────────────────────────────────────────────────
+class TestAssistantExtraction:
+    def test_openai_format(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        body = {"choices": [{"message": {"role": "assistant", "content": "Hello!"}}]}
+        assert _extract_assistant_text(body) == "Hello!"
 
-class TestLiteLLMPreCall:
-    def test_clean_message_allowed(self, client):
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=_clean_scan_result("What is Python?"),
-        ):
-            resp = client.post(
-                "/api/integrations/litellm/pre_call",
-                json={
-                    "messages": [
-                        {"role": "user", "content": "What is Python?"},
-                    ],
-                },
-            )
+    def test_anthropic_format(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        body = {"content": [{"type": "text", "text": "Hello from Claude!"}]}
+        assert _extract_assistant_text(body) == "Hello from Claude!"
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["sanitized_text"] == "What is Python?"
+    def test_empty_choices(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        assert _extract_assistant_text({"choices": []}) == ""
 
-    def test_no_user_message_returns_allowed(self, client):
-        resp = client.post(
-            "/api/integrations/litellm/pre_call",
-            json={
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                ],
-            },
-        )
+    def test_none_response(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        assert _extract_assistant_text({}) == ""
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["detail"] == "No user message to scan"
+    def test_missing_content_key(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        body = {"choices": [{"message": {"role": "assistant"}}]}
+        assert _extract_assistant_text(body) == ""
+
+    def test_none_message(self):
+        from app.api.routes.proxy import _extract_assistant_text
+        body = {"choices": [{"message": None}]}
+        assert _extract_assistant_text(body) == ""
 
 
-# ── LiteLLM post_call tests ──────────────────────────────────────────────────
+class TestDetectApiFormat:
+    def test_openai(self):
+        from app.api.routes.proxy import _detect_api_format
+        assert _detect_api_format({"messages": [{"role": "user", "content": "hi"}]}) == "openai"
 
-class TestLiteLLMPostCall:
-    def test_clean_response_allowed(self, client):
-        with patch(
-            "app.services.scanner_engine.run_output_scan",
-            new_callable=AsyncMock,
-            return_value=_clean_scan_result("Python is a programming language."),
-        ):
-            resp = client.post(
-                "/api/integrations/litellm/post_call",
-                json={
-                    "messages": [
-                        {"role": "user", "content": "What is Python?"},
-                    ],
-                    "response": {
-                        "choices": [
-                            {
-                                "message": {
-                                    "role": "assistant",
-                                    "content": "Python is a programming language.",
-                                }
-                            }
-                        ]
-                    },
-                },
-            )
+    def test_anthropic(self):
+        from app.api.routes.proxy import _detect_api_format
+        body = {"messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]}
+        assert _detect_api_format(body) == "anthropic"
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["sanitized_text"] == "Python is a programming language."
+    def test_unknown_no_messages(self):
+        from app.api.routes.proxy import _detect_api_format
+        assert _detect_api_format({}) == "unknown"
 
-    def test_no_response_returns_allowed(self, client):
-        resp = client.post(
-            "/api/integrations/litellm/post_call",
-            json={
-                "messages": [
-                    {"role": "user", "content": "Hello"},
-                ],
-                "response": None,
-            },
-        )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["detail"] == "No assistant response to scan"
-
-
-# ── Helper function unit tests ────────────────────────────────────────────────
-
-class TestHelperFunctions:
-    def test_last_user_message_with_messages(self):
-        from app.api.routes.integrations import _last_user_message, LiteLLMMessage
-
-        messages = [
-            LiteLLMMessage(role="system", content="Be helpful."),
-            LiteLLMMessage(role="user", content="First question"),
-            LiteLLMMessage(role="assistant", content="Answer"),
-            LiteLLMMessage(role="user", content="Follow-up"),
-        ]
-        assert _last_user_message(messages) == "Follow-up"
-
-    def test_last_user_message_empty_list(self):
-        from app.api.routes.integrations import _last_user_message
-
-        assert _last_user_message([]) == ""
-
-    def test_assistant_reply_with_response_dict(self):
-        from app.api.routes.integrations import _assistant_reply
-
-        response = {
-            "choices": [
-                {"message": {"role": "assistant", "content": "Hello there!"}}
-            ]
-        }
-        assert _assistant_reply(response) == "Hello there!"
-
-    def test_assistant_reply_none(self):
-        from app.api.routes.integrations import _assistant_reply
-
-        assert _assistant_reply(None) == ""
-
-    def test_assistant_reply_empty_dict(self):
-        from app.api.routes.integrations import _assistant_reply
-
-        assert _assistant_reply({}) == ""
-
-    def test_assistant_reply_no_choices(self):
-        from app.api.routes.integrations import _assistant_reply
-
-        assert _assistant_reply({"choices": []}) == ""
-
-
-# ── LiteLLM during_call tests ────────────────────────────────────────────────
-
-class TestLiteLLMDuringCall:
-    def test_during_call_clean_message(self, client):
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=_clean_scan_result("What is AI?"),
-        ):
-            resp = client.post(
-                "/api/integrations/litellm/during_call",
-                json={
-                    "messages": [
-                        {"role": "user", "content": "What is AI?"},
-                    ],
-                },
-            )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["sanitized_text"] == "What is AI?"
-
-    def test_during_call_no_user_message(self, client):
-        resp = client.post(
-            "/api/integrations/litellm/during_call",
-            json={
-                "messages": [
-                    {"role": "system", "content": "You are a bot."},
-                ],
-            },
-        )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "allowed"
-        assert data["detail"] == "No user message to scan"
-
-    def test_during_call_blocked(self, client):
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=_blocked_scan_result("inject this"),
-        ):
-            resp = client.post(
-                "/api/integrations/litellm/during_call",
-                json={
-                    "messages": [
-                        {"role": "user", "content": "inject this"},
-                    ],
-                },
-            )
-
-        assert resp.status_code == 400
-        assert "PromptInjection" in resp.json()["detail"]
+    def test_unknown_empty_messages(self):
+        from app.api.routes.proxy import _detect_api_format
+        assert _detect_api_format({"messages": []}) == "unknown"
 
 
 # ── Transparent Proxy tests ──────────────────────────────────────────────────
 
 class TestTransparentProxy:
     def test_proxy_missing_upstream_url_returns_400(self, client):
-        """No X-Upstream-URL header and no config.upstream → 400."""
+        """No X-Upstream-URL header and no config.upstream -> 400."""
         from app.core.config import get_config
         config = get_config()
         saved = config.upstream
         config.upstream = ""
         try:
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
             )
             assert resp.status_code == 400
@@ -335,7 +167,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy/v1/chat/completions",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={
                     "X-Upstream-URL": "https://api.openai.com",
@@ -366,7 +198,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={
                     "X-Upstream-URL": "https://api.openai.com",
@@ -389,7 +221,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={
                     "X-Upstream-URL": "https://api.openai.com",
@@ -425,13 +257,12 @@ class TestTransparentProxy:
             ) as mock_post,
         ):
             resp = client.post(
-                "/api/integrations/proxy/v1/chat/completions",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "my secret key=abc"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
 
         assert resp.status_code == 200
-        # Verify the forwarded body had the sanitized message
         forwarded_body = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
         assert forwarded_body["messages"][0]["content"] == "REDACTED"
 
@@ -461,7 +292,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -486,7 +317,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -502,7 +333,7 @@ class TestTransparentProxy:
             return_value=_blocked_scan_result("malicious"),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "malicious"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -534,7 +365,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": []},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -566,7 +397,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -591,7 +422,7 @@ class TestTransparentProxy:
             ),
         ):
             resp = client.post(
-                "/api/integrations/proxy",
+                "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "hi"}]},
                 headers={"X-Upstream-URL": "https://api.openai.com"},
             )
@@ -600,10 +431,10 @@ class TestTransparentProxy:
         assert "error" in resp.json()
 
 
-# ── Reask context tests ─────────────────────────────────────────────────────
+# ── Reask context tests ──────────────────────────────────────────────────────
 
 class TestReaskContext:
-    def test_hook_reask_context_in_error_detail(self, client):
+    def test_proxy_reask_context_in_error_detail(self, client):
         """When reask_context is present, it appears in the 400 detail."""
         reask_result = (False, "bad", {"Scanner": 0.9}, ["Scanner"], {"Scanner": "reask"},
                         ["Please revise your message."], False)
@@ -613,44 +444,123 @@ class TestReaskContext:
             return_value=reask_result,
         ):
             resp = client.post(
-                "/api/integrations/hook",
-                json={"text": "bad input", "direction": "input"},
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "bad input"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
             )
 
         assert resp.status_code == 400
         assert "revise" in resp.json()["detail"].lower()
 
-    def test_output_hook_reask_context(self, client):
-        """Reask context works for output direction too."""
-        reask_result = (False, "bad output", {"Scanner": 0.9}, ["Scanner"], {"Scanner": "reask"},
-                        ["Please revise your output."], False)
-        with patch(
-            "app.services.scanner_engine.run_output_scan",
-            new_callable=AsyncMock,
-            return_value=reask_result,
+
+# ── Anthropic proxy integration tests ────────────────────────────────────────
+
+class TestAnthropicProxy:
+    def test_anthropic_input_scanned(self, client):
+        """Anthropic-format messages are correctly extracted and scanned."""
+        upstream_response = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "Hello from Claude!"}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("Hello!"),
+            ) as mock_input,
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("Hello from Claude!"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
         ):
             resp = client.post(
-                "/api/integrations/hook",
-                json={"text": "bad output", "direction": "output", "prompt": "test"},
+                "/v1/messages",
+                json={"messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "Hello!"}]},
+                ]},
+                headers={"X-Upstream-URL": "https://api.anthropic.com"},
             )
 
-        assert resp.status_code == 400
-        assert "revise" in resp.json()["detail"].lower()
+        assert resp.status_code == 200
+        mock_input.assert_called_once_with("Hello!")
+        assert resp.json()["content"][0]["text"] == "Hello from Claude!"
 
+    def test_anthropic_output_sanitization(self, client):
+        """Anthropic-format output is sanitized correctly."""
+        upstream_response = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "secret=abc123"}]},
+        )
+        output_fixed = (True, "secret=[REDACTED]", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
 
-# ── _assistant_reply edge cases ──────────────────────────────────────────────
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=output_fixed,
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/v1/messages",
+                json={"messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "hi"}]},
+                ]},
+                headers={"X-Upstream-URL": "https://api.anthropic.com"},
+            )
 
-class TestAssistantReplyEdgeCases:
-    def test_choices_with_missing_content_key(self):
-        from app.api.routes.integrations import _assistant_reply
-        response = {"choices": [{"message": {"role": "assistant"}}]}
-        assert _assistant_reply(response) == ""
+        assert resp.status_code == 200
+        assert resp.json()["content"][0]["text"] == "secret=[REDACTED]"
 
-    def test_choices_with_none_message(self):
-        from app.api.routes.integrations import _assistant_reply
-        response = {"choices": [{"message": None}]}
-        assert _assistant_reply(response) == ""
+    def test_anthropic_input_fix_replaces_blocks(self, client):
+        """When input fix is applied on Anthropic format, content blocks are replaced."""
+        fixed_result = (True, "REDACTED", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        upstream_response = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "Got it."}]},
+        )
 
-    def test_non_dict_response(self):
-        from app.api.routes.integrations import _assistant_reply
-        assert _assistant_reply("not a dict") == ""
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=fixed_result,
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("Got it."),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ) as mock_post,
+        ):
+            resp = client.post(
+                "/v1/messages",
+                json={"messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "my secret"}]},
+                ]},
+                headers={"X-Upstream-URL": "https://api.anthropic.com"},
+            )
+
+        assert resp.status_code == 200
+        forwarded_body = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
+        assert forwarded_body["messages"][0]["content"] == [{"type": "text", "text": "REDACTED"}]
