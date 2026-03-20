@@ -1,0 +1,28 @@
+# Seraph config for the nginx reverse proxy chatbot example.
+# Client => Nginx => Seraph => LLM
+
+listen: "0.0.0.0:8000"
+
+# Set your LLM provider here, or leave empty and pass X-Upstream-URL per request.
+upstream: "https://api.openai.com"
+
+# Open mode — no Seraph API key required.
+# In production, set keys here and pass them from nginx via proxy_set_header.
+api_keys: []
+
+logging:
+  level: info
+  audit: true
+  audit_file: null
+
+# Uses the full built-in scanner catalog (42 scanners, 322+ rules).
+# Uncomment below to customize:
+# scanners:
+#   input:
+#     - type: PromptInjection
+#       on_fail: block
+#     - type: Toxicity
+#       on_fail: block
+#   output:
+#     - type: Toxicity
+#       on_fail: block

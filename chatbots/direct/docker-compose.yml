@@ -1,0 +1,31 @@
+## Client => Seraph => LLM
+##
+## Seraph serves as both the guardrail proxy and the API endpoint.
+## A lightweight nginx serves the chat UI and proxies API calls to Seraph
+## on the same origin (avoids CORS issues).
+##
+## Usage:
+##   docker compose up --build
+##   Open http://localhost:3000
+
+services:
+  seraph:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - SERAPH_CONFIG=/app/config.yaml
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../chat.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - seraph
+    restart: unless-stopped

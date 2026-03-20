@@ -1,0 +1,37 @@
+## Client => Nginx (reverse proxy) => Seraph => LLM
+##
+## Nginx acts as the public-facing reverse proxy. It serves the chat UI,
+## terminates TLS (if configured), applies rate limiting, and forwards
+## LLM API requests through Seraph for guardrail scanning.
+##
+## This simulates a production deployment where Seraph sits behind
+## an existing reverse proxy / API gateway.
+##
+## Usage:
+##   docker compose up --build
+##   Open http://localhost:3000
+
+services:
+  seraph:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - SERAPH_CONFIG=/app/config.yaml
+    # Not exposed to host — only nginx can reach Seraph
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../chat.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - seraph
+    restart: unless-stopped
