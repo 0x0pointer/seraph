@@ -3,7 +3,7 @@
 
 listen: "0.0.0.0:8000"
 
-# Upstream LLM provider (used by /proxy when X-Upstream-URL header is not set)
+# Default LLM backend. Override per-request with the X-Upstream-URL header.
 upstream: "https://api.openai.com"
 
 # API keys for authenticating with Seraph (leave empty for open mode)

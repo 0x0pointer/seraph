@@ -56,7 +56,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content={"detail": "Invalid request data"})
 
 
-_MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024  # 1 MB
+_MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB
 
 
 @app.middleware("http")
@@ -73,31 +73,25 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def limit_body_size_middleware(request: Request, call_next):
-    """Reject requests with a body larger than 1 MB."""
+    """Reject requests with a body larger than 4 MB."""
     if request.method in ("POST", "PUT", "PATCH"):
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > _MAX_REQUEST_BODY_BYTES:
-            return JSONResponse(status_code=413, content={"detail": "Request body too large (max 1 MB)"})
+            return JSONResponse(status_code=413, content={"detail": "Request body too large (max 4 MB)"})
     return await call_next(request)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-from app.api.routes import scan, integrations  # noqa: E402
+from typing import Annotated  # noqa: E402
+from fastapi import Depends  # noqa: E402
 
-app.include_router(scan.router, prefix="/api")
-app.include_router(integrations.router, prefix="/api")
+ReloadApiKey = Annotated[str | None, Depends(verify_api_key)]
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "app": "Seraph"}
-
-
-from typing import Annotated  # noqa: E402
-from fastapi import Depends  # noqa: E402
-
-ReloadApiKey = Annotated[str | None, Depends(verify_api_key)]
 
 
 @app.post("/reload")
@@ -107,6 +101,12 @@ async def reload(api_key: ReloadApiKey):
     reload_config()
     reload_scanners()
     return {"status": "reloaded"}
+
+
+# Proxy catch-all must be registered LAST so /health and /reload match first
+from app.api.routes import proxy  # noqa: E402
+
+app.include_router(proxy.router)
 
 
 
