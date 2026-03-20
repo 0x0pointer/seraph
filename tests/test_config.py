@@ -140,6 +140,23 @@ class TestScannerConfigWithParams:
         assert sc.params["substrings"] == ["bad", "evil"]
         assert sc.on_fail == "fix"
 
+    def test_upstream_api_key_from_yaml(self, tmp_path):
+        cfg_file = tmp_path / "key.yaml"
+        cfg_file.write_text("upstream_api_key: 'sk-from-yaml'\n")
+        config = load_config(str(cfg_file))
+        assert config.upstream_api_key == "sk-from-yaml"
+
+    def test_upstream_api_key_env_overrides_yaml(self, tmp_path, monkeypatch):
+        cfg_file = tmp_path / "key_env.yaml"
+        cfg_file.write_text("upstream_api_key: 'sk-from-yaml'\n")
+        monkeypatch.setenv("UPSTREAM_API_KEY", "sk-from-env")
+        config = load_config(str(cfg_file))
+        assert config.upstream_api_key == "sk-from-env"
+
+    def test_upstream_api_key_default_empty(self):
+        config = Config()
+        assert config.upstream_api_key == ""
+
     def test_config_with_audit_file(self, tmp_path):
         cfg_file = tmp_path / "audit.yaml"
         cfg_file.write_text(

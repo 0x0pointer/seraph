@@ -6,6 +6,10 @@ listen: "0.0.0.0:8000"
 # Default LLM backend. Override per-request with the X-Upstream-URL header.
 upstream: "https://api.openai.com"
 
+# LLM provider API key — injected server-side as Authorization header.
+# Set here or via UPSTREAM_API_KEY env var (env var takes priority).
+upstream_api_key: ""
+
 # API keys for authenticating with Seraph (leave empty for open mode)
 api_keys:
   - "sk_seraph_abc123"

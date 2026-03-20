@@ -276,6 +276,13 @@ def _resolve_upstream(config, header_url: str | None) -> str:
     return upstream_base
 
 
+def _resolve_upstream_auth(config, header_auth: str | None) -> str | None:
+    """Resolve upstream auth: config key takes priority, header is override."""
+    if config.upstream_api_key:
+        return f"Bearer {config.upstream_api_key}"
+    return header_auth
+
+
 def _build_forward_url(upstream_base: str, path: str) -> str:
     upstream_path = path.lstrip("/")
     if upstream_path:
@@ -356,10 +363,11 @@ async def transparent_proxy(
     """
     config = get_config()
     upstream_base = _resolve_upstream(config, x_upstream_url)
+    upstream_auth = _resolve_upstream_auth(config, x_upstream_auth)
     forward_url = _build_forward_url(upstream_base, path)
 
     if request.method != "POST":
-        return await _passthrough_non_post(request, forward_url, x_upstream_auth)
+        return await _passthrough_non_post(request, forward_url, upstream_auth)
 
     try:
         body: dict[str, Any] = await request.json()
@@ -370,9 +378,9 @@ async def transparent_proxy(
 
     if body.get("stream") is True:
         logger.info("Streaming request — output scanning skipped")
-        return await _stream_from_upstream(request, forward_url, body, x_upstream_auth)
+        return await _stream_from_upstream(request, forward_url, body, upstream_auth)
 
-    upstream_resp = await _forward_to_upstream(request, forward_url, body, x_upstream_auth)
+    upstream_resp = await _forward_to_upstream(request, forward_url, body, upstream_auth)
 
     if upstream_resp.status_code != 200:
         return _relay_upstream_error(upstream_resp)

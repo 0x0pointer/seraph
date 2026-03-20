@@ -718,6 +718,73 @@ class TestStreaming:
 
 # ── Helper function tests ────────────────────────────────────────────────────
 
+class TestResolveUpstreamAuth:
+    def test_config_key_takes_priority(self):
+        from app.api.routes.proxy import _resolve_upstream_auth
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.upstream_api_key = "sk-from-config"
+        result = _resolve_upstream_auth(config, "Bearer sk-from-header")
+        assert result == "Bearer sk-from-config"
+
+    def test_falls_back_to_header(self):
+        from app.api.routes.proxy import _resolve_upstream_auth
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.upstream_api_key = ""
+        result = _resolve_upstream_auth(config, "Bearer sk-from-header")
+        assert result == "Bearer sk-from-header"
+
+    def test_returns_none_when_no_key(self):
+        from app.api.routes.proxy import _resolve_upstream_auth
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.upstream_api_key = ""
+        result = _resolve_upstream_auth(config, None)
+        assert result is None
+
+    def test_config_key_used_in_proxy(self, client):
+        """When upstream_api_key is set in config, it's used as Authorization."""
+        from app.core.config import get_config
+        config = get_config()
+        saved = config.upstream_api_key
+        config.upstream_api_key = "sk-server-side-key"
+
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "hi"}}]},
+        )
+
+        try:
+            with (
+                patch(
+                    "app.services.scanner_engine.run_input_scan",
+                    new_callable=AsyncMock,
+                    return_value=_clean_scan_result("hi"),
+                ),
+                patch(
+                    "app.services.scanner_engine.run_output_scan",
+                    new_callable=AsyncMock,
+                    return_value=_clean_scan_result("hi"),
+                ),
+                patch.object(
+                    _get_proxy_client(), "post",
+                    new_callable=AsyncMock,
+                    return_value=upstream_response,
+                ) as mock_post,
+            ):
+                client.post(
+                    "/v1/chat/completions",
+                    json={"messages": [{"role": "user", "content": "hi"}]},
+                    headers={"X-Upstream-URL": "https://api.openai.com"},
+                )
+
+            forwarded_headers = mock_post.call_args.kwargs.get("headers", {})
+            assert forwarded_headers["Authorization"] == "Bearer sk-server-side-key"
+        finally:
+            config.upstream_api_key = saved
+
+
 class TestBuildForwardUrl:
     def test_with_path(self):
         from app.api.routes.proxy import _build_forward_url

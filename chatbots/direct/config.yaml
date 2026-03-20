@@ -1,0 +1,32 @@
+# Seraph config for the direct chatbot example.
+# Client => Seraph => LLM
+
+listen: "0.0.0.0:8000"
+
+# Set your LLM provider here, or leave empty and pass X-Upstream-URL per request.
+upstream: "https://api.openai.com"
+
+# LLM provider API key — stays server-side, never exposed to clients.
+# Injected via UPSTREAM_API_KEY env var (see .env file).
+upstream_api_key: ""
+
+# Open mode — no Seraph API key required.
+# Add keys here to require auth: ["your-key-here"]
+api_keys: []
+
+logging:
+  level: info
+  audit: true
+  audit_file: null
+
+# Uses the full built-in scanner catalog (42 scanners, 322+ rules).
+# Uncomment below to customize:
+# scanners:
+#   input:
+#     - type: PromptInjection
+#       on_fail: block
+#     - type: Toxicity
+#       on_fail: block
+#   output:
+#     - type: Toxicity
+#       on_fail: block
