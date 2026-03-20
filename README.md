@@ -15,6 +15,8 @@ Seraph is a transparent security proxy for LLM applications. Point your app at S
 
 ## How it works
 
+Seraph acts as a **transparent proxy** between your app and the LLM provider. It intercepts every request, scans the input, forwards to the upstream LLM, scans the output, and returns the result. If a threat is detected at any point, the request is blocked before it reaches the LLM (or before the response reaches your app).
+
 ```mermaid
 flowchart LR
     App["Your App"] -->|"user prompt"| Seraph
@@ -30,7 +32,30 @@ flowchart LR
     style S fill:#2ecc71,stroke:#27ae60,color:#fff
 ```
 
-Seraph acts as a **transparent proxy** between your app and the LLM. It intercepts every request, scans the input, forwards to the upstream LLM, scans the output, and returns the result. If a threat is detected at any point, the request is blocked before it reaches the LLM (or before the response reaches your app).
+```mermaid
+sequenceDiagram
+    participant App
+    participant Seraph
+    participant Scanners as Scanners
+    participant LLM as LLM Provider
+
+    App->>Seraph: POST /v1/chat/completions<br/>Authorization: Bearer seraph-key<br/>X-Upstream-Auth: Bearer provider-key
+
+    Seraph->>Seraph: Auth check (seraph-key)
+    Seraph->>Scanners: Scan user message
+    Scanners-->>Seraph: Safe (or sanitized)
+
+    Note over Seraph: Replace Authorization header:<br/>seraph-key → provider-key
+
+    Seraph->>LLM: Forward to upstream<br/>Authorization: Bearer provider-key
+
+    LLM-->>Seraph: Assistant response
+
+    Seraph->>Scanners: Scan assistant response
+    Scanners-->>Seraph: Safe
+
+    Seraph-->>App: Return response
+```
 
 ## Quick Start
 
