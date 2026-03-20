@@ -264,7 +264,7 @@ async def _stream_from_upstream(
     )
 
 
-# ── Proxy route ──────────────────────────────────────────────────────────────
+# ── Proxy helpers ────────────────────────────────────────────────────────────
 
 def _resolve_upstream(config, header_url: str | None) -> str:
     upstream_base = header_url or config.upstream
@@ -275,6 +275,68 @@ def _resolve_upstream(config, header_url: str | None) -> str:
         )
     return upstream_base
 
+
+def _build_forward_url(upstream_base: str, path: str) -> str:
+    upstream_path = path.lstrip("/")
+    if upstream_path:
+        return f"{upstream_base.rstrip('/')}/{upstream_path}"
+    return upstream_base.rstrip("/")
+
+
+async def _passthrough_non_post(
+    request: Request, forward_url: str, x_upstream_auth: str | None,
+) -> JSONResponse:
+    """Forward non-POST requests without scanning."""
+    forward_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _HOP_HEADERS
+    }
+    if x_upstream_auth:
+        forward_headers["Authorization"] = x_upstream_auth
+    try:
+        upstream_resp = await _PROXY_CLIENT.request(
+            request.method, forward_url, headers=forward_headers,
+        )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
+    try:
+        return JSONResponse(content=upstream_resp.json(), status_code=upstream_resp.status_code)
+    except Exception:
+        return JSONResponse(content={"error": upstream_resp.text}, status_code=upstream_resp.status_code)
+
+
+async def _scan_input_and_fix(request: Request, body: dict) -> tuple[dict, str]:
+    """Run input scan and apply fixes if needed. Returns (body, user_text)."""
+    user_text = _extract_user_text(body)
+    if user_text:
+        scan_result = await _run_input(request, user_text)
+        if scan_result.get("fix_applied") and scan_result.get("sanitized_text") != user_text:
+            body = _apply_input_fix(body, scan_result["sanitized_text"])
+    return body, user_text
+
+
+def _relay_upstream_error(upstream_resp: httpx.Response) -> JSONResponse:
+    """Convert a non-200 upstream response into a JSONResponse."""
+    try:
+        err_body = upstream_resp.json()
+    except Exception:
+        err_body = {"error": upstream_resp.text}
+    return JSONResponse(content=err_body, status_code=upstream_resp.status_code)
+
+
+async def _scan_output_and_fix(
+    request: Request, upstream_body: dict, user_text: str,
+) -> dict:
+    """Run output scan and apply fixes if needed."""
+    assistant_text = _extract_assistant_text(upstream_body)
+    if assistant_text:
+        out_result = await _run_output(request, assistant_text, user_text)
+        if out_result.get("fix_applied") and out_result.get("sanitized_text") != assistant_text:
+            upstream_body = _apply_output_fix(upstream_body, out_result["sanitized_text"])
+    return upstream_body
+
+
+# ── Proxy route ──────────────────────────────────────────────────────────────
 
 @router.api_route(
     "/{path:path}",
@@ -294,70 +356,31 @@ async def transparent_proxy(
     """
     config = get_config()
     upstream_base = _resolve_upstream(config, x_upstream_url)
+    forward_url = _build_forward_url(upstream_base, path)
 
-    upstream_path = path.lstrip("/")
-    forward_url = f"{upstream_base.rstrip('/')}/{upstream_path}" if upstream_path else upstream_base.rstrip("/")
-
-    # Non-POST requests: pass through without scanning (e.g., GET /v1/models)
     if request.method != "POST":
-        forward_headers = {
-            k: v for k, v in request.headers.items()
-            if k.lower() not in _HOP_HEADERS
-        }
-        if x_upstream_auth:
-            forward_headers["Authorization"] = x_upstream_auth
-        try:
-            upstream_resp = await _PROXY_CLIENT.request(
-                request.method, forward_url, headers=forward_headers,
-            )
-        except httpx.RequestError as exc:
-            raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
-        try:
-            return JSONResponse(content=upstream_resp.json(), status_code=upstream_resp.status_code)
-        except Exception:
-            return JSONResponse(
-                content={"error": upstream_resp.text},
-                status_code=upstream_resp.status_code,
-            )
+        return await _passthrough_non_post(request, forward_url, x_upstream_auth)
 
-    # POST requests: parse body, scan, forward, scan output
     try:
         body: dict[str, Any] = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Request body must be valid JSON.")
 
-    # ── Step 1: Input scan ────────────────────────────────────────────────
-    user_text = _extract_user_text(body)
-    if user_text:
-        scan_result = await _run_input(request, user_text)
-        if scan_result.get("fix_applied") and scan_result.get("sanitized_text") != user_text:
-            body = _apply_input_fix(body, scan_result["sanitized_text"])
+    body, user_text = await _scan_input_and_fix(request, body)
 
-    # ── Step 2: Forward to upstream ───────────────────────────────────────
-    is_streaming = body.get("stream") is True
-    if is_streaming:
+    if body.get("stream") is True:
         logger.info("Streaming request — output scanning skipped")
         return await _stream_from_upstream(request, forward_url, body, x_upstream_auth)
 
     upstream_resp = await _forward_to_upstream(request, forward_url, body, x_upstream_auth)
 
     if upstream_resp.status_code != 200:
-        try:
-            err_body = upstream_resp.json()
-        except Exception:
-            err_body = {"error": upstream_resp.text}
-        return JSONResponse(content=err_body, status_code=upstream_resp.status_code)
+        return _relay_upstream_error(upstream_resp)
 
-    # ── Step 3: Output scan ───────────────────────────────────────────────
     try:
         upstream_body: dict[str, Any] = upstream_resp.json()
     except Exception:
         return JSONResponse(content={"error": "Non-JSON upstream response"}, status_code=502)
 
-    assistant_text = _extract_assistant_text(upstream_body)
-    if assistant_text:
-        out_result = await _run_output(request, assistant_text, user_text)
-        if out_result.get("fix_applied") and out_result.get("sanitized_text") != assistant_text:
-            upstream_body = _apply_output_fix(upstream_body, out_result["sanitized_text"])
-
+    upstream_body = await _scan_output_and_fix(request, upstream_body, user_text)
     return JSONResponse(content=upstream_body, status_code=200)

@@ -4,7 +4,7 @@ The heavy scanner_engine functions are mocked so tests don't load ML models.
 """
 import pytest
 import httpx
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _get_proxy_client():
@@ -564,3 +564,288 @@ class TestAnthropicProxy:
         assert resp.status_code == 200
         forwarded_body = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
         assert forwarded_body["messages"][0]["content"] == [{"type": "text", "text": "REDACTED"}]
+
+
+# ── Non-POST pass-through tests ──────────────────────────────────────────────
+
+class TestNonPostPassthrough:
+    def test_get_request_forwarded(self, client):
+        """GET requests are forwarded without scanning."""
+        upstream_response = httpx.Response(
+            200,
+            json={"data": [{"id": "gpt-4"}]},
+        )
+
+        with patch.object(
+            _get_proxy_client(), "request",
+            new_callable=AsyncMock,
+            return_value=upstream_response,
+        ) as mock_req:
+            resp = client.get(
+                "/v1/models",
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["data"][0]["id"] == "gpt-4"
+        mock_req.assert_called_once()
+
+    def test_get_request_non_json_response(self, client):
+        """GET with non-JSON upstream response returns error text."""
+        upstream_response = httpx.Response(200, text="plain text", headers={"content-type": "text/plain"})
+
+        with patch.object(
+            _get_proxy_client(), "request",
+            new_callable=AsyncMock,
+            return_value=upstream_response,
+        ):
+            resp = client.get(
+                "/v1/models",
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        assert "error" in resp.json()
+
+    def test_get_request_upstream_unreachable(self, client):
+        """GET with unreachable upstream returns 502."""
+        with patch.object(
+            _get_proxy_client(), "request",
+            new_callable=AsyncMock,
+            side_effect=httpx.ConnectError("Connection refused"),
+        ):
+            resp = client.get(
+                "/v1/models",
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 502
+
+    def test_get_forwards_upstream_auth(self, client):
+        """GET requests forward X-Upstream-Auth as Authorization."""
+        upstream_response = httpx.Response(200, json={"ok": True})
+
+        with patch.object(
+            _get_proxy_client(), "request",
+            new_callable=AsyncMock,
+            return_value=upstream_response,
+        ) as mock_req:
+            client.get(
+                "/v1/models",
+                headers={
+                    "X-Upstream-URL": "https://api.openai.com",
+                    "X-Upstream-Auth": "Bearer sk-test",
+                },
+            )
+
+        call_kwargs = mock_req.call_args
+        assert call_kwargs.kwargs["headers"]["Authorization"] == "Bearer sk-test"
+
+
+# ── Streaming tests ──────────────────────────────────────────────────────────
+
+class TestStreaming:
+    def test_streaming_request_passes_through(self, client):
+        """Streaming requests do input scan but skip output scan."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/event-stream"}
+
+        async def mock_aiter_bytes():
+            yield b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n"
+            yield b"data: [DONE]\n\n"
+
+        mock_resp.aiter_bytes = mock_aiter_bytes
+        mock_resp.aclose = AsyncMock()
+
+        mock_send = AsyncMock(return_value=mock_resp)
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hello"),
+            ) as mock_input,
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+            ) as mock_output,
+            patch.object(_get_proxy_client(), "send", mock_send),
+            patch.object(_get_proxy_client(), "build_request", return_value=MagicMock()),
+        ):
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "stream": True,
+                },
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
+        mock_input.assert_called_once()
+        mock_output.assert_not_called()
+
+    def test_streaming_upstream_unreachable(self, client):
+        """Streaming with unreachable upstream returns 502."""
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hello"),
+            ),
+            patch.object(
+                _get_proxy_client(), "build_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(
+                _get_proxy_client(), "send",
+                new_callable=AsyncMock,
+                side_effect=httpx.ConnectError("Connection refused"),
+            ),
+        ):
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "stream": True,
+                },
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 502
+
+
+# ── Helper function tests ────────────────────────────────────────────────────
+
+class TestBuildForwardUrl:
+    def test_with_path(self):
+        from app.api.routes.proxy import _build_forward_url
+        assert _build_forward_url("https://api.openai.com", "v1/chat/completions") == \
+            "https://api.openai.com/v1/chat/completions"
+
+    def test_without_path(self):
+        from app.api.routes.proxy import _build_forward_url
+        assert _build_forward_url("https://api.openai.com/", "") == "https://api.openai.com"
+
+    def test_strips_leading_slash(self):
+        from app.api.routes.proxy import _build_forward_url
+        assert _build_forward_url("https://api.openai.com", "/v1/models") == \
+            "https://api.openai.com/v1/models"
+
+
+class TestApplyOutputFix:
+    def test_openai_format(self):
+        from app.api.routes.proxy import _apply_output_fix
+        body = {"choices": [{"message": {"content": "old"}}]}
+        result = _apply_output_fix(body, "new")
+        assert result["choices"][0]["message"]["content"] == "new"
+
+    def test_anthropic_format(self):
+        from app.api.routes.proxy import _apply_output_fix
+        body = {"content": [{"type": "text", "text": "old"}]}
+        result = _apply_output_fix(body, "new")
+        assert result["content"][0]["text"] == "new"
+
+    def test_unknown_format_returns_unchanged(self):
+        from app.api.routes.proxy import _apply_output_fix
+        body = {"result": "something"}
+        result = _apply_output_fix(body, "new")
+        assert result == {"result": "something"}
+
+
+class TestApplyInputFix:
+    def test_openai_format(self):
+        from app.api.routes.proxy import _apply_input_fix
+        body = {"messages": [{"role": "user", "content": "old"}]}
+        result = _apply_input_fix(body, "new")
+        assert result["messages"][0]["content"] == "new"
+
+    def test_no_user_message(self):
+        from app.api.routes.proxy import _apply_input_fix
+        body = {"messages": [{"role": "system", "content": "be helpful"}]}
+        result = _apply_input_fix(body, "new")
+        assert result["messages"][0]["content"] == "be helpful"
+
+
+# ── Edge case tests ──────────────────────────────────────────────────────────
+
+class TestEdgeCases:
+    def test_invalid_json_body_returns_400(self, client):
+        """POST with invalid JSON returns 400."""
+        resp = client.post(
+            "/v1/chat/completions",
+            content=b"not json",
+            headers={
+                "Content-Type": "application/json",
+                "X-Upstream-URL": "https://api.openai.com",
+            },
+        )
+        assert resp.status_code == 400
+        assert "JSON" in resp.json()["detail"]
+
+    def test_output_blocked_returns_400(self, client):
+        """When output scan blocks, proxy returns 400."""
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "toxic output"}}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_blocked_scan_result("toxic output"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 400
+        assert "PromptInjection" in resp.json()["detail"]
+
+    def test_monitored_scanner_allowed_through(self, client):
+        """Monitored violations are logged but allowed."""
+        monitored_result = (True, "hi", {"Toxicity": 0.6}, [], {"Toxicity": "monitored"}, None, False)
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=monitored_result,
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=_clean_scan_result("ok"),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
+        ):
+            resp = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
+
+        assert resp.status_code == 200
