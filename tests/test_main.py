@@ -2,6 +2,11 @@
 from unittest.mock import patch, AsyncMock
 
 
+def _get_proxy_client():
+    from app.api.routes.proxy import _PROXY_CLIENT
+    return _PROXY_CLIENT
+
+
 class TestHealthEndpoint:
     def test_returns_200_ok(self, client):
         resp = client.get("/health")
@@ -32,35 +37,46 @@ class TestReloadEndpoint:
         mock_reload.assert_called_once()
 
 
-class TestValidationErrorHandler:
-    def test_invalid_json_returns_422(self, client):
-        resp = client.post(
-            "/api/scan/prompt",
-            json={"wrong_field": "no text field"},
-        )
-        assert resp.status_code == 422
-        assert resp.json()["detail"] == "Invalid request data"
-
-
 class TestBodySizeLimiting:
     def test_oversized_body_returns_413(self, client):
-        """POST with Content-Length > 1 MB is rejected."""
+        """POST with Content-Length > 4 MB is rejected."""
         resp = client.post(
-            "/api/scan/prompt",
+            "/v1/chat/completions",
             content=b"x" * 100,
-            headers={"Content-Length": str(2 * 1024 * 1024), "Content-Type": "application/json"},
+            headers={"Content-Length": str(5 * 1024 * 1024), "Content-Type": "application/json"},
         )
         assert resp.status_code == 413
         assert "too large" in resp.json()["detail"].lower()
 
     def test_normal_body_passes(self, client):
         """POST with small Content-Length passes through to normal handling."""
-        with patch(
-            "app.services.scanner_engine.run_input_scan",
-            new_callable=AsyncMock,
-            return_value=(True, "hi", {}, [], {}, None, False),
+        import httpx
+        upstream_response = httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "hi"}}]},
+        )
+        with (
+            patch(
+                "app.services.scanner_engine.run_input_scan",
+                new_callable=AsyncMock,
+                return_value=(True, "hi", {}, [], {}, None, False),
+            ),
+            patch(
+                "app.services.scanner_engine.run_output_scan",
+                new_callable=AsyncMock,
+                return_value=(True, "hi", {}, [], {}, None, False),
+            ),
+            patch.object(
+                _get_proxy_client(), "post",
+                new_callable=AsyncMock,
+                return_value=upstream_response,
+            ),
         ):
-            resp = client.post("/api/scan/prompt", json={"text": "hi"})
+            resp = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+                headers={"X-Upstream-URL": "https://api.openai.com"},
+            )
         assert resp.status_code == 200
 
     def test_get_request_bypasses_size_check(self, client):
