@@ -28,288 +28,268 @@ logging:
 # multi-language injection defense, text canonicalization, and the
 # Embedding Similarity Shield.
 #
-# Uncomment and customize below ONLY if you want to override the defaults.
-# WARNING: Defining your own scanners section replaces the entire catalog —
-# you will lose the trained ban lists, regex patterns, and topic classifiers.
-#
-# The full catalog is shown below for reference. Each scanner has:
-#   type:      Scanner class name (maps to llm-guard scanner or custom scanner)
+# To activate or deactivate a scanner, comment or uncomment its block below.
+# Each scanner has:
+#   type:      Scanner class name
 #   on_fail:   block | fix | monitor | reask
 #   threshold: Detection threshold (0.0–1.0, lower = more sensitive)
 #   params:    Scanner-specific parameters
-#
-# Scanners marked [ENABLED] are active by default.
-# Scanners marked [DISABLED] are available but off — uncomment to enable.
-#
-# scanners:
-#
-#   # ── INPUT SCANNERS (17) ────────────────────────────────────────────────────
-#   input:
-#
-#     # [ENABLED] ML prompt injection detector (DeBERTa v3)
-#     - type: PromptInjection
-#       on_fail: block
-#       params:
-#         use_onnx: true
-#
-#     # [ENABLED] ML toxicity classifier (DistilBERT)
-#     - type: Toxicity
-#       on_fail: block
-#       params:
-#         threshold: 0.5
-#         use_onnx: true
-#
-#     # [ENABLED] Credential/secret detection — redacts matches in-place
-#     - type: Secrets
-#       on_fail: fix
-#       params: {}
-#
-#     # [ENABLED] Token count limiter (tiktoken)
-#     - type: TokenLimit
-#       on_fail: block
-#       params:
-#         limit: 4096
-#
-#     # [DISABLED] NER-based PII anonymization
-#     - type: Anonymize
-#       on_fail: fix
-#       params:
-#         use_onnx: true
-#
-#     # [DISABLED] Code detection — blocks code in input
-#     - type: BanCode
-#       on_fail: block
-#       params:
-#         threshold: 0.4
-#
-#     # [DISABLED] Competitor mention detection (NLI zero-shot)
-#     - type: BanCompetitors
-#       on_fail: monitor
-#       params:
-#         competitors: ["OpenAI", "Anthropic", "Google"]
-#         threshold: 0.5
-#
-#     # [ENABLED] Exact attack phrase blocklist — 273 phrases from 4 red-team
-#     # datasets + v17 multi-language (ES, FR, DE, PT, IT) injection defense.
-#     # Phrases include DAN family, instruction wipes, identity reassignment,
-#     # authority framing, dialogue laundering, and escalation markers.
-#     # Full list in app/core/guardrail_catalog.py
-#     - type: BanSubstrings
-#       on_fail: block
-#       params:
-#         substrings: []  # see guardrail_catalog.py for full 273-phrase list
-#         case_sensitive: false
-#         contains_all: false
-#
-#     # [ENABLED] NLI-based semantic topic blocking (14 topics)
-#     # Topics: weapons, drugs, hacking, malware, exploits, phishing,
-#     # social engineering, identity theft, fraud, terrorism, CSAM,
-#     # self-harm, harassment, illegal activities
-#     - type: BanTopics
-#       on_fail: block
-#       params:
-#         topics: []  # see guardrail_catalog.py for full 14-topic list
-#         threshold: 0.4
-#         use_onnx: true
-#
-#     # [DISABLED] Per-language code blocking (routes to Code scanner)
-#     - type: Code
-#       on_fail: block
-#       params:
-#         languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
-#         is_blocked: true
-#         threshold: 0.5
-#
-#     # [DISABLED] Emotion classification
-#     - type: EmotionDetection
-#       on_fail: monitor
-#       params: {}
-#
-#     # [DISABLED] Gibberish text detector
-#     - type: Gibberish
-#       on_fail: block
-#       params:
-#         threshold: 0.7
-#
-#     # [ENABLED] Unicode invisible character detection
-#     - type: InvisibleText
-#       on_fail: block
-#       params: {}
-#
-#     # [ENABLED] Language detection — monitors non-English input (v17)
-#     # Strongest defense against multi-language injection bypass.
-#     # Set on_fail: block if your app only serves English users.
-#     - type: Language
-#       on_fail: monitor
-#       params:
-#         valid_languages: ["en"]
-#
-#     # [ENABLED] Structural attack pattern matching — 93 regex patterns
-#     # covering credential leaks, DAN/jailbreak, no-restriction declarations,
-#     # never-refuse, encoding attacks, system prompt extraction, fictional
-#     # framing, v17 synonym evasion, identity reassignment, unfiltered
-#     # requests, cross-language (ES/FR/DE/PT/IT), and escalation markers.
-#     # Full list in app/core/guardrail_catalog.py
-#     - type: Regex
-#       on_fail: block
-#       params:
-#         patterns: []  # see guardrail_catalog.py for full 93-pattern list
-#
-#     # [DISABLED] Sentiment analysis (VADER lexicon)
-#     - type: Sentiment
-#       on_fail: monitor
-#       params:
-#         threshold: 0.0
-#
-#     # [ENABLED] Semantic similarity scanner — catches paraphrased prompt
-#     # injections by comparing embeddings against 49 known attack patterns.
-#     # Uses sentence-transformers/all-MiniLM-L6-v2.
-#     - type: EmbeddingShield
-#       on_fail: block
-#       params:
-#         threshold: 0.72
-#
-#   # ── OUTPUT SCANNERS (25) ───────────────────────────────────────────────────
-#   output:
-#
-#     # [ENABLED] ML toxicity classifier (DistilBERT)
-#     - type: Toxicity
-#       on_fail: block
-#       params:
-#         threshold: 0.5
-#         use_onnx: true
-#
-#     # [ENABLED] Refusal detection — triggers reask for LLM retry
-#     - type: NoRefusal
-#       on_fail: reask
-#       params: {}
-#
-#     # [DISABLED] Competitor mention detection (NLI zero-shot)
-#     - type: BanCompetitors
-#       on_fail: monitor
-#       params:
-#         competitors: ["OpenAI", "Anthropic", "Google"]
-#         threshold: 0.5
-#
-#     # [DISABLED] Bias detection (DistilRoBERTa)
-#     - type: Bias
-#       on_fail: reask
-#       params:
-#         threshold: 0.75
-#
-#     # [DISABLED] Code detection — blocks code in output
-#     - type: BanCode
-#       on_fail: block
-#       params:
-#         threshold: 0.4
-#
-#     # [ENABLED] Jailbreak success detection — 61 phrases detecting the LLM
-#     # confirming it adopted a new persona, disabled filtering, entered
-#     # evaluation mode, etc. Includes non-English indicators (ES/FR/DE/PT/IT).
-#     # Full list in app/core/guardrail_catalog.py
-#     - type: BanSubstrings
-#       on_fail: block
-#       params:
-#         substrings: []  # see guardrail_catalog.py for full 61-phrase list
-#         case_sensitive: false
-#         contains_all: false
-#
-#     # [ENABLED] NLI-based semantic topic blocking (13 output topics)
-#     - type: BanTopics
-#       on_fail: block
-#       params:
-#         topics: []  # see guardrail_catalog.py for full 13-topic list
-#         threshold: 0.5
-#         use_onnx: true
-#
-#     # [DISABLED] Per-language code blocking
-#     - type: Code
-#       on_fail: block
-#       params:
-#         languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
-#         is_blocked: true
-#         threshold: 0.5
-#
-#     # [DISABLED] PII re-insertion detection
-#     - type: Deanonymize
-#       on_fail: fix
-#       params: {}
-#
-#     # [DISABLED] Emotion classification
-#     - type: EmotionDetection
-#       on_fail: monitor
-#       params: {}
-#
-#     # [DISABLED] Factual consistency / hallucination detection (Vectara)
-#     - type: FactualConsistency
-#       on_fail: reask
-#       params:
-#         threshold: 0.5
-#
-#     # [DISABLED] Gibberish text detector
-#     - type: Gibberish
-#       on_fail: block
-#       params:
-#         threshold: 0.7
-#
-#     # [DISABLED] JSON schema validation
-#     - type: JSON
-#       on_fail: reask
-#       params: {}
-#
-#     # [DISABLED] Output language enforcement
-#     - type: Language
-#       on_fail: block
-#       params:
-#         valid_languages: ["en"]
-#
-#     # [DISABLED] Input/output language consistency
-#     - type: LanguageSame
-#       on_fail: reask
-#       params: {}
-#
-#     # [DISABLED] Malicious URL detection
-#     - type: MaliciousURLs
-#       on_fail: block
-#       params: {}
-#
-#     # [DISABLED] Lightweight refusal classifier
-#     - type: NoRefusalLight
-#       on_fail: reask
-#       params: {}
-#
-#     # [DISABLED] Reading time estimation
-#     - type: ReadingTime
-#       on_fail: monitor
-#       params:
-#         max_time: 5.0
-#
-#     # [ENABLED] Output regex patterns — 8 rules for credential leaks,
-#     # PII exposure, and system prompt echo detection.
-#     # Full list in app/core/guardrail_catalog.py
-#     - type: Regex
-#       on_fail: fix
-#       params:
-#         patterns: []  # see guardrail_catalog.py for full 8-pattern list
-#
-#     # [DISABLED] Semantic relevance check (sentence-transformers)
-#     - type: Relevance
-#       on_fail: reask
-#       params:
-#         threshold: 0.5
-#
-#     # [DISABLED] Sensitive data pattern detection
-#     - type: Sensitive
-#       on_fail: fix
-#       params: {}
-#
-#     # [DISABLED] Sentiment analysis (VADER lexicon)
-#     - type: Sentiment
-#       on_fail: monitor
-#       params:
-#         threshold: 0.0
-#
-#     # [DISABLED] URL reachability check (HTTP HEAD)
-#     - type: URLReachability
-#       on_fail: monitor
-#       params: {}
+
+scanners:
+
+  # ── INPUT SCANNERS ──────────────────────────────────────────────────────────
+  input:
+
+    # ML prompt injection detector (DeBERTa v3)
+    - type: PromptInjection
+      on_fail: block
+      params:
+        use_onnx: true
+
+    # ML toxicity classifier (DistilBERT)
+    - type: Toxicity
+      on_fail: block
+      params:
+        threshold: 0.5
+        use_onnx: true
+
+    # Credential/secret detection — redacts matches in-place
+    - type: Secrets
+      on_fail: fix
+      params: {}
+
+    # Token count limiter (tiktoken)
+    - type: TokenLimit
+      on_fail: block
+      params:
+        limit: 4096
+
+    # NER-based PII anonymization
+    - type: Anonymize
+      on_fail: fix
+      params:
+        use_onnx: true
+
+    # Code detection — blocks code in input
+    - type: BanCode
+      on_fail: block
+      params:
+        threshold: 0.4
+
+    # Competitor mention detection (NLI zero-shot)
+    - type: BanCompetitors
+      on_fail: monitor
+      params:
+        competitors: ["OpenAI", "Anthropic", "Google"]
+        threshold: 0.5
+
+    # Exact attack phrase blocklist — 273 phrases from 4 red-team datasets
+    # + v17 multi-language (ES, FR, DE, PT, IT) injection defense.
+    # Full list in app/core/guardrail_catalog.py
+    - type: BanSubstrings
+      on_fail: block
+      params:
+        substrings: []  # see guardrail_catalog.py for full 273-phrase list
+        case_sensitive: false
+        contains_all: false
+
+    # NLI-based semantic topic blocking (14 topics)
+    - type: BanTopics
+      on_fail: block
+      params:
+        topics: []  # see guardrail_catalog.py for full 14-topic list
+        threshold: 0.4
+        use_onnx: true
+
+    # Per-language code blocking (routes to Code scanner)
+    - type: Code
+      on_fail: block
+      params:
+        languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
+        is_blocked: true
+        threshold: 0.5
+
+    # Emotion classification
+    - type: EmotionDetection
+      on_fail: monitor
+      params: {}
+
+    # Gibberish text detector
+    - type: Gibberish
+      on_fail: block
+      params:
+        threshold: 0.7
+
+    # Unicode invisible character detection
+    - type: InvisibleText
+      on_fail: block
+      params: {}
+
+    # Language detection — monitors non-English input (v17)
+    # Set on_fail: block if your app only serves English users.
+    - type: Language
+      on_fail: monitor
+      params:
+        valid_languages: ["en"]
+
+    # Structural attack pattern matching — 93 regex patterns
+    # Full list in app/core/guardrail_catalog.py
+    - type: Regex
+      on_fail: block
+      params:
+        patterns: []  # see guardrail_catalog.py for full 93-pattern list
+
+    # Sentiment analysis (VADER lexicon)
+    - type: Sentiment
+      on_fail: monitor
+      params:
+        threshold: 0.0
+
+    # Semantic similarity scanner — catches paraphrased prompt injections
+    # by comparing embeddings against 49 known attack patterns.
+    - type: EmbeddingShield
+      on_fail: block
+      params:
+        threshold: 0.72
+
+  # ── OUTPUT SCANNERS ─────────────────────────────────────────────────────────
+  output:
+
+    # ML toxicity classifier (DistilBERT)
+    - type: Toxicity
+      on_fail: block
+      params:
+        threshold: 0.5
+        use_onnx: true
+
+    # Refusal detection — triggers reask for LLM retry
+    - type: NoRefusal
+      on_fail: reask
+      params: {}
+
+    # Competitor mention detection (NLI zero-shot)
+    - type: BanCompetitors
+      on_fail: monitor
+      params:
+        competitors: ["OpenAI", "Anthropic", "Google"]
+        threshold: 0.5
+
+    # Bias detection (DistilRoBERTa)
+    - type: Bias
+      on_fail: reask
+      params:
+        threshold: 0.75
+
+    # Code detection — blocks code in output
+    - type: BanCode
+      on_fail: block
+      params:
+        threshold: 0.4
+
+    # Jailbreak success detection — 61 phrases
+    # Full list in app/core/guardrail_catalog.py
+    - type: BanSubstrings
+      on_fail: block
+      params:
+        substrings: []  # see guardrail_catalog.py for full 61-phrase list
+        case_sensitive: false
+        contains_all: false
+
+    # NLI-based semantic topic blocking (13 output topics)
+    - type: BanTopics
+      on_fail: block
+      params:
+        topics: []  # see guardrail_catalog.py for full 13-topic list
+        threshold: 0.5
+        use_onnx: true
+
+    # Per-language code blocking
+    - type: Code
+      on_fail: block
+      params:
+        languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
+        is_blocked: true
+        threshold: 0.5
+
+    # PII re-insertion detection
+    - type: Deanonymize
+      on_fail: fix
+      params: {}
+
+    # Emotion classification
+    - type: EmotionDetection
+      on_fail: monitor
+      params: {}
+
+    # Factual consistency / hallucination detection (Vectara) — SLOW
+    # - type: FactualConsistency
+    #   on_fail: reask
+    #   params:
+    #     threshold: 0.5
+
+    # Gibberish text detector
+    - type: Gibberish
+      on_fail: block
+      params:
+        threshold: 0.7
+
+    # JSON schema validation
+    - type: JSON
+      on_fail: reask
+      params: {}
+
+    # Output language enforcement
+    - type: Language
+      on_fail: block
+      params:
+        valid_languages: ["en"]
+
+    # Input/output language consistency
+    - type: LanguageSame
+      on_fail: reask
+      params: {}
+
+    # Malicious URL detection
+    - type: MaliciousURLs
+      on_fail: block
+      params: {}
+
+    # Lightweight refusal classifier
+    - type: NoRefusalLight
+      on_fail: reask
+      params: {}
+
+    # Reading time estimation
+    - type: ReadingTime
+      on_fail: monitor
+      params:
+        max_time: 5.0
+
+    # Output regex patterns — 8 rules for credential leaks, PII, system prompt echo
+    # Full list in app/core/guardrail_catalog.py
+    - type: Regex
+      on_fail: fix
+      params:
+        patterns: []  # see guardrail_catalog.py for full 8-pattern list
+
+    # Semantic relevance check (sentence-transformers) — SLOW
+    # - type: Relevance
+    #   on_fail: reask
+    #   params:
+    #     threshold: 0.5
+
+    # Sensitive data pattern detection
+    - type: Sensitive
+      on_fail: fix
+      params: {}
+
+    # Sentiment analysis (VADER lexicon)
+    - type: Sentiment
+      on_fail: monitor
+      params:
+        threshold: 0.0
+
+    # URL reachability check (HTTP HEAD) — SLOW
+    # - type: URLReachability
+    #   on_fail: monitor
+    #   params: {}

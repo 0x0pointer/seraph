@@ -31,6 +31,7 @@ _PROXY_CLIENT = httpx.AsyncClient(timeout=120.0)
 
 _HOP_HEADERS = {
     "host", "content-length", "transfer-encoding", "connection",
+    "accept-encoding",
     "x-upstream-url", "x-upstream-auth",
     "authorization",
 }
