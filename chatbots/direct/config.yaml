@@ -6,6 +6,10 @@ listen: "0.0.0.0:8000"
 # Set your LLM provider here, or leave empty and pass X-Upstream-URL per request.
 upstream: "https://api.openai.com"
 
+# LLM provider API key — stays server-side, never exposed to clients.
+# Injected via UPSTREAM_API_KEY env var (see .env file).
+upstream_api_key: ""
+
 # Open mode — no Seraph API key required.
 # Add keys here to require auth: ["your-key-here"]
 api_keys: []

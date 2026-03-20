@@ -39,6 +39,7 @@ class ScannersConfig(BaseModel):
 class Config(BaseModel):
     listen: str = "0.0.0.0:8000"
     upstream: str = ""
+    upstream_api_key: str = ""  # LLM provider key — injected server-side, never from client
     api_keys: list[str] = []
     logging: LoggingConfig = LoggingConfig()
     scanners: ScannersConfig | None = None  # None = use guardrail_catalog defaults
@@ -69,6 +70,12 @@ def load_config(path: str | None = None) -> Config:
         raw = yaml.safe_load(f) or {}
 
     _config = Config(**raw)
+
+    # Allow env var override for upstream_api_key (so secrets stay out of YAML)
+    env_key = os.environ.get("UPSTREAM_API_KEY")
+    if env_key:
+        _config.upstream_api_key = env_key
+
     logger.info("Loaded config from %s", path)
     return _config
 

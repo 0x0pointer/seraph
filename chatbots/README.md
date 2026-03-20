@@ -34,12 +34,16 @@ docker compose up --build
 
 ## Usage
 
-1. Start either setup with `docker compose up --build`
-2. Open http://localhost:3000
-3. Enter your **Upstream Key** (e.g., OpenAI `sk-...` or Anthropic `sk-ant-...`)
-4. Optionally set the **Model** (default: `gpt-4`)
-5. Optionally set **Upstream URL** to override the config (e.g., `https://api.anthropic.com`)
-6. Chat — Seraph scans every message and response in real time
+1. Copy `.env.example` to `.env` and add your LLM provider key:
+   ```bash
+   cp .env.example .env
+   # Edit .env and set UPSTREAM_API_KEY=sk-your-key-here
+   ```
+2. Start with `docker compose up --build`
+3. Open http://localhost:3000
+4. Chat — Seraph scans every message and response in real time
+
+The LLM provider key stays server-side in Seraph. The browser never sees it.
 
 ## Testing guardrails
 
@@ -63,7 +67,7 @@ Blocked messages show an orange banner. Check the Seraph container logs to see s
 
 Each setup has its own `config.yaml`. By default:
 - **Open mode** — no Seraph API key required
-- **Upstream** — set to `https://api.openai.com` (override via the UI or config)
+- **Upstream** — set to `https://api.openai.com` (change in config.yaml for other providers)
 - **Scanners** — full built-in catalog (42 scanners, 322+ rules)
 
 Edit `config.yaml` and run `curl -X POST http://localhost:3000/reload` to hot-reload.

@@ -20,6 +20,7 @@ services:
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - SERAPH_CONFIG=/app/config.yaml
+      - UPSTREAM_API_KEY=${UPSTREAM_API_KEY}
     # Not exposed to host — only nginx can reach Seraph
     expose:
       - "8000"

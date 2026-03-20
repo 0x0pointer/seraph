@@ -156,14 +156,6 @@
     <label>Seraph Key</label><br>
     <input type="text" id="seraph-key" placeholder="leave empty for open mode">
   </div>
-  <div>
-    <label>Upstream Key</label><br>
-    <input type="password" id="upstream-key" placeholder="sk-... or sk-ant-...">
-  </div>
-  <div>
-    <label>Upstream URL (optional)</label><br>
-    <input type="text" id="upstream-url" placeholder="override config.yaml upstream">
-  </div>
 </div>
 
 <div id="chat"></div>
@@ -220,12 +212,8 @@ async function send() {
 
   const headers = { "Content-Type": "application/json" };
   const seraphKey = document.getElementById("seraph-key").value.trim();
-  const upstreamKey = document.getElementById("upstream-key").value.trim();
-  const upstreamUrl = document.getElementById("upstream-url").value.trim();
 
   if (seraphKey) headers["Authorization"] = `Bearer ${seraphKey}`;
-  if (upstreamKey) headers["X-Upstream-Auth"] = `Bearer ${upstreamKey}`;
-  if (upstreamUrl) headers["X-Upstream-URL"] = upstreamUrl;
 
   const model = document.getElementById("model").value.trim() || "gpt-4";
 
@@ -233,7 +221,7 @@ async function send() {
     const resp = await fetch(`${API_BASE}/v1/chat/completions`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ model, messages }),
+      body: JSON.stringify({ model, messages, stream: false }),
     });
 
     if (resp.status === 400) {
