@@ -162,6 +162,10 @@ async def _run_input(request: Request, text: str) -> dict:
         ip_address=ip,
     )
 
+    # Store scan results in request.state for risk engine access
+    request.state._last_scan_results = results
+    request.state._last_scan_violations = violations
+
     if not is_valid:
         detail = (
             reask_context[0] if reask_context
@@ -197,6 +201,10 @@ async def _run_output(request: Request, assistant_text: str, prompt_text: str) -
         fix_applied=fix_applied,
         ip_address=ip,
     )
+
+    # Store scan results in request.state for risk engine access
+    request.state._last_scan_results = results
+    request.state._last_scan_violations = violations
 
     if not is_valid:
         detail = (
@@ -254,7 +262,7 @@ async def _stream_from_upstream(
         finally:
             await upstream_resp.aclose()
 
-    resp_headers = {
+    resp_headers: dict[str, str] = {
         k: v for k, v in upstream_resp.headers.items()
         if k.lower() not in ("transfer-encoding", "content-length", "connection")
     }
@@ -263,6 +271,43 @@ async def _stream_from_upstream(
         status_code=upstream_resp.status_code,
         headers=resp_headers,
     )
+
+
+async def _buffered_stream_scan(
+    request: Request, forward_url: str, body: dict, x_upstream_auth: str | None,
+    user_text: str,
+) -> JSONResponse:
+    """Buffer a streaming response, scan output, then return as non-streaming JSON.
+
+    Used for elevated-risk clients (hold-and-release stream tier).
+    Converts the streaming response into a regular JSON response after scanning.
+    """
+    forward_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _HOP_HEADERS
+    }
+    if x_upstream_auth:
+        forward_headers["Authorization"] = x_upstream_auth
+
+    # Remove stream=true so upstream returns a normal JSON response
+    body_no_stream = {**body, "stream": False}
+
+    try:
+        upstream_resp = await _PROXY_CLIENT.post(forward_url, json=body_no_stream, headers=forward_headers)
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Upstream LLM unreachable: {exc}")
+
+    if upstream_resp.status_code != 200:
+        return _relay_upstream_error(upstream_resp)
+
+    try:
+        upstream_body: dict = upstream_resp.json()
+    except Exception:
+        return JSONResponse(content={"error": "Non-JSON upstream response"}, status_code=502)
+
+    # Scan output
+    upstream_body = await _scan_output_and_fix(request, upstream_body, user_text)
+    return JSONResponse(content=upstream_body, status_code=200)
 
 
 # ── Proxy helpers ────────────────────────────────────────────────────────────
@@ -367,6 +412,32 @@ async def transparent_proxy(
     upstream_auth = _resolve_upstream_auth(config, x_upstream_auth)
     forward_url = _build_forward_url(upstream_base, path)
 
+    # ── Risk engine: identity resolution + pre-request check ─────────────
+    from app.services.risk_engine import get_risk_engine, identify_client, derive_conversation_id
+    risk = get_risk_engine()
+    identities = {}
+    correlation_id = ""
+    is_streaming = False
+
+    if risk:
+        ip = request.client.host if request.client else None
+        identities = identify_client(ip, _api_key, request.headers.get("user-agent"), upstream_base)
+        pre = await risk.check_pre_request(identities, is_streaming=False)
+        correlation_id = pre.correlation_id
+
+        if not pre.allowed:
+            headers = risk.get_response_headers(pre)
+            return JSONResponse(
+                status_code=429,
+                content={"error": "Too many risky requests. Try again later.",
+                         "retry_after": pre.retry_after_seconds},
+                headers=headers,
+            )
+
+        # Store stream tier for later use
+        request.state._risk_stream_tier = pre.stream_tier.value
+        request.state._risk_scan_tier = pre.scan_tier.value
+
     if request.method != "POST":
         return await _passthrough_non_post(request, forward_url, upstream_auth)
 
@@ -375,11 +446,41 @@ async def transparent_proxy(
     except Exception:
         raise HTTPException(status_code=400, detail="Request body must be valid JSON.")
 
+    is_streaming = body.get("stream") is True
+
     body, user_text = await _scan_input_and_fix(request, body)
 
-    if body.get("stream") is True:
-        logger.info("Streaming request — output scanning skipped")
-        return await _stream_from_upstream(request, forward_url, body, upstream_auth)
+    # ── Risk engine: assess input scan ───────────────────────────────────
+    if risk and user_text:
+        input_results = getattr(request.state, "_last_scan_results", {})
+        input_violations = getattr(request.state, "_last_scan_violations", [])
+        conv_id, conv_conf = derive_conversation_id(_api_key, body, upstream_base)
+
+        input_decision = await risk.assess_request(
+            identities, input_results, "input", input_violations,
+            correlation_id, conv_id, conv_conf,
+            is_streaming=is_streaming, prompt_text=user_text,
+            upstream_target=upstream_base,
+        )
+
+        # Apply tarpit if policy says so
+        if input_decision.tarpit_seconds > 0:
+            import asyncio
+            await asyncio.sleep(input_decision.tarpit_seconds)
+
+    if is_streaming:
+        # Risk engine determines stream tier
+        stream_tier = "passthrough"
+        if risk and hasattr(request.state, "_risk_pre_decision"):
+            stream_tier_val = getattr(request.state, "_risk_stream_tier", "passthrough")
+            stream_tier = stream_tier_val
+
+        if stream_tier == "hold_and_release":
+            logger.info("Streaming request — hold-and-release (elevated risk client)")
+            return await _buffered_stream_scan(request, forward_url, body, upstream_auth, user_text)
+        else:
+            logger.info("Streaming request — output scanning skipped")
+            return await _stream_from_upstream(request, forward_url, body, upstream_auth)
 
     upstream_resp = await _forward_to_upstream(request, forward_url, body, upstream_auth)
 
@@ -392,4 +493,19 @@ async def transparent_proxy(
         return JSONResponse(content={"error": "Non-JSON upstream response"}, status_code=502)
 
     upstream_body = await _scan_output_and_fix(request, upstream_body, user_text)
-    return JSONResponse(content=upstream_body, status_code=200)
+
+    # ── Risk engine: assess output scan + build response headers ─────────
+    response_headers: dict[str, str] = {}
+    if risk:
+        output_results = getattr(request.state, "_last_scan_results", {})
+        output_violations = getattr(request.state, "_last_scan_violations", [])
+        conv_id, conv_conf = derive_conversation_id(_api_key, body, upstream_base)
+
+        output_decision = await risk.assess_request(
+            identities, output_results, "output", output_violations,
+            correlation_id, conv_id, conv_conf,
+            upstream_target=upstream_base,
+        )
+        response_headers = risk.get_response_headers(output_decision)
+
+    return JSONResponse(content=upstream_body, status_code=200, headers=response_headers)

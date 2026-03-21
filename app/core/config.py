@@ -36,6 +36,29 @@ class ScannersConfig(BaseModel):
     output: list[ScannerConfig] = []
 
 
+class AllowedTopicsConfig(BaseModel):
+    enabled: bool = False
+    threshold: float = 0.45
+    fallback_message: str = "This question is outside my supported topics."
+    topics: list[str] = []
+
+
+class RiskEngineConfig(BaseModel):
+    enabled: bool = False
+    scanner_weights: dict[str, float] = {}
+    max_clients: int = 10000
+    block_duration_seconds: float = 300.0
+    max_deep_per_second: int = 5
+    max_enhanced_per_second: int = 20
+    expose_debug_headers: bool = False
+    persist: bool = True
+    persist_file: str | None = None  # None = use logging.audit_file
+    elevated_threshold: float = 0.3
+    high_threshold: float = 0.6
+    critical_threshold: float = 0.8
+    blocked_threshold: float = 0.95
+
+
 class Config(BaseModel):
     listen: str = "0.0.0.0:8000"
     upstream: str = ""
@@ -43,6 +66,14 @@ class Config(BaseModel):
     api_keys: list[str] = []
     logging: LoggingConfig = LoggingConfig()
     scanners: ScannersConfig | None = None  # None = use guardrail_catalog defaults
+    # Override on_fail per scanner type. Supports three formats:
+    #   "Regex": "monitor"           — applies to both input and output
+    #   "input.Regex": "monitor"     — applies to input only
+    #   "output.Regex": "block"      — applies to output only
+    # Direction-specific overrides take precedence over global ones.
+    on_fail_overrides: dict[str, str] = {}
+    allowed_topics_shield: AllowedTopicsConfig = AllowedTopicsConfig()
+    risk_engine: RiskEngineConfig = RiskEngineConfig()
 
 
 # Module-level singleton

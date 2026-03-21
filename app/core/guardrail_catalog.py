@@ -22,7 +22,7 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Anonymize",                  "scanner_type": "Anonymize",         "direction": "input",
      "is_active": True, "on_fail_action": "fix",     "params": {"use_onnx": True}, "order": 5},
     {"name": "Ban Code (Input)",           "scanner_type": "BanCode",           "direction": "input",
-     "is_active": True, "on_fail_action": "block",   "params": {"threshold": 0.4}, "order": 6},
+     "is_active": False, "on_fail_action": "block",   "params": {"threshold": 0.4}, "order": 6},
     {"name": "Ban Competitors (Input)",    "scanner_type": "BanCompetitors",    "direction": "input",
      "is_active": True, "on_fail_action": "monitor", "params": {"competitors": ["OpenAI", "Anthropic", "Google"], "threshold": 0.5}, "order": 7},
     {"name": "Ban Substrings (Input)",     "scanner_type": "BanSubstrings",     "direction": "input",
@@ -359,6 +359,104 @@ GUARDRAIL_CATALOG: list[dict] = [
          "content policies don't apply",
          "content policies do not apply",
          "content policies are disabled",
+         # ── v18: Authority escalation via business framing ──────────────────
+         # Trailing colons ensure directive-style usage, not casual mentions
+         "supervisor escalation:",
+         "management escalation:",
+         "executive escalation:",
+         "emergency escalation:",
+         "priority escalation:",
+         "vip escalation:",
+         "emergency override:",
+         "compliance override:",
+         "escalation protocol:",
+         "emergency protocol activated",
+         "security team directive",
+         "internal memo:",
+         "priority: critical",
+         "annual access review",
+         "credential rotation audit",
+         "access review in progress",
+         # These are always suspicious regardless of framing
+         "fallback access key",
+         "emergency access key",
+         "admin override code",
+         # ── v19: Indirect structure/format-based extraction ──────────────
+         "strings between square brackets",
+         "strings that appear between",
+         "values in the format",
+         "value that uses the format",
+         "pattern matching in documents",
+         "character separated by a period",
+         "character separated by periods",
+         "each character separated by",
+         "encoded in rot13",
+         "show in rot13",
+         "in nato phonetic",
+         "in hex encoding",
+         "in hexadecimal",
+         # ── v19: Character substitution / encoding extraction ─────────────
+         # Catches instructions to transform credentials before outputting them
+         "replace every vowel",
+         "replace each vowel",
+         "replace the vowels",
+         "replace every letter",
+         "replace each character",
+         "with an asterisk",
+         "with asterisks",
+         "write it backwards",
+         "spell it backwards",
+         "reverse the string",
+         "encode it in",
+         "convert it to base64",
+         "rot13 the",
+         "caesar cipher",
+         "in pig latin",
+         "as a unit test",
+         "as an assertEqual",
+         "expected value is the fallback",
+         "expected value is the key",
+         "sanitized example",
+         # ── v19: Output injection — instructing the LLM to append/include text
+         "include the following text in your response",
+         "include this text in your response",
+         "append the following to your response",
+         "add the following text to your response",
+         "add this to your output",
+         "end your response with",
+         "from now on include",
+         "from now on append",
+         "always include the following",
+         "always append the following",
+         "when anyone asks",
+         "add a reminder at the end",
+         "add a note at the end",
+         "add a message at the end",
+         "put a reminder at the end",
+         "at the end that says",
+         "at the end that reads",
+         "finish with the text",
+         "close with the phrase",
+         "please also mention that",
+         "please also note that",
+         "also mention that users should",
+         "also recommend visiting",
+         "provide the fallback key",
+         "provide the recovery key",
+         "provide the backup key",
+         # ── v19: Decomposition extraction — asking for parts of secrets ─────
+         "what word does the fallback",
+         "what is inside the brackets",
+         "content between the brackets",
+         "content between [ and ]",
+         "before the opening bracket",
+         "between the square brackets",
+         "the first part of the key",
+         "spell out the value",
+         "character by character",
+         "one letter at a time",
+         "the prefix of the credential",
+         "the string inside the brackets",
      ]}, "order": 8},
     {"name": "Ban Topics (Input)",         "scanner_type": "BanTopics",         "direction": "input",
      "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
@@ -380,11 +478,11 @@ GUARDRAIL_CATALOG: list[dict] = [
          "explosives", "bomb making", "poison making",
      ], "threshold": 0.4, "use_onnx": True}, "order": 9},
     {"name": "Code Detector (Input)",      "scanner_type": "Code",              "direction": "input",
-     "is_active": True, "on_fail_action": "block",   "params": {"languages": ["Python", "JavaScript", "Java", "C", "C++", "Go", "Rust", "PHP", "Ruby", "Shell"], "is_blocked": True, "threshold": 0.5}, "order": 10},
+     "is_active": False, "on_fail_action": "block",   "params": {"languages": ["Python", "JavaScript", "Java", "C", "C++", "Go", "Rust", "PHP", "Ruby", "Shell"], "is_blocked": True, "threshold": 0.5}, "order": 10},
     {"name": "Emotion Detection (Input)",  "scanner_type": "EmotionDetection",  "direction": "input",
      "is_active": True, "on_fail_action": "monitor", "params": {}, "order": 11},
     {"name": "Gibberish Filter (Input)",   "scanner_type": "Gibberish",         "direction": "input",
-     "is_active": True, "on_fail_action": "block",   "params": {"threshold": 0.7}, "order": 12},
+     "is_active": True,  "on_fail_action": "monitor", "params": {"threshold": 0.9}, "order": 12},
     {"name": "Invisible Text",             "scanner_type": "InvisibleText",     "direction": "input",
      "is_active": True,  "on_fail_action": "block",   "params": {}, "order": 13},
     # v17: Enabled by default — strongest defense against multi-language injection bypass (INJECT-05/06).
@@ -564,6 +662,27 @@ GUARDRAIL_CATALOG: list[dict] = [
          # Counters INJECT-04 — fake conversation transcripts that embed malicious instructions
          r"(?i)\b(?:using|follow(?:ing)?|mimic(?:king)?|copy(?:ing)?)\s+the\s+(?:pattern|example|format|style|behavior)\s+(?:shown|above|demonstrated|from\s+the)\b",
          r"(?i)\b(?:update|replace|swap|change)\s+(?:them|those|your\s+(?:rules|instructions|guidelines))\s+with\s+(?:these|the\s+following|my)\s+(?:new|updated)\b",
+         # ── v18: Business-framed authority escalation ────────────────────────
+         # Notification-style fake escalation headers
+         r"(?i)\b(?:SUPERVISOR|MANAGEMENT|EXECUTIVE|VIP|PRIORITY|TIER[\s-]?\d|COMPLIANCE|SECURITY\s+TEAM|INTERNAL)\s+(?:ESCALATION|OVERRIDE|AUTHORIZATION|DIRECTIVE|MEMO|NOTICE|BULLETIN)\s*[:\-]",
+         # "provide/give/reveal the fallback/recovery/admin key/password/credential"
+         r"(?i)\b(?:provide|give|share|show|reveal|send|retrieve|fetch)\s+(?:the\s+)?(?:fallback|recovery|backup|emergency|admin|master|root|default)\s+(?:access\s+)?(?:key|password|credential|token|code|phrase|secret)\b",
+         # ── v18: Multi-objective injection (numbered list with hidden credential request)
+         r"(?i)\b\d+[\.\)]\s*.{0,100}\b(?:provide|share|give|reveal|show|retrieve)\s+(?:the\s+)?(?:fallback|recovery|backup|emergency|admin|master|root|default|secret|internal|confidential)\s+(?:access\s+)?(?:key|password|credential|token|code|document|data)\b",
+         # ── v19: Character substitution credential extraction ─────────────
+         # Catches "replace/swap/change characters in the key/password/credential"
+         r"(?i)\b(?:replace|swap|change|substitute|mask|redact)\s+(?:every|each|all|the)\s+(?:vowel|consonant|letter|character|digit)\w*\s+(?:in|of|from)\s+(?:the\s+)?(?:fallback|recovery|admin|master|secret|access)\b",
+         r"(?i)\b(?:write|spell|show|display|print|output)\s+(?:it|the\s+\w+)\s+(?:backwards?|in\s+reverse|reversed|encoded|in\s+base64|in\s+rot13|in\s+hex)\b",
+         r"(?i)\b(?:assertEqual|assert_equal|expect|assertEquals)\b.{0,60}\b(?:fallback|key|password|credential|secret|token)\b",
+         r"(?i)\b(?:for\s+(?:a|my)\s+)?(?:slide\s+deck|presentation|unit\s+test|test\s+case|code\s+review)\b.{0,60}\b(?:fallback|key|password|credential|secret)\b",
+         # ── v19: Output injection — instructing LLM to include arbitrary text
+         r"(?i)\b(?:include|append|add|insert|embed|put)\s+(?:the\s+following|this)\s+(?:text|string|content|code|html|script)\s+(?:in|to|into)\s+(?:your|the|every|all)\s+(?:response|output|answer|reply)",
+         r"(?i)\b(?:from\s+now\s+on|always|every\s+time|whenever)\b.{0,40}\b(?:include|append|add)\b.{0,40}\b(?:in\s+your|to\s+your|to\s+the)\s+(?:response|output|answer)",
+         r"(?i)\b(?:end|finish|conclude|close)\s+(?:your|every|all|each)\s+(?:response|answer|reply|output)\s+with\b",
+         # ── v19: Decomposition extraction — asking for parts of a secret value
+         r"(?i)\b(?:what|give|tell|show)\b.{0,40}\b(?:inside|between|within)\s+(?:the\s+)?(?:brackets?|braces|parenthes[ie]s|delimiters)\b",
+         r"(?i)\b(?:what|give|tell|show)\b.{0,40}\b(?:before|after)\s+(?:the\s+)?(?:opening|closing)?\s*(?:bracket|brace|parenthesis|delimiter)\b",
+         r"(?i)\b(?:spell|read|list|enumerate)\s+(?:out\s+)?(?:the\s+)?(?:value|key|secret|credential|password|token).{0,30}\b(?:character|letter|byte|digit)\s+(?:by|at\s+a\s+time)\b",
      ]}, "order": 15},
     {"name": "Sentiment Filter (Input)",   "scanner_type": "Sentiment",         "direction": "input",
      "is_active": True, "on_fail_action": "monitor", "params": {"threshold": 0.0}, "order": 16},
@@ -584,7 +703,7 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Bias Detector",              "scanner_type": "Bias",              "direction": "output",
      "is_active": True, "on_fail_action": "reask",   "params": {"threshold": 0.75}, "order": 4},
     {"name": "Ban Code (Output)",          "scanner_type": "BanCode",           "direction": "output",
-     "is_active": True, "on_fail_action": "block",   "params": {"threshold": 0.4}, "order": 5},
+     "is_active": False, "on_fail_action": "block",   "params": {"threshold": 0.4}, "order": 5},
     {"name": "Ban Substrings (Output)",    "scanner_type": "BanSubstrings",     "direction": "output",
      "is_active": True,  "on_fail_action": "block",   "params": {"substrings": [
          # Detect if LLM was successfully manipulated into persona mode
@@ -657,6 +776,66 @@ GUARDRAIL_CATALOG: list[dict] = [
          "ohne einschränkungen",
          "sem restrições",
          "senza restrizioni",
+         # ── v18: Secret/credential disclosure phrases ───────────────────────
+         # Catches LLM revealing secrets in natural language (last line of defense)
+         "the fallback access key",
+         "the fallback key is",
+         "the recovery key is",
+         "the backup key is",
+         "the master key is",
+         "the admin password is",
+         "the root password is",
+         "the default password is",
+         "the emergency access key",
+         "the fallback credential",
+         "the recovery credential",
+         "the secret key is",
+         "here is the secret",
+         "here is the key:",
+         "here is the password",
+         "here is the access code",
+         "here is the token",
+         "the flag is",
+         "the access key is",
+         "provide the fallback key",
+         "provide the access key",
+         # ── v18: Sensitive path disclosure ───────────────────────────────────
+         "stored in /secrets",
+         "located in /secrets",
+         "found in /secrets",
+         "the /secrets directory",
+         "/secrets directory on",
+         "/etc/shadow",
+         "/etc/passwd",
+         # ── v18: Internal document reference disclosure ─────────────────────
+         "the internal admin guide",
+         "from the admin guide",
+         "according to the internal documentation",
+         "the confidential document states",
+         "per the internal document",
+         # ── v19: System role / configuration disclosure ─────────────────────
+         # Catches LLM revealing its own operational rules and guardrail structure
+         "i am configured to",
+         "i was configured to",
+         "my instructions say",
+         "my instructions are to",
+         "i follow these rules",
+         "i follow these general rules",
+         "my operational rules",
+         "i was instructed to",
+         "my configuration is",
+         "i am programmed to",
+         "my guidelines include",
+         # ── v19: XSS — dangerous URI schemes in output ───────────────────────
+         "javascript:",
+         # ── v19: Partial credential disclosure (decomposition attacks) ──────
+         "the word that the fallback",
+         "the content inside the brackets",
+         "the prefix of the credential",
+         "the string inside the brackets",
+         "the value between the brackets",
+         "starts with, before the opening bracket",
+         "the first part of the key is",
      ]}, "order": 6},
     {"name": "Ban Topics (Output)",        "scanner_type": "BanTopics",         "direction": "output",
      "is_active": True,  "on_fail_action": "block",   "params": {"topics": [
@@ -673,9 +852,11 @@ GUARDRAIL_CATALOG: list[dict] = [
          # Garak harmful_behaviors.json — CBRN / weapons synthesis
          "bioweapons", "chemical weapons", "weapons of mass destruction",
          "drug synthesis", "weapons synthesis",
+         # v18: Credential/secret disclosure detection
+         "credential disclosure", "secret key disclosure",
      ], "threshold": 0.5, "use_onnx": True}, "order": 7},
     {"name": "Code Detector (Output)",     "scanner_type": "Code",              "direction": "output",
-     "is_active": True, "on_fail_action": "block",   "params": {"languages": ["Python", "JavaScript", "Java", "C", "C++", "Go", "Rust", "PHP", "Ruby", "Shell"], "is_blocked": True, "threshold": 0.5}, "order": 8},
+     "is_active": False, "on_fail_action": "block",   "params": {"languages": ["Python", "JavaScript", "Java", "C", "C++", "Go", "Rust", "PHP", "Ruby", "Shell"], "is_blocked": True, "threshold": 0.5}, "order": 8},
     {"name": "Deanonymize",                "scanner_type": "Deanonymize",       "direction": "output",
      "is_active": True, "on_fail_action": "fix",     "params": {}, "order": 9},
     {"name": "Emotion Detection (Output)", "scanner_type": "EmotionDetection",  "direction": "output",
@@ -693,14 +874,16 @@ GUARDRAIL_CATALOG: list[dict] = [
     {"name": "Malicious URLs",             "scanner_type": "MaliciousURLs",     "direction": "output",
      "is_active": True, "on_fail_action": "block",   "params": {}, "order": 16},
     {"name": "No Refusal Light",           "scanner_type": "NoRefusalLight",    "direction": "output",
-     "is_active": True, "on_fail_action": "reask",   "params": {}, "order": 17},
+     "is_active": False, "on_fail_action": "reask",   "params": {}, "order": 17},
     {"name": "Reading Time",               "scanner_type": "ReadingTime",       "direction": "output",
      "is_active": True, "on_fail_action": "monitor", "params": {"max_time": 5.0}, "order": 18},
     {"name": "Regex Filter (Output)",      "scanner_type": "Regex",             "direction": "output",
      "is_active": True,  "on_fail_action": "fix",     "params": {"patterns": [
-         # ── Credential leakage (original) ────────────────────────────────────
-         r"(?i)(my\s+)?password\s+(is\s+)?\S+",
-         r"(?i)passwd\s*[:=]\s*\S+",
+         # ── Credential leakage ─────────────────────────────────────────────────
+         # Only match actual credential assignments, not general mentions of "password"
+         r"(?i)\bpassword\s*(?:is|[:=])\s*['\"]?\S{4,}",
+         r"(?i)\bpasswd\s*[:=]\s*\S+",
+         r"(?i)\b(?:api[_\s-]?key|secret[_\s-]?key|access[_\s-]?token)\s*(?:is|[:=])\s*['\"]?\S{8,}",
          # ── PII — US Social Security Number (v13) ───────────────────────────
          r"\b\d{3}-\d{2}-\d{4}\b",
          # ── PII — Payment card numbers (v13) ────────────────────────────────
@@ -709,9 +892,30 @@ GUARDRAIL_CATALOG: list[dict] = [
          # ── PII — Passport / ID numbers (rough heuristic) (v13) ─────────────
          r"(?i)\bpassport\s*(?:number|#|no\.?)?\s*[A-Z]{1,2}\d{6,9}\b",
          # ── System prompt echo detection (v13) ───────────────────────────────
-         # Fires if the model echoes back its own system prompt phrasing
-         r"(?i)\bsystem\s+prompt\s*(?:is|says|reads|states|follows)\b",
-         r"(?i)\byou\s+are\s+(?:an?\s+)?(?:AI|assistant|chatbot|LLM)\s+(?:trained|created|built|designed)\s+(?:by|for|to)\b.{0,120}\bdo\s+not\s+(?:reveal|share|disclose|repeat|output)\b",
+         # Only fires when the model literally echoes back system instructions
+         r"(?i)\bmy\s+system\s+prompt\s*(?:is|says|reads|states)\s*[:\"']",
+         r"(?i)\bhere\s+(?:is|are)\s+my\s+(?:system\s+)?(?:instructions|prompt|rules)\b",
+         # ── v18: Generic credential/token format detection ──────────────────
+         # FLAG{...}, FLAG[...], CTF{...}, SECRET[...] — common flag/secret wrappers
+         r"(?i)\b(?:FLAG|CTF|SECRET|KEY|TOKEN)\s*[\[{(][^\]})]{2,}[\]})]\s*",
+         # API key prefixes — OpenAI, Stripe, AWS, GitHub, Slack
+         r"\b(?:sk-[a-zA-Z0-9]{20,}|sk_(?:live|test)_[a-zA-Z0-9]{10,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|xox[bpsar]-[a-zA-Z0-9\-]{10,})\b",
+         # Bearer tokens and JWTs leaked in output
+         r"(?i)\bBearer\s+[a-zA-Z0-9\-_\.]{20,}\b",
+         r"\beyJ[a-zA-Z0-9\-_]{10,}\.[a-zA-Z0-9\-_]{10,}\.[a-zA-Z0-9\-_]{10,}\b",
+         # Natural language credential disclosure — "the fallback key is ABC123"
+         r"(?i)\b(?:fallback|recovery|backup|master|admin|root|default|emergency)\s+(?:access\s+)?(?:key|password|credential|token|code|phrase)\s+(?:is|was|=|:)\s*['\"]?\S{4,}",
+         # Connection strings with embedded credentials
+         r"(?i)(?:mongodb|mysql|postgres|redis|amqp)(?:\+\w+)?://[^:]+:[^@]+@",
+         # ── v18: Sensitive path disclosure ───────────────────────────────────
+         r"(?i)\b(?:stored|located|found|saved|kept|available)\s+(?:in|at|under)\s+/(?:secrets?|admin|config|private|internal|\.env|\.ssh|\.aws|credentials?)\b",
+         r"/(?:secrets?|\.env|\.ssh|\.aws/credentials|\.git/config|etc/(?:shadow|passwd|sudoers))\b",
+         # ── v19: XSS — dangerous URI schemes in output ──────────────────────
+         # Catches LLM echoing attacker-supplied javascript:/data: URIs
+         r"(?i)javascript\s*:\s*(?:void|alert|eval|fetch|document|window)",
+         r"(?i)data\s*:\s*text/html",
+         r"(?i)\]\(\s*javascript\s*:",
+         r"(?i)(?:href|src|action)\s*=\s*[\"']?\s*javascript\s*:",
      ]}, "order": 19},
     {"name": "Relevance",                  "scanner_type": "Relevance",         "direction": "output",
      "is_active": True, "on_fail_action": "reask",   "params": {"threshold": 0.5}, "order": 20},
@@ -721,4 +925,11 @@ GUARDRAIL_CATALOG: list[dict] = [
      "is_active": True, "on_fail_action": "monitor", "params": {"threshold": 0.0}, "order": 22},
     {"name": "URL Reachability",           "scanner_type": "URLReachability",   "direction": "output",
      "is_active": True, "on_fail_action": "monitor", "params": {}, "order": 23},
+    # v19: Information Disclosure Shield — catches semantic credential/secret leakage
+    # in LLM output using embedding similarity against a corpus of disclosure patterns.
+    # Complements BanSubstrings and Regex which only catch exact/structural matches.
+    # This is the OUTPUT counterpart to the input-side EmbeddingShield.
+    # Threshold 0.78 = catches disclosure paraphrases, avoids FP on security advice.
+    {"name": "Information Disclosure Shield", "scanner_type": "InformationShield", "direction": "output",
+     "is_active": True,  "on_fail_action": "block",   "params": {"threshold": 0.74}, "order": 24},
 ]

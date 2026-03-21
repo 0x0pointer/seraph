@@ -14,11 +14,56 @@ upstream_api_key: ""
 api_keys:
   - "sk_seraph_abc123"
 
+# Levels: debug | info | warning | error | critical
 logging:
   level: info
   audit: true
   # Set to a file path for SQLite audit storage, null for stdout JSON
   audit_file: null
+
+# ─── Allowed Topics Shield (allow-list approach) ─────────────────────────────
+#
+# Instead of trying to catch every attack (deny-list), define what the
+# chatbot is ALLOWED to discuss. Everything else is rejected.
+# This is the strongest defense against novel attacks — they're blocked
+# by default because they're off-topic.
+#
+# Configure per-app with topics matching your chatbot's purpose.
+#
+# allowed_topics_shield:
+#   enabled: true
+#   threshold: 0.40              # similarity threshold (lower = stricter)
+#   fallback_message: "I can only help with account recovery, 2FA, and API issues."
+#   topics:
+#     - "password reset and account recovery procedures"
+#     - "two-factor authentication setup and troubleshooting"
+#     - "API connection issues and endpoint troubleshooting"
+#     - "hello hi hey greetings good morning"
+
+# ─── Risk Engine ─────────────────────────────────────────────────────────────
+#
+# Stateful threat detection with evidence-based policy. Tracks risk across
+# requests per client, detects multi-turn attacks and reconnaissance patterns,
+# and adapts scanning depth for elevated-risk clients.
+#
+# Disabled by default — opt in when you want stateful threat detection.
+#
+# risk_engine:
+#   enabled: true
+#   expose_debug_headers: false      # true shows X-Seraph-Risk-Level, Evidence, Reason
+#   block_duration_seconds: 300      # 5 min hard block for confirmed attacks
+#   persist: true                    # write risk events to SQLite
+#   persist_file: null               # null = use logging.audit_file
+#   max_clients: 10000               # max tracked clients in memory
+#   max_deep_per_second: 5           # scan budget — deep tier
+#   max_enhanced_per_second: 20      # scan budget — enhanced tier
+#   elevated_threshold: 0.3          # risk score → elevated
+#   high_threshold: 0.6              # risk score → high
+#   critical_threshold: 0.8          # risk score → critical
+#   blocked_threshold: 0.95          # risk score → blocked
+#   scanner_weights:                 # override default scanner weights
+#     PromptInjection: 1.0
+#     EmbeddingShield: 0.95
 
 # ─── Scanner configuration ───────────────────────────────────────────────────
 #

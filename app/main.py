@@ -26,6 +26,25 @@ async def lifespan(application: FastAPI):
 
     logger.info("Seraph starting — listen=%s", config.listen)
 
+    # Initialize risk engine if enabled
+    if config.risk_engine and config.risk_engine.enabled:
+        from app.services.risk_engine import init_risk_engine
+        persist_db = config.risk_engine.persist_file or config.logging.audit_file
+        init_risk_engine(
+            persist_db=persist_db if config.risk_engine.persist else None,
+            scanner_weights=config.risk_engine.scanner_weights or None,
+            max_clients=config.risk_engine.max_clients,
+            block_duration_seconds=config.risk_engine.block_duration_seconds,
+            max_deep_per_second=config.risk_engine.max_deep_per_second,
+            max_enhanced_per_second=config.risk_engine.max_enhanced_per_second,
+            expose_debug_headers=config.risk_engine.expose_debug_headers,
+            elevated_threshold=config.risk_engine.elevated_threshold,
+            high_threshold=config.risk_engine.high_threshold,
+            critical_threshold=config.risk_engine.critical_threshold,
+            blocked_threshold=config.risk_engine.blocked_threshold,
+        )
+        logger.info("Risk engine enabled")
+
     try:
         loop = asyncio.get_event_loop()
         loop.add_signal_handler(signal.SIGHUP, _handle_sighup)
@@ -41,6 +60,9 @@ async def lifespan(application: FastAPI):
     # ── shutdown ─────────────────────────────────────────────────────────────
     from app.services import audit_logger
     await audit_logger.close()
+
+    from app.services.risk_engine import shutdown_risk_engine
+    await shutdown_risk_engine()
 
 
 app = FastAPI(
@@ -103,9 +125,12 @@ async def reload(api_key: ReloadApiKey):
     return {"status": "reloaded"}
 
 
-# Proxy catch-all must be registered LAST so /health and /reload match first
-from app.api.routes import proxy  # noqa: E402
+# Dashboard (before proxy catch-all so /dashboard/* routes match first)
+from app.api.routes import dashboard  # noqa: E402
+app.include_router(dashboard.router)
 
+# Proxy catch-all must be registered LAST so /health, /reload, /dashboard match first
+from app.api.routes import proxy  # noqa: E402
 app.include_router(proxy.router)
 
 

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seraph Security Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+
+        .header { background: #1e293b; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .header h1 { font-size: 20px; color: #38bdf8; }
+        .header .stats { display: flex; gap: 24px; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 700; }
+        .stat-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+        .stat-value.green { color: #4ade80; }
+        .stat-value.red { color: #f87171; }
+        .stat-value.yellow { color: #fbbf24; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+        .grid-full { grid-column: 1 / -1; }
+
+        .panel { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
+        .panel h2 { font-size: 14px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+        /* Feed table */
+        .feed { max-height: 400px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; padding: 6px 8px; color: #64748b; border-bottom: 1px solid #334155; position: sticky; top: 0; background: #1e293b; }
+        td { padding: 6px 8px; border-bottom: 1px solid #1e293b; }
+        tr:hover { background: #334155; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+        .badge-blocked, .badge-hard_block { background: #991b1b; color: #fca5a5; }
+        .badge-allowed, .badge-allow { background: #166534; color: #86efac; }
+        .badge-allow_with_headers { background: #065f46; color: #6ee7b7; }
+        .badge-fixed, .badge-sanitize { background: #854d0e; color: #fde68a; }
+        .badge-monitored, .badge-shadow_flag { background: #1e3a5f; color: #93c5fd; }
+        .badge-tarpit { background: #78350f; color: #fed7aa; }
+        .badge-rate_limit { background: #581c87; color: #d8b4fe; }
+        .badge-deepen_scan { background: #1e3a5f; color: #7dd3fc; }
+        .badge-input { background: #1e40af; color: #93c5fd; }
+        .badge-output { background: #7c2d12; color: #fdba74; }
+
+        .evidence-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; margin: 1px; background: #334155; color: #cbd5e1; }
+
+        /* Charts */
+        .chart-container { position: relative; height: 250px; }
+
+        /* Bypass panel */
+        .bypass-item { padding: 8px; margin-bottom: 8px; background: #2d1b1b; border: 1px solid #7f1d1d; border-radius: 6px; font-size: 12px; }
+        .bypass-item .label { color: #f87171; font-weight: 600; }
+
+        /* Scanner matrix */
+        .matrix-row { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid #1e293b; font-size: 12px; }
+        .matrix-name { width: 140px; color: #cbd5e1; }
+        .matrix-bar { flex: 1; display: flex; height: 16px; border-radius: 3px; overflow: hidden; }
+        .matrix-bar > div { height: 100%; transition: width 0.3s; }
+        .bar-blocked { background: #dc2626; }
+        .bar-fixed { background: #d97706; }
+        .bar-monitored { background: #2563eb; }
+        .bar-passed { background: #16a34a; }
+        .matrix-count { width: 40px; text-align: right; color: #64748b; font-size: 11px; }
+
+        /* Client scoreboard */
+        .risk-bar { width: 60px; height: 8px; background: #334155; border-radius: 4px; display: inline-block; overflow: hidden; }
+        .risk-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .risk-normal { background: #4ade80; }
+        .risk-elevated { background: #fbbf24; }
+        .risk-high { background: #f97316; }
+        .risk-critical { background: #ef4444; }
+        .risk-blocked { background: #dc2626; }
+
+        .refresh-indicator { font-size: 10px; color: #475569; }
+        .no-data { color: #475569; font-style: italic; padding: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Seraph Security Dashboard</h1>
+        <div class="stats">
+            <div class="stat"><div class="stat-value" id="stat-total">-</div><div class="stat-label">Total Scans</div></div>
+            <div class="stat"><div class="stat-value green" id="stat-allowed">-</div><div class="stat-label">Allowed</div></div>
+            <div class="stat"><div class="stat-value red" id="stat-blocked">-</div><div class="stat-label">Blocked</div></div>
+            <div class="stat"><div class="stat-value yellow" id="stat-rate">-</div><div class="stat-label">Block Rate</div></div>
+            <div class="stat"><div class="stat-value" id="stat-risk">-</div><div class="stat-label">Risk Events</div></div>
+        </div>
+        <div class="refresh-indicator">Auto-refresh: <span id="countdown">5</span>s</div>
+    </div>
+
+    <div class="grid">
+        <!-- Row 1: Feed + Evidence -->
+        <div class="panel grid-full">
+            <h2>Real-Time Event Feed</h2>
+            <div class="feed" id="feed-container">
+                <table>
+                    <thead><tr><th>Time</th><th>Dir</th><th>Action</th><th>Evidence</th><th>Violations</th><th>Severity</th><th>IP</th><th>Tier</th></tr></thead>
+                    <tbody id="feed-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Row 2: Evidence Breakdown + OWASP Coverage -->
+        <div class="panel">
+            <h2>Attack Category Breakdown</h2>
+            <div class="chart-container"><canvas id="evidence-chart"></canvas></div>
+        </div>
+        <div class="panel">
+            <h2>OWASP LLM Top 10 Coverage</h2>
+            <div class="chart-container"><canvas id="owasp-chart"></canvas></div>
+        </div>
+
+        <!-- Row 3: Scanner Matrix + Policy Actions -->
+        <div class="panel">
+            <h2>Scanner Effectiveness</h2>
+            <div id="scanner-matrix"></div>
+        </div>
+        <div class="panel">
+            <h2>Policy Action Distribution</h2>
+            <div class="chart-container"><canvas id="policy-chart"></canvas></div>
+        </div>
+
+        <!-- Row 4: Risk Timeline + Client Scoreboard -->
+        <div class="panel">
+            <h2>Risk Timeline (Last Hour)</h2>
+            <div class="chart-container"><canvas id="timeline-chart"></canvas></div>
+        </div>
+        <div class="panel">
+            <h2>Client Risk Scoreboard (Live)</h2>
+            <div id="client-scoreboard"></div>
+        </div>
+
+        <!-- Row 5: Bypass Detection -->
+        <div class="panel grid-full">
+            <h2>Bypass Detection (Input Passed + Output Caught)</h2>
+            <div id="bypass-panel"></div>
+        </div>
+    </div>
+
+    <script>
+    const COLORS = {
+        active_attack: '#ef4444', evasion: '#f97316', recon: '#eab308',
+        resource_abuse: '#a855f7', data_exfil: '#ec4899', unsafe_generation: '#6366f1',
+        policy_test: '#14b8a6',
+    };
+    const ACTION_COLORS = {
+        allow: '#4ade80', allow_with_headers: '#86efac', shadow_flag: '#60a5fa',
+        deepen_scan: '#38bdf8', sanitize: '#fbbf24', reask: '#f59e0b',
+        tarpit: '#fb923c', rate_limit: '#c084fc', hard_block: '#f87171',
+        blocked: '#f87171', fixed: '#fbbf24', monitored: '#60a5fa', allowed: '#4ade80',
+    };
+
+    let evidenceChart, owaspChart, policyChart, timelineChart;
+
+    // ── Stats ───────────────────────────────────────────────────────────
+    async function updateStats() {
+        const r = await fetch('/dashboard/api/stats');
+        const d = await r.json();
+        const s = d.stats;
+        document.getElementById('stat-total').textContent = s.total_scans;
+        document.getElementById('stat-allowed').textContent = s.allowed;
+        document.getElementById('stat-blocked').textContent = s.blocked;
+        document.getElementById('stat-rate').textContent = s.block_rate + '%';
+        document.getElementById('stat-risk').textContent = s.risk_events;
+    }
+
+    // ── Feed ────────────────────────────────────────────────────────────
+    async function updateFeed() {
+        const r = await fetch('/dashboard/api/feed?limit=50');
+        const d = await r.json();
+        const body = document.getElementById('feed-body');
+        body.innerHTML = d.events.map(e => `
+            <tr>
+                <td>${e.timestamp.split('T')[1]?.substring(0,8) || e.timestamp}</td>
+                <td><span class="badge badge-${e.direction}">${e.direction}</span></td>
+                <td><span class="badge badge-${e.action}">${e.action}</span></td>
+                <td>${(e.evidence || []).map(t => `<span class="evidence-tag">${t}</span>`).join('')}</td>
+                <td>${(e.violations || []).join(', ')}</td>
+                <td>${e.severity > 0 ? e.severity.toFixed(2) : '-'}</td>
+                <td>${e.ip}</td>
+                <td>${e.scan_tier}</td>
+            </tr>
+        `).join('');
+    }
+
+    // ── Evidence Breakdown (donut) ──────────────────────────────────────
+    async function updateEvidence() {
+        const r = await fetch('/dashboard/api/evidence_breakdown');
+        const d = await r.json();
+        const labels = Object.keys(d.breakdown);
+        const values = Object.values(d.breakdown);
+        const colors = labels.map(l => COLORS[l] || '#64748b');
+
+        if (evidenceChart) { evidenceChart.destroy(); }
+        if (labels.length === 0) {
+            document.getElementById('evidence-chart').parentElement.innerHTML += '<div class="no-data">No evidence data yet</div>';
+            return;
+        }
+        evidenceChart = new Chart(document.getElementById('evidence-chart'), {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+        });
+    }
+
+    // ── OWASP Coverage (bar) ────────────────────────────────────────────
+    async function updateOwasp() {
+        const r = await fetch('/dashboard/api/owasp_coverage');
+        const d = await r.json();
+        const labels = Object.keys(d.coverage).map(k => k.replace('_', ' '));
+        const values = Object.values(d.coverage);
+        const colors = values.map(v => v > 0 ? '#38bdf8' : '#334155');
+
+        if (owaspChart) { owaspChart.destroy(); }
+        owaspChart = new Chart(document.getElementById('owasp-chart'), {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                scales: { x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // ── Scanner Matrix ──────────────────────────────────────────────────
+    async function updateMatrix() {
+        const r = await fetch('/dashboard/api/scanner_matrix');
+        const d = await r.json();
+        const container = document.getElementById('scanner-matrix');
+
+        const scanners = Object.entries(d.matrix)
+            .filter(([_, v]) => v.triggered > 0)
+            .sort((a, b) => b[1].triggered - a[1].triggered);
+
+        if (scanners.length === 0) {
+            container.innerHTML = '<div class="no-data">No scanner data yet</div>';
+            return;
+        }
+
+        container.innerHTML = scanners.map(([name, v]) => {
+            const total = v.blocked + v.fixed + v.monitored + v.passed;
+            const pct = (n) => total > 0 ? (n / total * 100) + '%' : '0%';
+            return `<div class="matrix-row">
+                <div class="matrix-name">${name}</div>
+                <div class="matrix-bar">
+                    <div class="bar-blocked" style="width:${pct(v.blocked)}" title="Blocked: ${v.blocked}"></div>
+                    <div class="bar-fixed" style="width:${pct(v.fixed)}" title="Fixed: ${v.fixed}"></div>
+                    <div class="bar-monitored" style="width:${pct(v.monitored)}" title="Monitored: ${v.monitored}"></div>
+                    <div class="bar-passed" style="width:${pct(v.passed)}" title="Passed: ${v.passed}"></div>
+                </div>
+                <div class="matrix-count">${v.triggered}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Policy Actions (pie) ────────────────────────────────────────────
+    async function updatePolicy() {
+        const r = await fetch('/dashboard/api/policy_actions');
+        const d = await r.json();
+        const labels = Object.keys(d.actions);
+        const values = Object.values(d.actions);
+        const colors = labels.map(l => ACTION_COLORS[l] || '#64748b');
+
+        if (policyChart) { policyChart.destroy(); }
+        if (labels.length === 0) {
+            document.getElementById('policy-chart').parentElement.innerHTML += '<div class="no-data">No policy data yet</div>';
+            return;
+        }
+        policyChart = new Chart(document.getElementById('policy-chart'), {
+            type: 'pie',
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+        });
+    }
+
+    // ── Risk Timeline (line) ────────────────────────────────────────────
+    async function updateTimeline() {
+        const r = await fetch('/dashboard/api/risk_timeline');
+        const d = await r.json();
+        const labels = d.timeline.map(t => t.minute.split('T')[1] || t.minute);
+        const blocked = d.timeline.map(t => t.blocked);
+        const allowed = d.timeline.map(t => t.allowed);
+
+        if (timelineChart) { timelineChart.destroy(); }
+        timelineChart = new Chart(document.getElementById('timeline-chart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Blocked', data: blocked, borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: true, tension: 0.3 },
+                    { label: 'Allowed', data: allowed, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.1)', fill: true, tension: 0.3 },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { ticks: { color: '#64748b', maxTicksLimit: 10 }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } } },
+                plugins: { legend: { labels: { color: '#94a3b8' } } }
+            }
+        });
+    }
+
+    // ── Client Scoreboard ───────────────────────────────────────────────
+    async function updateClients() {
+        const r = await fetch('/dashboard/api/client_scoreboard');
+        const d = await r.json();
+        const container = document.getElementById('client-scoreboard');
+
+        if (d.clients.length === 0) {
+            container.innerHTML = '<div class="no-data">No active clients</div>';
+            return;
+        }
+
+        container.innerHTML = `<table>
+            <thead><tr><th>Client</th><th>Fast</th><th>Slow</th><th>Level</th><th>Reqs</th><th>Violations</th><th>Status</th></tr></thead>
+            <tbody>${d.clients.map(c => `<tr>
+                <td style="font-size:11px">${c.client_id.substring(0, 20)}</td>
+                <td><div class="risk-bar"><div class="risk-bar-fill risk-${c.risk_level}" style="width:${c.fast_score * 100}%"></div></div></td>
+                <td><div class="risk-bar"><div class="risk-bar-fill risk-${c.risk_level}" style="width:${c.slow_score * 100}%"></div></div></td>
+                <td><span class="badge badge-${c.risk_level === 'normal' ? 'allowed' : c.risk_level === 'blocked' ? 'blocked' : 'monitored'}">${c.risk_level}</span></td>
+                <td>${c.total_requests}</td>
+                <td>${c.total_violations}</td>
+                <td>${c.blocked ? '<span class="badge badge-blocked">BLOCKED</span>' : '-'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    // ── Bypass Detection ────────────────────────────────────────────────
+    async function updateBypasses() {
+        const r = await fetch('/dashboard/api/bypasses?limit=10');
+        const d = await r.json();
+        const container = document.getElementById('bypass-panel');
+
+        if (d.bypasses.length === 0) {
+            container.innerHTML = '<div class="no-data">No bypasses detected (input defenses holding)</div>';
+            return;
+        }
+
+        container.innerHTML = d.bypasses.map(b => `
+            <div class="bypass-item">
+                <div class="label">BYPASS @ ${b.timestamp}</div>
+                <div>Output caught by: ${(b.output_violations || []).join(', ')}</div>
+                <div style="color:#94a3b8">IP: ${b.ip}</div>
+            </div>
+        `).join('');
+    }
+
+    // ── Refresh Loop ────────────────────────────────────────────────────
+    let countdown = 5;
+    async function refreshAll() {
+        try {
+            await Promise.all([
+                updateStats(), updateFeed(), updateEvidence(), updateOwasp(),
+                updateMatrix(), updatePolicy(), updateTimeline(),
+                updateClients(), updateBypasses(),
+            ]);
+        } catch (e) { console.error('Refresh error:', e); }
+        countdown = 5;
+    }
+
+    setInterval(() => {
+        countdown--;
+        document.getElementById('countdown').textContent = countdown;
+        if (countdown <= 0) refreshAll();
+    }, 1000);
+
+    refreshAll();
+    </script>
+</body>
+</html>

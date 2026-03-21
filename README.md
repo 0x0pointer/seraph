@@ -218,6 +218,32 @@ When a scanner detects a threat, the `on_fail` setting controls what happens:
 | `/health` | GET | Health check |
 | `/reload` | POST | Hot-reload config and scanners |
 
+## Risk Engine
+
+Seraph includes a stateful risk scoring engine that tracks threat evidence across requests. Unlike stateless per-request scanning, the risk engine detects multi-turn attacks, reconnaissance patterns, and distributed probing.
+
+**Key features:**
+- Evidence-based scoring with attack pattern detection (not just numeric scores)
+- Multi-scope tracking: principal, network, conversation, execution context, global
+- Dual-window decay: fast window (2 min) catches bursts, slow window (1 hr) catches persistence
+- Adaptive scanning: elevated-risk clients get deeper scanning automatically
+- 5 derived behavioral detectors: boundary testing, retry mutation, distributed probe, streaming bypass, conversation escalation
+- Policy engine with graduated response: allow → shadow flag → deepen scan → tarpit → rate limit → hard block
+- Input/output culpability split: output issues don't over-penalize the caller
+- Response headers: `X-Seraph-Action`, `X-Seraph-Correlation-ID` (debug: risk level, evidence, reason codes)
+
+**Enable in config.yaml:**
+
+```yaml
+risk_engine:
+  enabled: true
+  expose_debug_headers: false  # true for lab/debug mode
+  block_duration_seconds: 300
+  persist: true
+```
+
+**OWASP LLM Top 10 coverage:** Every scanner maps to OWASP categories (LLM01-LLM10) for compliance reporting. Evidence classes map attacks to operational taxonomy: active_attack, evasion, recon, resource_abuse, data_exfil, unsafe_generation.
+
 ## Hot Reload
 
 Change scanners or settings without restarting:
@@ -229,6 +255,17 @@ curl -X POST http://localhost:8000/reload
 # Or send SIGHUP
 kill -HUP $(pgrep -f "uvicorn app.main")
 ```
+
+## Security Testing Lab
+
+Seraph includes a lab launcher for pentesting LLM applications:
+
+```bash
+./lab.sh        # interactive menu — pick a CTF level
+./lab.sh 1      # launch level 1 directly
+```
+
+The lab routes LLM traffic through Seraph's proxy, scanning every request and response. See `config.lab.yaml` for lab-specific settings.
 
 ## Development
 

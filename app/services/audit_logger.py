@@ -62,11 +62,14 @@ async def log_scan(
 
     timestamp = datetime.now(timezone.utc).isoformat()
 
+    # Convert numpy floats to Python floats for JSON serialization
+    safe_results = {k: float(v) for k, v in scanner_results.items()}
+
     record: dict[str, Any] = {
         "timestamp": timestamp,
         "direction": direction,
         "is_valid": is_valid,
-        "scanner_results": scanner_results,
+        "scanner_results": safe_results,
         "violations": violations,
         "on_fail_actions": on_fail_actions or {},
         "text_length": text_length,
@@ -86,7 +89,7 @@ async def log_scan(
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         timestamp, direction, int(is_valid),
-                        json.dumps(scanner_results), json.dumps(violations),
+                        json.dumps(safe_results), json.dumps(violations),
                         json.dumps(on_fail_actions or {}), text_length,
                         int(fix_applied), ip_address,
                     ),

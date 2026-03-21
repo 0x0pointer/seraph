@@ -1,0 +1,62 @@
+# Seraph Lab Mode — guardrail proxy for LLM security challenges
+#
+# Usage:
+#   ./lab.sh              # interactive launcher (recommended)
+#   SERAPH_CONFIG=config.lab.yaml UPSTREAM_API_KEY="sk-proj-..." \
+#     uvicorn app.main:app --port 8000
+
+listen: "0.0.0.0:8000"
+upstream: "https://api.openai.com"
+
+# Open mode — no Seraph API key required (LLM apps connect directly)
+api_keys: []
+
+# upstream_api_key is set via UPSTREAM_API_KEY env var by lab.sh
+# You can also hardcode it here:
+# upstream_api_key: "sk-proj-your-key-here"
+
+# Levels: debug | info | warning | error | critical
+logging:
+  level: critical
+  audit: true
+  audit_file: audit.db
+
+# Allowed Topics Shield — allow-list approach (NeMo Guardrails style).
+# Only permits questions matching defined topics. Everything else is rejected.
+# This is the strongest defense against novel attack patterns — they're blocked
+# by default because they're off-topic.
+#
+# Configure per-app: define what the chatbot is allowed to discuss.
+# Comment out to disable (reverts to deny-list only).
+allowed_topics_shield:
+  enabled: true
+  threshold: 0.40
+  fallback_message: "I can only help with account recovery, 2FA setup, and API troubleshooting."
+  topics:
+    - "password reset and account recovery procedures"
+    - "user account recovery guide help with logging in"
+    - "two-factor authentication setup and troubleshooting"
+    - "2FA setup QR code authenticator app verification"
+    - "API connection issues and endpoint troubleshooting"
+    - "external API troubleshooting DNS firewall TLS certificates"
+    - "hello hi hey greetings good morning good afternoon"
+    - "help with using the support system"
+    - "what can you help me with what topics do you cover"
+    - "tell me more about explain describe how does"
+
+# Use the FULL guardrail catalog (42 scanners, 322+ rules) by omitting
+# the scanners section. Override specific scanners to "monitor" so the
+# CTF apps' intentional secrets/credentials don't get blocked.
+on_fail_overrides:
+  input.Regex: monitor       # CTF knowledge bases contain patterns that match credential regexes
+  input.Secrets: monitor     # CTF apps embed fake API keys / passwords intentionally
+  input.BanTopics: monitor   # CTF prompts may touch sensitive topics by design
+  output.Regex: block        # Block leaked credentials/secrets in output
+  output.Secrets: block      # Still block leaked secrets in output
+
+# Risk engine — stateful threat detection with evidence-based policy
+risk_engine:
+  enabled: true
+  expose_debug_headers: true   # Lab mode: show X-Seraph-Risk-Level, Evidence, Reason
+  block_duration_seconds: 300  # 5 min block for confirmed attacks
+  persist: true                # Write risk events to audit.db

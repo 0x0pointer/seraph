@@ -115,6 +115,18 @@ def _import_embedding_shield(params: dict) -> Any:
     return EmbeddingShield(**params)
 
 
+def _import_information_shield(params: dict) -> Any:
+    """Instantiate the first-party InformationShield output scanner."""
+    from app.services.information_shield import InformationShield
+    return InformationShield(**params)
+
+
+def _import_allowed_topics_shield(params: dict) -> Any:
+    """Instantiate the first-party AllowedTopicsShield input scanner."""
+    from app.services.allowed_topics_shield import AllowedTopicsShield
+    return AllowedTopicsShield(**params)
+
+
 # Exact language names accepted by the llm-guard Code scanner.
 _LANG_MATHEMATICA = "Mathematica/Wolfram Language"
 _LANG_VB_NET = "Visual Basic .NET"
@@ -182,6 +194,12 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
     if scanner_type == "EmbeddingShield":
         return _import_embedding_shield(params)
 
+    if scanner_type == "InformationShield":
+        return _import_information_shield(params)
+
+    if scanner_type == "AllowedTopicsShield":
+        return _import_allowed_topics_shield(params)
+
     if scanner_type == "BanCode":
         languages = params.get("languages")
         if languages:
@@ -205,8 +223,11 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
     return _import_scanner(scanner_type, direction, params)
 
 
-def _scanner_configs_from_catalog(direction: str) -> list:
-    """Build ScannerConfig list from the guardrail_catalog defaults."""
+def _scanner_configs_from_catalog(direction: str, include_disabled: bool = False) -> list:
+    """Build ScannerConfig list from the guardrail_catalog defaults.
+
+    If include_disabled=True, loads ALL scanners (for adaptive deep scanning).
+    """
     from app.core.guardrail_catalog import GUARDRAIL_CATALOG
     return [
         ScannerConfig(
@@ -216,7 +237,7 @@ def _scanner_configs_from_catalog(direction: str) -> list:
             on_fail=e.get("on_fail_action", "block"),
         )
         for e in GUARDRAIL_CATALOG
-        if e["direction"] == direction and e.get("is_active", False)
+        if e["direction"] == direction and (include_disabled or e.get("is_active", False))
     ]
 
 
@@ -236,6 +257,7 @@ def _prepare_scanner_params(sc: ScannerConfig) -> tuple[dict, list[str], str]:
 
 def _load_scanners_from_config(
     direction: str,
+    include_disabled: bool = False,
 ) -> list[tuple[Any, str, list[str], int, dict, str]]:
     """
     Load scanners from YAML config (or guardrail_catalog defaults).
@@ -243,8 +265,9 @@ def _load_scanners_from_config(
     """
     global _cache_valid
 
-    if direction in _cache_valid and direction in _cache:
-        return _cache[direction]
+    cache_key_dir = f"{direction}:{'all' if include_disabled else 'active'}"
+    if cache_key_dir in _cache_valid and cache_key_dir in _cache:
+        return _cache[cache_key_dir]
 
     config = get_config()
 
@@ -253,11 +276,34 @@ def _load_scanners_from_config(
             config.scanners.input if direction == "input" else config.scanners.output
         )
     else:
-        scanner_configs = _scanner_configs_from_catalog(direction)
+        scanner_configs = _scanner_configs_from_catalog(direction, include_disabled=include_disabled)
+
+    # Inject AllowedTopicsShield for input direction if configured
+    if direction == "input" and hasattr(config, "allowed_topics_shield"):
+        ats = config.allowed_topics_shield
+        if ats and ats.enabled and ats.topics:
+            scanner_configs.append(ScannerConfig(
+                type="AllowedTopicsShield",
+                params={
+                    "allowed_topics": ats.topics,
+                    "threshold": ats.threshold,
+                    "fallback_message": ats.fallback_message,
+                },
+                on_fail="block",
+            ))
+
+    # Apply per-scanner on_fail overrides from config.
+    # Supports: "Regex" (both), "input.Regex" (input only), "output.Regex" (output only).
+    overrides = config.on_fail_overrides
 
     entries: list[tuple[Any, str, list[str], int, dict, str]] = []
     for idx, sc in enumerate(scanner_configs):
         scanner_params, custom_phrases, on_fail_action = _prepare_scanner_params(sc)
+        direction_key = f"{direction}.{sc.type}"
+        if direction_key in overrides:
+            on_fail_action = overrides[direction_key]
+        elif sc.type in overrides:
+            on_fail_action = overrides[sc.type]
         try:
             scanner = _build_scanner(sc.type, direction, scanner_params)
             entries.append((scanner, sc.type, custom_phrases, idx, scanner_params, on_fail_action))
@@ -265,8 +311,8 @@ def _load_scanners_from_config(
         except Exception as e:
             logger.warning(f"Skipping scanner {sc.type}: {e}")
 
-    _cache[direction] = entries
-    _cache_valid.add(direction)
+    _cache[cache_key_dir] = entries
+    _cache_valid.add(cache_key_dir)
 
     return entries
 
@@ -437,6 +483,7 @@ def _collect_raw_results(
 async def run_input_scan(
     text: str,
     allowed_types: set[str] | None = None,
+    scan_tier: str = "standard",
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
     """
     Run all active input scanners in parallel threads.
@@ -445,8 +492,13 @@ async def run_input_scan(
         (is_valid, sanitized_text, scanner_results, violation_scanners,
          on_fail_actions, reask_context, fix_applied)
     """
-    entries = _load_and_filter_entries(
-        _load_scanners_from_config("input"), allowed_types)
+    # For deep scan tier, load ALL scanners (including disabled ones from catalog)
+    if scan_tier == "deep":
+        all_entries = _load_scanners_from_config("input", include_disabled=True)
+        entries = _load_and_filter_entries(all_entries, allowed_types)
+    else:
+        entries = _load_and_filter_entries(
+            _load_scanners_from_config("input"), allowed_types)
     if not entries:
         return True, text, {}, [], {}, None, False
 
@@ -493,6 +545,7 @@ async def run_output_scan(
     prompt: str,
     output: str,
     allowed_types: set[str] | None = None,
+    scan_tier: str = "standard",
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
     """
     Run all active output scanners in parallel threads.
@@ -501,8 +554,12 @@ async def run_output_scan(
         (is_valid, sanitized_text, scanner_results, violation_scanners,
          on_fail_actions, reask_context, fix_applied)
     """
-    entries = _load_and_filter_entries(
-        _load_scanners_from_config("output"), allowed_types)
+    if scan_tier == "deep":
+        all_entries = _load_scanners_from_config("output", include_disabled=True)
+        entries = _load_and_filter_entries(all_entries, allowed_types)
+    else:
+        entries = _load_and_filter_entries(
+            _load_scanners_from_config("output"), allowed_types)
     if not entries:
         return True, output, {}, [], {}, None, False
 

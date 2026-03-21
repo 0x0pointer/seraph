@@ -46,6 +46,9 @@ logs/
 # Local config overrides
 config.local.yaml
 
+# External project dirs
+Tutor-main/
+
 # Test / coverage
 .coverage
 .pytest_cache/
