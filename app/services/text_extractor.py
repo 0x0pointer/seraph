@@ -91,30 +91,37 @@ def _extract_messages(body: dict, segments: list[TextSegment]) -> None:
         role = msg.get("role", "unknown")
         prefix = f"messages[{i}]"
 
-        # Content field — string or list of blocks
-        content = msg.get("content")
-        if content is not None:
-            _extract_content(content, role, f"{prefix}.content", segments)
+        _extract_message_content(msg, role, prefix, segments)
+        _extract_message_tool_calls(msg, prefix, segments)
 
-        # Tool calls embedded in assistant messages (OpenAI)
-        tool_calls = msg.get("tool_calls")
-        if tool_calls and isinstance(tool_calls, list):
-            for j, tc in enumerate(tool_calls):
-                if not isinstance(tc, dict):
-                    continue
-                fn = tc.get("function", {})
-                args = fn.get("arguments", "")
-                if args and isinstance(args, str) and args.strip():
-                    segments.append(TextSegment(
-                        text=args,
-                        role="tool_call",
-                        source=f"{prefix}.tool_calls[{j}].function.arguments",
-                    ))
 
-        # Tool result name (for context)
-        if role == "tool":
-            tool_name = msg.get("name", "")
-            # Content already extracted above; nothing extra needed
+def _extract_message_content(
+    msg: dict, role: str, prefix: str, segments: list[TextSegment],
+) -> None:
+    """Extract content field from a single message."""
+    content = msg.get("content")
+    if content is not None:
+        _extract_content(content, role, f"{prefix}.content", segments)
+
+
+def _extract_message_tool_calls(
+    msg: dict, prefix: str, segments: list[TextSegment],
+) -> None:
+    """Extract tool call arguments from assistant messages (OpenAI format)."""
+    tool_calls = msg.get("tool_calls")
+    if not tool_calls or not isinstance(tool_calls, list):
+        return
+    for j, tc in enumerate(tool_calls):
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function", {})
+        args = fn.get("arguments", "")
+        if args and isinstance(args, str) and args.strip():
+            segments.append(TextSegment(
+                text=args,
+                role="tool_call",
+                source=f"{prefix}.tool_calls[{j}].function.arguments",
+            ))
 
 
 def _extract_content(
@@ -124,20 +131,24 @@ def _extract_content(
     if isinstance(content, str):
         if content.strip():
             segments.append(TextSegment(text=content, role=role, source=source))
-    elif isinstance(content, list):
-        for i, block in enumerate(content):
-            text = _text_from_content_block(block)
-            if text:
-                segments.append(TextSegment(
-                    text=text, role=role, source=f"{source}[{i}]",
-                ))
-            # Anthropic tool_result blocks can contain nested content
-            if isinstance(block, dict) and block.get("type") == "tool_result":
-                nested = block.get("content")
-                if nested:
-                    _extract_content(
-                        nested, "tool", f"{source}[{i}].content", segments,
-                    )
+        return
+
+    if not isinstance(content, list):
+        return
+
+    for i, block in enumerate(content):
+        text = _text_from_content_block(block)
+        if text:
+            segments.append(TextSegment(
+                text=text, role=role, source=f"{source}[{i}]",
+            ))
+        # Anthropic tool_result blocks can contain nested content
+        if isinstance(block, dict) and block.get("type") == "tool_result":
+            nested = block.get("content")
+            if nested:
+                _extract_content(
+                    nested, "tool", f"{source}[{i}].content", segments,
+                )
 
 
 def _text_from_content_block(block: Any) -> str:
@@ -159,34 +170,43 @@ def _text_from_content_block(block: Any) -> str:
 
 def _extract_tool_definitions(body: dict, segments: list[TextSegment]) -> None:
     """Extract descriptions from tool/function definitions."""
-    # OpenAI tools format
-    tools = body.get("tools")
-    if tools and isinstance(tools, list):
-        for i, tool in enumerate(tools):
-            if not isinstance(tool, dict):
-                continue
-            fn = tool.get("function", {})
-            desc = fn.get("description", "")
-            if desc and isinstance(desc, str) and desc.strip():
-                segments.append(TextSegment(
-                    text=desc,
-                    role="tool_definition",
-                    source=f"tools[{i}].function.description",
-                ))
+    _extract_openai_tools(body, segments)
+    _extract_legacy_functions(body, segments)
 
-    # Legacy OpenAI functions format
+
+def _extract_openai_tools(body: dict, segments: list[TextSegment]) -> None:
+    """Extract descriptions from OpenAI tools format."""
+    tools = body.get("tools")
+    if not tools or not isinstance(tools, list):
+        return
+    for i, tool in enumerate(tools):
+        if not isinstance(tool, dict):
+            continue
+        fn = tool.get("function", {})
+        desc = fn.get("description", "")
+        if desc and isinstance(desc, str) and desc.strip():
+            segments.append(TextSegment(
+                text=desc,
+                role="tool_definition",
+                source=f"tools[{i}].function.description",
+            ))
+
+
+def _extract_legacy_functions(body: dict, segments: list[TextSegment]) -> None:
+    """Extract descriptions from legacy OpenAI functions format."""
     functions = body.get("functions")
-    if functions and isinstance(functions, list):
-        for i, fn in enumerate(functions):
-            if not isinstance(fn, dict):
-                continue
-            desc = fn.get("description", "")
-            if desc and isinstance(desc, str) and desc.strip():
-                segments.append(TextSegment(
-                    text=desc,
-                    role="tool_definition",
-                    source=f"functions[{i}].description",
-                ))
+    if not functions or not isinstance(functions, list):
+        return
+    for i, fn in enumerate(functions):
+        if not isinstance(fn, dict):
+            continue
+        desc = fn.get("description", "")
+        if desc and isinstance(desc, str) and desc.strip():
+            segments.append(TextSegment(
+                text=desc,
+                role="tool_definition",
+                source=f"functions[{i}].description",
+            ))
 
 
 # ── Response extraction ──────────────────────────────────────────────────────
@@ -198,62 +218,80 @@ def extract_response_segments(body: dict) -> list[TextSegment]:
     Also extracts tool call arguments from the response.
     """
     segments: list[TextSegment] = []
-
-    # OpenAI format
-    choices = body.get("choices")
-    if choices and isinstance(choices, list):
-        for i, choice in enumerate(choices):
-            if not isinstance(choice, dict):
-                continue
-            msg = choice.get("message", {})
-            if not isinstance(msg, dict):
-                continue
-            content = msg.get("content")
-            if content and isinstance(content, str) and content.strip():
-                segments.append(TextSegment(
-                    text=content,
-                    role="assistant",
-                    source=f"choices[{i}].message.content",
-                ))
-            # Tool calls in response
-            tool_calls = msg.get("tool_calls")
-            if tool_calls and isinstance(tool_calls, list):
-                for j, tc in enumerate(tool_calls):
-                    if not isinstance(tc, dict):
-                        continue
-                    fn = tc.get("function", {})
-                    args = fn.get("arguments", "")
-                    if args and isinstance(args, str) and args.strip():
-                        segments.append(TextSegment(
-                            text=args,
-                            role="tool_call",
-                            source=f"choices[{i}].message.tool_calls[{j}].function.arguments",
-                        ))
-
-    # Anthropic format
-    content = body.get("content")
-    if content and isinstance(content, list):
-        for i, block in enumerate(content):
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "text":
-                text = (block.get("text") or "").strip()
-                if text:
-                    segments.append(TextSegment(
-                        text=text,
-                        role="assistant",
-                        source=f"content[{i}].text",
-                    ))
-            elif block.get("type") == "tool_use":
-                inp = block.get("input")
-                if isinstance(inp, str) and inp.strip():
-                    segments.append(TextSegment(
-                        text=inp,
-                        role="tool_call",
-                        source=f"content[{i}].input",
-                    ))
-
+    _extract_openai_response(body, segments)
+    _extract_anthropic_response(body, segments)
     return segments
+
+
+def _extract_openai_response(body: dict, segments: list[TextSegment]) -> None:
+    """Extract text segments from an OpenAI-format response."""
+    choices = body.get("choices")
+    if not choices or not isinstance(choices, list):
+        return
+
+    for i, choice in enumerate(choices):
+        if not isinstance(choice, dict):
+            continue
+        msg = choice.get("message", {})
+        if not isinstance(msg, dict):
+            continue
+
+        content = msg.get("content")
+        if content and isinstance(content, str) and content.strip():
+            segments.append(TextSegment(
+                text=content,
+                role="assistant",
+                source=f"choices[{i}].message.content",
+            ))
+
+        _extract_openai_response_tool_calls(msg, i, segments)
+
+
+def _extract_openai_response_tool_calls(
+    msg: dict, choice_idx: int, segments: list[TextSegment],
+) -> None:
+    """Extract tool call arguments from an OpenAI response message."""
+    tool_calls = msg.get("tool_calls")
+    if not tool_calls or not isinstance(tool_calls, list):
+        return
+    for j, tc in enumerate(tool_calls):
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function", {})
+        args = fn.get("arguments", "")
+        if args and isinstance(args, str) and args.strip():
+            segments.append(TextSegment(
+                text=args,
+                role="tool_call",
+                source=f"choices[{choice_idx}].message.tool_calls[{j}].function.arguments",
+            ))
+
+
+def _extract_anthropic_response(body: dict, segments: list[TextSegment]) -> None:
+    """Extract text segments from an Anthropic-format response."""
+    content = body.get("content")
+    if not content or not isinstance(content, list):
+        return
+
+    for i, block in enumerate(content):
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            text = (block.get("text") or "").strip()
+            if text:
+                segments.append(TextSegment(
+                    text=text,
+                    role="assistant",
+                    source=f"content[{i}].text",
+                ))
+        elif block.get("type") == "tool_use":
+            inp = block.get("input")
+            if isinstance(inp, str) and inp.strip():
+                segments.append(TextSegment(
+                    text=inp,
+                    role="tool_call",
+                    source=f"content[{i}].input",
+                ))
 
 
 # ── Segment fix application ──────────────────────────────────────────────────
@@ -263,6 +301,8 @@ def apply_segment_fix(body: dict, source: str, new_text: str) -> dict:
 
     source is a dotted/bracketed path like 'messages[2].content' or
     'messages[0].content[1]'. Navigates the body and replaces the text.
+    Returns the modified body, or the original body unchanged if the path
+    cannot be resolved.
     """
     parts = _parse_source_path(source)
     obj: Any = body
@@ -273,24 +313,40 @@ def apply_segment_fix(body: dict, source: str, new_text: str) -> dict:
 
     last = parts[-1]
     if isinstance(last, int):
-        if isinstance(obj, list) and 0 <= last < len(obj):
-            target = obj[last]
-            # If it's a content block dict, replace the text field
-            if isinstance(target, dict) and "text" in target:
-                target["text"] = new_text
-            elif isinstance(target, str):
-                obj[last] = new_text
-    elif isinstance(last, str):
-        if isinstance(obj, dict):
-            current = obj.get(last)
-            if isinstance(current, str):
-                obj[last] = new_text
-            elif isinstance(current, list):
-                # For content that's a list of blocks, replace first text block
-                for block in current:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        block["text"] = new_text
-                        break
+        return _apply_fix_at_index(body, obj, last, new_text)
+    if isinstance(last, str) and isinstance(obj, dict):
+        return _apply_fix_at_key(body, obj, last, new_text)
+    return body
+
+
+def _apply_fix_at_index(
+    body: dict, obj: Any, index: int, new_text: str,
+) -> dict:
+    """Apply a text fix at a list index."""
+    if not isinstance(obj, list) or not (0 <= index < len(obj)):
+        return body
+    target = obj[index]
+    if isinstance(target, dict) and "text" in target:
+        target["text"] = new_text
+        return body
+    if isinstance(target, str):
+        obj[index] = new_text
+    return body
+
+
+def _apply_fix_at_key(
+    body: dict, obj: dict, key: str, new_text: str,
+) -> dict:
+    """Apply a text fix at a dict key."""
+    current = obj.get(key)
+    if isinstance(current, str):
+        obj[key] = new_text
+        return body
+    if isinstance(current, list):
+        for block in current:
+            if isinstance(block, dict) and block.get("type") == "text":
+                block["text"] = new_text
+                return body
     return body
 
 

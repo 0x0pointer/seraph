@@ -63,6 +63,86 @@ async def _get_sqlite_conn():
     return _sqlite_conn
 
 
+def _serialize_segments(segments: list | None) -> str | None:
+    """Serialize segment objects or dicts to a JSON string."""
+    if not segments:
+        return None
+    seg_list = []
+    for s in segments:
+        if isinstance(s, dict):
+            seg_list.append(s)
+        else:
+            seg_list.append({"role": s.role, "source": s.source, "text": s.text})
+    return _json_dumps(seg_list, ensure_ascii=False)
+
+
+def _build_record(
+    timestamp: str,
+    direction: str,
+    is_valid: bool,
+    scanner_results: dict[str, float],
+    violations: list[str],
+    on_fail_actions: dict[str, str] | None,
+    text_length: int,
+    fix_applied: bool,
+    ip_address: str | None,
+    segments_json: str | None,
+    metadata: dict | None,
+) -> dict[str, Any]:
+    """Build the audit log record dict for stdout output."""
+    record: dict[str, Any] = {
+        "timestamp": timestamp,
+        "direction": direction,
+        "is_valid": is_valid,
+        "scanner_results": scanner_results,
+        "violations": violations,
+        "on_fail_actions": on_fail_actions or {},
+        "text_length": text_length,
+        "fix_applied": fix_applied,
+    }
+    if ip_address:
+        record["ip_address"] = ip_address
+    if segments_json:
+        record["segments"] = json.loads(segments_json)
+    if metadata:
+        record["metadata"] = metadata
+    return record
+
+
+async def _write_sqlite(
+    timestamp: str,
+    direction: str,
+    is_valid: bool,
+    scanner_results: dict[str, float],
+    violations: list[str],
+    on_fail_actions: dict[str, str] | None,
+    text_length: int,
+    fix_applied: bool,
+    ip_address: str | None,
+    segments_json: str | None,
+    metadata_json: str | None,
+) -> None:
+    """Write an audit log entry to SQLite."""
+    conn = await _get_sqlite_conn()
+    if not conn:
+        return
+    await conn.execute(
+        """INSERT INTO audit_logs
+           (timestamp, direction, is_valid, scanner_results, violations,
+            on_fail_actions, text_length, fix_applied, ip_address,
+            segments, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            timestamp, direction, int(is_valid),
+            _json_dumps(scanner_results), _json_dumps(violations),
+            _json_dumps(on_fail_actions or {}), text_length,
+            int(fix_applied), ip_address, segments_json,
+            metadata_json,
+        ),
+    )
+    await conn.commit()
+
+
 async def log_scan(
     direction: str,
     is_valid: bool,
@@ -85,63 +165,24 @@ async def log_scan(
         return
 
     timestamp = datetime.now(timezone.utc).isoformat()
-
-    # Serialize segments
-    segments_json: str | None = None
-    if segments:
-        seg_list = []
-        for s in segments:
-            if isinstance(s, dict):
-                seg_list.append(s)
-            else:
-                seg_list.append({"role": s.role, "source": s.source, "text": s.text})
-        segments_json = _json_dumps(seg_list, ensure_ascii=False)
-
-    # Serialize metadata
-    metadata_json: str | None = None
-    if metadata:
-        metadata_json = _json_dumps(metadata, ensure_ascii=False)
-
-    record: dict[str, Any] = {
-        "timestamp": timestamp,
-        "direction": direction,
-        "is_valid": is_valid,
-        "scanner_results": scanner_results,
-        "violations": violations,
-        "on_fail_actions": on_fail_actions or {},
-        "text_length": text_length,
-        "fix_applied": fix_applied,
-    }
-    if ip_address:
-        record["ip_address"] = ip_address
-    if segments_json:
-        record["segments"] = json.loads(segments_json)
-    if metadata:
-        record["metadata"] = metadata
+    segments_json = _serialize_segments(segments)
+    metadata_json = _json_dumps(metadata, ensure_ascii=False) if metadata else None
 
     if config.logging.audit_file:
         try:
-            conn = await _get_sqlite_conn()
-            if conn:
-                await conn.execute(
-                    """INSERT INTO audit_logs
-                       (timestamp, direction, is_valid, scanner_results, violations,
-                        on_fail_actions, text_length, fix_applied, ip_address,
-                        segments, metadata)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        timestamp, direction, int(is_valid),
-                        _json_dumps(scanner_results), _json_dumps(violations),
-                        _json_dumps(on_fail_actions or {}), text_length,
-                        int(fix_applied), ip_address, segments_json,
-                        metadata_json,
-                    ),
-                )
-                await conn.commit()
+            await _write_sqlite(
+                timestamp, direction, is_valid, scanner_results, violations,
+                on_fail_actions, text_length, fix_applied, ip_address,
+                segments_json, metadata_json,
+            )
         except Exception:
             logger.exception("Failed to write SQLite audit log")
     else:
-        # Stdout JSON Lines
+        record = _build_record(
+            timestamp, direction, is_valid, scanner_results, violations,
+            on_fail_actions, text_length, fix_applied, ip_address,
+            segments_json, metadata,
+        )
         print(_json_dumps(record), flush=True)
 
 

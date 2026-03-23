@@ -135,44 +135,55 @@ def _apply_output_fix(body: dict, sanitized: str) -> dict:
 
 def _extract_all_messages(body: dict) -> list[dict]:
     """Extract all messages from the request body as audit segments."""
-    segments = []
+    segments: list[dict] = []
+    _extract_message_segments(body, segments)
+    _extract_tool_definition_segments(body, segments)
+    return segments
+
+
+def _extract_message_segments(body: dict, segments: list[dict]) -> None:
+    """Extract message content segments from the messages array."""
     messages = body.get("messages")
-    if messages and isinstance(messages, list):
-        for i, msg in enumerate(messages):
-            if not isinstance(msg, dict):
-                continue
-            role = msg.get("role", "unknown")
-            content = msg.get("content")
-            if content is None:
-                continue
-            if isinstance(content, str):
-                text = content
-            elif isinstance(content, list):
-                text = " ".join(
-                    b.get("text", "") for b in content
-                    if isinstance(b, dict) and b.get("type") == "text"
-                )
-            else:
-                continue
-            if text.strip():
-                segments.append({"role": role, "source": f"messages[{i}]", "text": text})
-    # Tool/function definitions
+    if not messages or not isinstance(messages, list):
+        return
+    for i, msg in enumerate(messages):
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "unknown")
+        content = msg.get("content")
+        if content is None:
+            continue
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = " ".join(
+                b.get("text", "") for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            )
+        else:
+            continue
+        if text.strip():
+            segments.append({"role": role, "source": f"messages[{i}]", "text": text})
+
+
+def _extract_tool_definition_segments(body: dict, segments: list[dict]) -> None:
+    """Extract tool/function definition segments."""
     for key in ("tools", "functions"):
         items = body.get(key)
-        if items and isinstance(items, list):
-            for i, item in enumerate(items):
-                if not isinstance(item, dict):
-                    continue
-                fn = item.get("function", item) if key == "tools" else item
-                desc = fn.get("description", "")
-                name = fn.get("name", "")
-                if desc:
-                    segments.append({
-                        "role": "tool_definition",
-                        "source": f"{key}[{i}].description",
-                        "text": f"{name}: {desc}" if name else desc,
-                    })
-    return segments
+        if not items or not isinstance(items, list):
+            continue
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            fn = item.get("function", item) if key == "tools" else item
+            desc = fn.get("description", "")
+            name = fn.get("name", "")
+            if desc:
+                segments.append({
+                    "role": "tool_definition",
+                    "source": f"{key}[{i}].description",
+                    "text": f"{name}: {desc}" if name else desc,
+                })
 
 
 def _extract_request_metadata(body: dict, path: str) -> dict:
@@ -250,35 +261,44 @@ def _extract_response_metadata(upstream_body: dict, upstream_status: int, durati
 
 def _extract_tool_calls(body: dict) -> list[dict]:
     """Extract tool calls from an LLM response for audit logging."""
-    tool_calls = []
-
-    # OpenAI: choices[0].message.tool_calls
-    choices = body.get("choices")
-    if choices and isinstance(choices, list):
-        msg = (choices[0] or {}).get("message", {})
-        if isinstance(msg, dict):
-            tcs = msg.get("tool_calls")
-            if tcs and isinstance(tcs, list):
-                for tc in tcs:
-                    if not isinstance(tc, dict):
-                        continue
-                    fn = tc.get("function", {})
-                    tool_calls.append({
-                        "name": fn.get("name", "unknown"),
-                        "arguments": fn.get("arguments", ""),
-                    })
-
-    # Anthropic: content[].type == "tool_use"
-    content = body.get("content")
-    if content and isinstance(content, list):
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "tool_use":
-                tool_calls.append({
-                    "name": block.get("name", "unknown"),
-                    "arguments": str(block.get("input", "")),
-                })
-
+    tool_calls: list[dict] = []
+    _extract_openai_tool_calls(body, tool_calls)
+    _extract_anthropic_tool_calls(body, tool_calls)
     return tool_calls
+
+
+def _extract_openai_tool_calls(body: dict, tool_calls: list[dict]) -> None:
+    """Extract tool calls from OpenAI response format."""
+    choices = body.get("choices")
+    if not choices or not isinstance(choices, list):
+        return
+    msg = (choices[0] or {}).get("message", {})
+    if not isinstance(msg, dict):
+        return
+    tcs = msg.get("tool_calls")
+    if not tcs or not isinstance(tcs, list):
+        return
+    for tc in tcs:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function", {})
+        tool_calls.append({
+            "name": fn.get("name", "unknown"),
+            "arguments": fn.get("arguments", ""),
+        })
+
+
+def _extract_anthropic_tool_calls(body: dict, tool_calls: list[dict]) -> None:
+    """Extract tool calls from Anthropic response format."""
+    content = body.get("content")
+    if not content or not isinstance(content, list):
+        return
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "tool_use":
+            tool_calls.append({
+                "name": block.get("name", "unknown"),
+                "arguments": str(block.get("input", "")),
+            })
 
 
 # ── Scan helpers ─────────────────────────────────────────────────────────────
@@ -335,7 +355,7 @@ async def _run_input(
 
 async def _run_output(
     request: Request, assistant_text: str, prompt_text: str,
-    upstream_body: dict | None = None, response_meta: dict | None = None,
+    response_meta: dict | None = None,
 ) -> dict:
     """Scan LLM output through Seraph."""
     ip = request.client.host if request.client else None
@@ -542,22 +562,40 @@ async def transparent_proxy(
             body = _apply_input_fix(body, scan_result["sanitized_text"])
 
     if body.get("stream") is True:
-        scan_mode = config.streaming.output_scan_mode
-        logger.info("Streaming request — output scan mode: %s", scan_mode)
-        ip = request.client.host if request.client else None
-        segments = _extract_all_messages(body) if body else []
-        stream_scanner = StreamScanner(
-            mode=scan_mode,
-            request_segments=segments,
-            buffer_timeout=config.streaming.buffer_timeout_seconds,
-            ip_address=ip,
-            request_meta=request_meta,
-        )
-        return await _stream_from_upstream(
-            request, forward_url, body, upstream_auth, stream_scanner=stream_scanner,
-        )
+        return await _handle_streaming_request(request, body, forward_url, upstream_auth, config, request_meta)
 
-    # Forward to upstream and time it
+    return await _handle_non_streaming_response(
+        request, body, forward_url, upstream_auth, user_text, path, request_meta,
+    )
+
+
+async def _handle_streaming_request(
+    request: Request, body: dict, forward_url: str,
+    upstream_auth: str | None, config: Any, request_meta: dict,
+) -> StreamingResponse:
+    """Handle a streaming proxy request with optional output scanning."""
+    scan_mode = config.streaming.output_scan_mode
+    logger.info("Streaming request — output scan mode: %s", scan_mode)
+    ip = request.client.host if request.client else None
+    segments = _extract_all_messages(body) if body else []
+    stream_scanner = StreamScanner(
+        mode=scan_mode,
+        request_segments=segments,
+        buffer_timeout=config.streaming.buffer_timeout_seconds,
+        ip_address=ip,
+        request_meta=request_meta,
+    )
+    return await _stream_from_upstream(
+        request, forward_url, body, upstream_auth, stream_scanner=stream_scanner,
+    )
+
+
+async def _handle_non_streaming_response(
+    request: Request, body: dict, forward_url: str,
+    upstream_auth: str | None, user_text: str, path: str,
+    request_meta: dict,
+) -> JSONResponse:
+    """Forward to upstream, scan the response, and return."""
     upstream_start = time.monotonic()
     upstream_resp = await _forward_to_upstream(request, forward_url, body, upstream_auth)
     upstream_ms = (time.monotonic() - upstream_start) * 1000
@@ -580,7 +618,7 @@ async def transparent_proxy(
     if assistant_text:
         out_result = await _run_output(
             request, assistant_text, user_text,
-            upstream_body=upstream_body, response_meta=response_meta,
+            response_meta=response_meta,
         )
         if out_result.get("fix_applied") and out_result.get("sanitized_text") != assistant_text:
             upstream_body = _apply_output_fix(upstream_body, out_result["sanitized_text"])

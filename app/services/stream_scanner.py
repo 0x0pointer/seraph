@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 # Minimum accumulated tokens before an incremental scan fires.
 _INCREMENTAL_SCAN_THRESHOLD = 200
 
+# SSE termination sentinel, used in multiple places.
+_SSE_DONE = b"data: [DONE]\n\n"
+
 
 class StreamScanner:
     """Wraps an upstream SSE stream with output scanning and audit logging."""
@@ -91,7 +94,7 @@ class StreamScanner:
         # Scan the full accumulated response
         if accumulated_text.strip():
             scan_start = time.monotonic()
-            is_valid, sanitized, results, violations, actions, reask, fix_applied = (
+            is_valid, _, results, violations, actions, reask, fix_applied = (
                 await scanner_engine.run_output_scan(self.prompt_text, accumulated_text)
             )
             scan_ms = (time.monotonic() - scan_start) * 1000
@@ -125,7 +128,7 @@ class StreamScanner:
                 logger.warning("Streaming output blocked: %s", detail)
                 error_payload = json.dumps({"error": {"message": detail, "type": "guardrail_violation"}})
                 yield f"data: {error_payload}\n\n".encode()
-                yield b"data: [DONE]\n\n"
+                yield _SSE_DONE
                 return
 
         # Scan passed — replay all buffered chunks
@@ -148,14 +151,8 @@ class StreamScanner:
             if new_text_len >= _INCREMENTAL_SCAN_THRESHOLD:
                 scan_ok = await self._check_accumulated(accumulated_text)
                 if not scan_ok:
-                    error_payload = json.dumps({
-                        "error": {
-                            "message": "Response terminated: guardrail violation detected",
-                            "type": "guardrail_violation",
-                        }
-                    })
-                    yield f"data: {error_payload}\n\n".encode()
-                    yield b"data: [DONE]\n\n"
+                    for frame in _build_guardrail_error():
+                        yield frame
                     return
                 last_scanned_len = len(accumulated_text)
 
@@ -167,14 +164,8 @@ class StreamScanner:
         if len(accumulated_text) > last_scanned_len and accumulated_text.strip():
             scan_ok = await self._check_accumulated(accumulated_text)
             if not scan_ok:
-                error_payload = json.dumps({
-                    "error": {
-                        "message": "Response terminated: guardrail violation detected",
-                        "type": "guardrail_violation",
-                    }
-                })
-                yield f"data: {error_payload}\n\n".encode()
-                yield b"data: [DONE]\n\n"
+                for frame in _build_guardrail_error():
+                    yield frame
                 return
 
         for pc in pending_chunks:
@@ -186,14 +177,28 @@ class StreamScanner:
         return is_valid
 
 
-def _extract_delta_text(chunk: bytes) -> str:
-    """Extract text content from an SSE chunk (OpenAI or Anthropic format)."""
-    text_parts: list[str] = []
+def _build_guardrail_error() -> list[bytes]:
+    """Build SSE error frames for a guardrail violation."""
+    error_payload = json.dumps({
+        "error": {
+            "message": "Response terminated: guardrail violation detected",
+            "type": "guardrail_violation",
+        }
+    })
+    return [
+        f"data: {error_payload}\n\n".encode(),
+        _SSE_DONE,
+    ]
+
+
+def _parse_sse_data_lines(chunk: bytes) -> list[str]:
+    """Decode a chunk and return non-empty SSE data payloads (excluding [DONE])."""
     try:
         decoded = chunk.decode("utf-8", errors="replace")
     except Exception:
-        return ""
+        return []
 
+    payloads: list[str] = []
     for line in decoded.split("\n"):
         line = line.strip()
         if not line.startswith("data:"):
@@ -201,9 +206,18 @@ def _extract_delta_text(chunk: bytes) -> str:
         data_str = line[5:].strip()
         if data_str == "[DONE]":
             continue
+        payloads.append(data_str)
+    return payloads
+
+
+def _extract_delta_text(chunk: bytes) -> str:
+    """Extract text content from an SSE chunk (OpenAI or Anthropic format)."""
+    text_parts: list[str] = []
+
+    for data_str in _parse_sse_data_lines(chunk):
         try:
             data = json.loads(data_str)
-        except (json.JSONDecodeError, ValueError):
+        except ValueError:
             continue
 
         # OpenAI streaming: choices[0].delta.content
@@ -228,50 +242,43 @@ def _extract_delta_text(chunk: bytes) -> str:
 
 def _extract_tool_calls_from_stream(chunks: list[bytes]) -> list[dict]:
     """Extract tool calls from buffered SSE chunks."""
-    tool_calls: list[dict] = []
-    # Track tool call assembly from streaming deltas
     tc_map: dict[int, dict] = {}
 
     for chunk in chunks:
-        try:
-            decoded = chunk.decode("utf-8", errors="replace")
-        except Exception:
-            continue
+        for data_str in _parse_sse_data_lines(chunk):
+            _accumulate_tool_call_deltas(data_str, tc_map)
 
-        for line in decoded.split("\n"):
-            line = line.strip()
-            if not line.startswith("data:"):
-                continue
-            data_str = line[5:].strip()
-            if data_str == "[DONE]":
-                continue
-            try:
-                data = json.loads(data_str)
-            except (json.JSONDecodeError, ValueError):
-                continue
+    return [
+        tc_map[idx]
+        for idx in sorted(tc_map.keys())
+        if tc_map[idx]["name"]
+    ]
 
-            choices = data.get("choices")
-            if not choices or not isinstance(choices, list):
-                continue
-            delta = (choices[0] or {}).get("delta", {})
-            if not isinstance(delta, dict):
-                continue
 
-            # Tool call deltas
-            tcs = delta.get("tool_calls")
-            if tcs and isinstance(tcs, list):
-                for tc in tcs:
-                    idx = tc.get("index", 0)
-                    if idx not in tc_map:
-                        tc_map[idx] = {"name": "", "arguments": ""}
-                    fn = tc.get("function", {})
-                    if fn.get("name"):
-                        tc_map[idx]["name"] = fn["name"]
-                    if fn.get("arguments"):
-                        tc_map[idx]["arguments"] += fn["arguments"]
+def _accumulate_tool_call_deltas(data_str: str, tc_map: dict[int, dict]) -> None:
+    """Parse a single SSE data payload and accumulate tool call deltas."""
+    try:
+        data = json.loads(data_str)
+    except ValueError:
+        return
 
-    for idx in sorted(tc_map.keys()):
-        if tc_map[idx]["name"]:
-            tool_calls.append(tc_map[idx])
+    choices = data.get("choices")
+    if not choices or not isinstance(choices, list):
+        return
+    delta = (choices[0] or {}).get("delta", {})
+    if not isinstance(delta, dict):
+        return
 
-    return tool_calls
+    tcs = delta.get("tool_calls")
+    if not tcs or not isinstance(tcs, list):
+        return
+
+    for tc in tcs:
+        idx = tc.get("index", 0)
+        if idx not in tc_map:
+            tc_map[idx] = {"name": "", "arguments": ""}
+        fn = tc.get("function", {})
+        if fn.get("name"):
+            tc_map[idx]["name"] = fn["name"]
+        if fn.get("arguments"):
+            tc_map[idx]["arguments"] += fn["arguments"]
