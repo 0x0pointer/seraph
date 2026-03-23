@@ -1,0 +1,17 @@
+# Seraph config for LangGraph chatbot setup
+# Overrides: enables SQLite audit logging for the audit viewer
+
+listen: "0.0.0.0:8000"
+upstream: "https://api.openai.com"
+upstream_api_key: ""
+
+api_keys:
+  - "sk_seraph_abc123"
+
+logging:
+  level: info
+  audit: true
+  # SQLite audit storage — shared with the audit viewer container
+  audit_file: /data/seraph_audit.db
+
+# Use the same scanners as the main config (defaults will load full catalog)

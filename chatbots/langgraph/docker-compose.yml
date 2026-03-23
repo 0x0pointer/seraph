@@ -1,0 +1,71 @@
+## LangGraph Agent => Seraph => LLM
+##
+## Three services:
+##   1. seraph     — guardrail proxy (scans all LLM traffic)
+##   2. chatbot    — LangGraph ReAct agent with 4 tools
+##   3. audit      — real-time audit viewer dashboard
+##   4. web        — nginx reverse proxy (serves UI, routes API)
+##
+## Usage:
+##   cp ../../.env.example .env   # set UPSTREAM_API_KEY
+##   docker compose up --build
+##
+##   Chat UI:       http://localhost:3000
+##   Audit Viewer:  http://localhost:3000/audit/
+
+services:
+  seraph:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    environment:
+      - SERAPH_CONFIG=/app/seraph-config.yaml
+    env_file:
+      - ../../.env
+    volumes:
+      - audit-data:/data
+      - ./config.yaml:/app/seraph-config.yaml:ro
+    restart: unless-stopped
+
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ../../.env
+    environment:
+      - SERAPH_BASE_URL=http://seraph:8000/v1
+      - SERAPH_API_KEY=${SERAPH_API_KEY:-sk_seraph_abc123}
+      - SERAPH_HEALTH_URL=http://seraph:8000/health
+      - LLM_MODEL=${LLM_MODEL:-gpt-4}
+    depends_on:
+      - seraph
+    restart: unless-stopped
+
+  audit:
+    image: python:3.11-slim
+    command: python /app/audit-viewer.py
+    environment:
+      - AUDIT_DB=/data/seraph_audit.db
+      - PORT=8080
+    volumes:
+      - ../../tools/audit-viewer.py:/app/audit-viewer.py:ro
+      - audit-data:/data:ro
+    depends_on:
+      - seraph
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - seraph
+      - chatbot
+      - audit
+    restart: unless-stopped
+
+volumes:
+  audit-data:

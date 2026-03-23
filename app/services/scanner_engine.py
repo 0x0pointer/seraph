@@ -55,6 +55,18 @@ def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
 # Keys consumed by the engine, never forwarded to llm-guard scanner constructors.
 _META_PARAMS = {"custom_blocked_phrases", "_description"}
 
+# Shared Vault instance for Anonymize/Deanonymize scanner pair.
+_vault = None
+
+
+def _get_vault():
+    """Lazily create a shared Vault for Anonymize/Deanonymize."""
+    global _vault
+    if _vault is None:
+        from llm_guard.vault import Vault
+        _vault = Vault()
+    return _vault
+
 # Cache: direction -> list of (scanner_instance, scanner_name, custom_phrases, index, scanner_params, on_fail_action)
 _cache: dict[str, list[tuple[Any, str, list[str], int, dict, str]]] = {}
 _cache_valid: set[str] = set()
@@ -181,6 +193,9 @@ def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
 
     if scanner_type == "EmbeddingShield":
         return _import_embedding_shield(params)
+
+    if scanner_type in ("Anonymize", "Deanonymize"):
+        return _import_scanner(scanner_type, direction, {"vault": _get_vault(), **params})
 
     if scanner_type == "BanCode":
         languages = params.get("languages")
