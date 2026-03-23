@@ -645,8 +645,8 @@ class TestNonPostPassthrough:
 # ── Streaming tests ──────────────────────────────────────────────────────────
 
 class TestStreaming:
-    def test_streaming_request_passes_through(self, client):
-        """Streaming requests do input scan but skip output scan."""
+    def test_streaming_request_scans_output_in_buffer_mode(self, client):
+        """Streaming requests scan output in buffer mode (default)."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.headers = {"content-type": "text/event-stream"}
@@ -669,6 +669,7 @@ class TestStreaming:
             patch(
                 "app.services.scanner_engine.run_output_scan",
                 new_callable=AsyncMock,
+                return_value=_clean_scan_result("hi"),
             ) as mock_output,
             patch.object(_get_proxy_client(), "send", mock_send),
             patch.object(_get_proxy_client(), "build_request", return_value=MagicMock()),
@@ -684,7 +685,8 @@ class TestStreaming:
 
         assert resp.status_code == 200
         mock_input.assert_called_once()
-        mock_output.assert_not_called()
+        # In buffer mode, output IS scanned
+        mock_output.assert_called_once()
 
     def test_streaming_upstream_unreachable(self, client):
         """Streaming with unreachable upstream returns 502."""

@@ -7,7 +7,7 @@ Supports hot-reload via SIGHUP or POST /reload.
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel
@@ -36,6 +36,11 @@ class ScannersConfig(BaseModel):
     output: list[ScannerConfig] = []
 
 
+class StreamingConfig(BaseModel):
+    output_scan_mode: Literal["buffer", "passthrough", "incremental"] = "buffer"
+    buffer_timeout_seconds: float = 30.0
+
+
 class Config(BaseModel):
     listen: str = "0.0.0.0:8000"
     upstream: str = ""
@@ -43,6 +48,7 @@ class Config(BaseModel):
     api_keys: list[str] = []
     logging: LoggingConfig = LoggingConfig()
     scanners: ScannersConfig | None = None  # None = use guardrail_catalog defaults
+    streaming: StreamingConfig = StreamingConfig()
 
 
 # Module-level singleton
