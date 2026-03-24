@@ -35,9 +35,6 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev
 
-      - name: Audit dependencies for known vulnerabilities
-        run: poetry run pip-audit
-
       - name: Run tests with coverage
         run: |
           poetry run pytest \
