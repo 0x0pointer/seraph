@@ -85,11 +85,11 @@ scanners:
 
     # Exact attack phrase blocklist — 273 phrases from 4 red-team datasets
     # + v17 multi-language (ES, FR, DE, PT, IT) injection defense.
-    # Full list in app/core/guardrail_catalog.py
+    # Full list in app/core/guardrails/
     - type: BanSubstrings
       on_fail: block
       params:
-        substrings: []  # see guardrail_catalog.py for full 273-phrase list
+        substrings: []  # see app/core/guardrails/input/ban_substrings.py for full 272-phrase list
         case_sensitive: false
         contains_all: false
 
@@ -97,7 +97,7 @@ scanners:
     - type: BanTopics
       on_fail: block
       params:
-        topics: []  # see guardrail_catalog.py for full 14-topic list
+        topics: []  # see app/core/guardrails/input/ban_topics.py for full topic list
         threshold: 0.4
         use_onnx: true
 
@@ -133,11 +133,11 @@ scanners:
         valid_languages: ["en"]
 
     # Structural attack pattern matching — 93 regex patterns
-    # Full list in app/core/guardrail_catalog.py
+    # Full list in app/core/guardrails/
     - type: Regex
       on_fail: block
       params:
-        patterns: []  # see guardrail_catalog.py for full 93-pattern list
+        patterns: []  # see app/core/guardrails/input/regex.py for full 91-pattern list
 
     # Sentiment analysis (VADER lexicon)
     - type: Sentiment
@@ -187,11 +187,11 @@ scanners:
         threshold: 0.4
 
     # Jailbreak success detection — 61 phrases
-    # Full list in app/core/guardrail_catalog.py
+    # Full list in app/core/guardrails/
     - type: BanSubstrings
       on_fail: block
       params:
-        substrings: []  # see guardrail_catalog.py for full 61-phrase list
+        substrings: []  # see app/core/guardrails/output/ban_substrings.py for full 60-phrase list
         case_sensitive: false
         contains_all: false
 
@@ -199,7 +199,7 @@ scanners:
     - type: BanTopics
       on_fail: block
       params:
-        topics: []  # see guardrail_catalog.py for full 13-topic list
+        topics: []  # see app/core/guardrails/output/ban_topics.py for full topic list
         threshold: 0.5
         use_onnx: true
 
@@ -266,11 +266,11 @@ scanners:
         max_time: 5.0
 
     # Output regex patterns — 8 rules for credential leaks, PII, system prompt echo
-    # Full list in app/core/guardrail_catalog.py
+    # Full list in app/core/guardrails/
     - type: Regex
       on_fail: fix
       params:
-        patterns: []  # see guardrail_catalog.py for full 8-pattern list
+        patterns: []  # see app/core/guardrails/output/regex.py for full 7-pattern list
 
     # Semantic relevance check (sentence-transformers) — SLOW
     # - type: Relevance
