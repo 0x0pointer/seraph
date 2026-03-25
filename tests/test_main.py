@@ -105,5 +105,5 @@ class TestLifespan:
             "app.services.scanner_engine.warmup",
             new_callable=AsyncMock,
         ) as mock_warmup:
-            asyncio.get_event_loop().run_until_complete(_warmup_scanners())
+            asyncio.run(_warmup_scanners())
         mock_warmup.assert_called_once()

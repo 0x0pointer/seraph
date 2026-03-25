@@ -109,10 +109,10 @@ scanners:
         is_blocked: true
         threshold: 0.5
 
-    # Emotion classification
-    - type: EmotionDetection
-      on_fail: monitor
-      params: {}
+    # Emotion classification (not available in llm-guard 0.3.16)
+    # - type: EmotionDetection
+    #   on_fail: monitor
+    #   params: {}
 
     # Gibberish text detector
     - type: Gibberish
@@ -216,16 +216,16 @@ scanners:
       on_fail: fix
       params: {}
 
-    # Emotion classification
-    - type: EmotionDetection
-      on_fail: monitor
-      params: {}
+    # Emotion classification (not available in llm-guard 0.3.16)
+    # - type: EmotionDetection
+    #   on_fail: monitor
+    #   params: {}
 
     # Factual consistency / hallucination detection (Vectara) — SLOW
     # - type: FactualConsistency
     #   on_fail: reask
     #   params:
-    #     threshold: 0.5
+    #     minimum_score: 0.5
 
     # Gibberish text detector
     - type: Gibberish

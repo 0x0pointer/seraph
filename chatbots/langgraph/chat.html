@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seraph LangGraph Agent</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 16px 24px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: #e67e22; }
+  header .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: #2a2a2a; color: #888;
+  }
+  .tools-bar {
+    padding: 8px 24px;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .tool-chip {
+    font-size: 11px; padding: 4px 10px; border-radius: 12px;
+    background: #1e2a1e; color: #6abf69; border: 1px solid #2a3a2a;
+  }
+  .tools-label { font-size: 11px; color: #666; margin-right: 4px; }
+  #chat {
+    flex: 1; overflow-y: auto; padding: 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .msg {
+    max-width: 720px; padding: 12px 16px; border-radius: 12px;
+    line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.user {
+    align-self: flex-end; background: #e67e22; color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.assistant {
+    align-self: flex-start; background: #1a1a1a; border: 1px solid #2a2a2a;
+    border-bottom-left-radius: 4px;
+  }
+  .msg.error {
+    align-self: flex-start; background: #3a1a1a; border: 1px solid #5a2a2a;
+    color: #ff6b6b; border-bottom-left-radius: 4px;
+  }
+  .msg.blocked {
+    align-self: center; background: #3a2a1a; border: 1px solid #5a3a1a;
+    color: #ffaa44; font-size: 13px; text-align: center;
+  }
+  .msg.tool-use {
+    align-self: flex-start; background: #1a1e2a; border: 1px solid #2a3a5a;
+    color: #7ab8f5; font-size: 12px; font-family: monospace;
+    border-bottom-left-radius: 4px; padding: 8px 12px;
+  }
+  .msg.tool-use::before {
+    content: "Tool call: ";
+    color: #5588bb;
+    font-weight: 600;
+  }
+  #input-area {
+    padding: 16px 24px; background: #1a1a1a; border-top: 1px solid #2a2a2a;
+    display: flex; gap: 12px;
+  }
+  #input-area textarea {
+    flex: 1; background: #0f0f0f; border: 1px solid #333; color: #e0e0e0;
+    padding: 12px 16px; border-radius: 12px; font-size: 14px;
+    font-family: inherit; resize: none; height: 48px; line-height: 1.5;
+  }
+  #input-area textarea:focus { outline: none; border-color: #e67e22; }
+  #input-area button {
+    background: #e67e22; color: #fff; border: none; padding: 0 24px;
+    border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  #input-area button:hover { background: #d35400; }
+  #input-area button:disabled { background: #555; cursor: not-allowed; }
+  .reset-btn {
+    background: transparent; border: 1px solid #333; color: #888;
+    padding: 4px 12px; border-radius: 8px; font-size: 11px; cursor: pointer;
+    margin-left: auto;
+  }
+  .reset-btn:hover { border-color: #e67e22; color: #e67e22; }
+  .typing {
+    align-self: flex-start; color: #888; font-size: 13px; font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Seraph Agent</h1>
+  <span class="badge">LangGraph</span>
+  <span class="badge" id="status-badge">connecting...</span>
+  <button class="reset-btn" onclick="resetChat()">New chat</button>
+</header>
+
+<div class="tools-bar">
+  <span class="tools-label">Available tools:</span>
+  <span class="tool-chip">get_weather</span>
+  <span class="tool-chip">search_wikipedia</span>
+  <span class="tool-chip">calculate</span>
+  <span class="tool-chip">get_current_time</span>
+</div>
+
+<div id="chat"></div>
+
+<div id="input-area">
+  <textarea id="prompt" placeholder="Ask me anything... I can check weather, search Wikipedia, do math, and tell time." rows="1"></textarea>
+  <button id="send" onclick="send()">Send</button>
+</div>
+
+<script>
+const chat = document.getElementById("chat");
+const promptEl = document.getElementById("prompt");
+const sendBtn = document.getElementById("send");
+const badge = document.getElementById("status-badge");
+let sessionId = null;
+
+// Health check
+(async () => {
+  try {
+    const r = await fetch("/health");
+    if (r.ok) {
+      const data = await r.json();
+      badge.textContent = data.seraph === "connected" ? "connected" : "seraph offline";
+      badge.style.background = data.seraph === "connected" ? "#1a3a1a" : "#3a3a1a";
+      badge.style.color = data.seraph === "connected" ? "#4caf50" : "#ffaa44";
+    }
+  } catch {
+    badge.textContent = "disconnected";
+    badge.style.background = "#3a1a1a";
+    badge.style.color = "#ff6b6b";
+  }
+})();
+
+promptEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+function addMsg(cls, text) {
+  const div = document.createElement("div");
+  div.className = `msg ${cls}`;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function removeTyping() {
+  const el = chat.querySelector(".typing");
+  if (el) el.remove();
+}
+
+async function send() {
+  const text = promptEl.value.trim();
+  if (!text) return;
+
+  promptEl.value = "";
+  sendBtn.disabled = true;
+  addMsg("user", text);
+
+  const typingEl = document.createElement("div");
+  typingEl.className = "msg typing";
+  typingEl.textContent = "Thinking...";
+  chat.appendChild(typingEl);
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const resp = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+
+    removeTyping();
+
+    if (resp.status === 400) {
+      const err = await resp.json();
+      addMsg("blocked", `Blocked by Seraph: ${err.detail}`);
+    } else if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      addMsg("error", `Error ${resp.status}: ${err.detail || "Unknown error"}`);
+    } else {
+      const data = await resp.json();
+      sessionId = data.session_id;
+
+      // Show tool calls if any
+      if (data.tool_calls) {
+        for (const tc of data.tool_calls) {
+          const argsStr = Object.entries(tc.args).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
+          addMsg("tool-use", `${tc.tool}(${argsStr})`);
+        }
+      }
+
+      addMsg("assistant", data.reply);
+    }
+  } catch (err) {
+    removeTyping();
+    addMsg("error", `Network error: ${err.message}`);
+  }
+
+  sendBtn.disabled = false;
+  promptEl.focus();
+}
+
+async function resetChat() {
+  if (sessionId) {
+    await fetch("/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => {});
+  }
+  sessionId = null;
+  chat.innerHTML = "";
+}
+</script>
+</body>
+</html>
