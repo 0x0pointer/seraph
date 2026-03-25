@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install PyTorch CPU-only first (avoids NVIDIA CUDA packages that
 # are unavailable on ARM / non-GPU hosts)
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
 
 # Install project dependencies
 COPY pyproject.toml ./
