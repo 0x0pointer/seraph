@@ -3,7 +3,7 @@ import asyncio
 import concurrent.futures
 from unittest.mock import patch, MagicMock
 
-_run = lambda coro: asyncio.get_event_loop().run_until_complete(coro)
+_run = lambda coro: asyncio.run(coro)
 
 
 class TestGetExecutor:

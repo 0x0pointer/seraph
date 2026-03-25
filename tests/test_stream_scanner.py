@@ -8,7 +8,7 @@ from app.services.stream_scanner import StreamScanner, _extract_delta_text
 from app.services.text_extractor import TextSegment
 
 
-_run = lambda coro: asyncio.get_event_loop().run_until_complete(coro)
+_run = lambda coro: asyncio.run(coro)
 
 
 def _clean_scan_result(text=""):

@@ -469,7 +469,7 @@ class TestRunInputScan:
     def test_empty_scanner_list_returns_valid(self):
         import asyncio
         from app.services.scanner_engine import run_input_scan
-        result = asyncio.get_event_loop().run_until_complete(run_input_scan("hello"))
+        result = asyncio.run(run_input_scan("hello"))
         is_valid, text, scores, violations, actions, reask, fix = result
         assert is_valid is True
         assert text == "hello"
@@ -479,7 +479,7 @@ class TestRunInputScan:
         import asyncio
         from app.services.scanner_engine import run_input_scan
         # With empty scanner config and filter, should still return valid
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             run_input_scan("hello", allowed_types={"PromptInjection"})
         )
         assert result[0] is True
@@ -494,7 +494,7 @@ class TestRunOutputScan:
     def test_empty_scanner_list_returns_valid(self):
         import asyncio
         from app.services.scanner_engine import run_output_scan
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             run_output_scan("What is AI?", "AI is artificial intelligence.")
         )
         is_valid, text, scores, violations, actions, reask, fix = result
@@ -512,7 +512,7 @@ class TestRunGuardScan:
     def test_empty_messages_not_flagged(self):
         import asyncio
         from app.services.scanner_engine import run_guard_scan
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             run_guard_scan([])
         )
         flagged, results, violations = result
@@ -521,7 +521,7 @@ class TestRunGuardScan:
     def test_user_only_messages(self):
         import asyncio
         from app.services.scanner_engine import run_guard_scan
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             run_guard_scan([{"role": "user", "content": "hello"}])
         )
         flagged, results, violations = result
@@ -530,7 +530,7 @@ class TestRunGuardScan:
     def test_user_and_assistant_messages(self):
         import asyncio
         from app.services.scanner_engine import run_guard_scan
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             run_guard_scan([
                 {"role": "user", "content": "hello"},
                 {"role": "assistant", "content": "hi there"},
@@ -553,7 +553,7 @@ class TestWarmup:
         import asyncio
         from app.services.scanner_engine import warmup
         # With empty scanner config, warmup should succeed
-        asyncio.get_event_loop().run_until_complete(warmup())
+        asyncio.run(warmup())
 
 
 class TestGetExecutor:

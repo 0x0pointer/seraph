@@ -8,7 +8,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-_run = lambda coro: asyncio.get_event_loop().run_until_complete(coro)
+_run = lambda coro: asyncio.run(coro)
 
 
 # ── text_extractor.py coverage gaps ──────────────────────────────────────────
