@@ -32,6 +32,80 @@ class TestGetExecutor:
             fake.shutdown(wait=False)
 
 
+class TestGetVault:
+    def test_creates_vault_lazily(self):
+        import app.services.scanner_engine as se
+
+        saved = se._vault
+        try:
+            se._vault = None
+            vault = se._get_vault()
+            assert vault is not None
+            # Calling again returns same instance
+            assert se._get_vault() is vault
+        finally:
+            se._vault = saved
+
+    def test_returns_existing_vault(self):
+        import app.services.scanner_engine as se
+
+        saved = se._vault
+        try:
+            fake_vault = MagicMock()
+            se._vault = fake_vault
+            assert se._get_vault() is fake_vault
+        finally:
+            se._vault = saved
+
+
+class TestBuildScannerAnonymize:
+    def test_anonymize_gets_vault_injected(self):
+        from app.services.scanner_engine import _build_scanner
+
+        mock_vault = MagicMock()
+        mock_scanner = MagicMock(return_value="anon_instance")
+
+        with patch("app.services.scanner_engine._get_vault", return_value=mock_vault):
+            with patch("app.services.scanner_engine._import_scanner", mock_scanner) as mock_import:
+                result = _build_scanner("Anonymize", "input", {"use_onnx": True})
+
+        mock_import.assert_called_once_with(
+            "Anonymize", "input", {"vault": mock_vault, "use_onnx": True}
+        )
+
+    def test_deanonymize_gets_vault_injected(self):
+        from app.services.scanner_engine import _build_scanner
+
+        mock_vault = MagicMock()
+        mock_scanner = MagicMock(return_value="deanon_instance")
+
+        with patch("app.services.scanner_engine._get_vault", return_value=mock_vault):
+            with patch("app.services.scanner_engine._import_scanner", mock_scanner) as mock_import:
+                result = _build_scanner("Deanonymize", "output", {})
+
+        mock_import.assert_called_once_with(
+            "Deanonymize", "output", {"vault": mock_vault}
+        )
+
+    def test_anonymize_and_deanonymize_share_vault(self):
+        from app.services.scanner_engine import _build_scanner
+
+        captured_vaults = []
+
+        def capture_import(scanner_type, direction, params):
+            captured_vaults.append(params.get("vault"))
+            return MagicMock()
+
+        mock_vault = MagicMock()
+        with patch("app.services.scanner_engine._get_vault", return_value=mock_vault):
+            with patch("app.services.scanner_engine._import_scanner", side_effect=capture_import):
+                _build_scanner("Anonymize", "input", {})
+                _build_scanner("Deanonymize", "output", {})
+
+        assert len(captured_vaults) == 2
+        assert captured_vaults[0] is captured_vaults[1]
+
+
 class TestImportScanner:
     def test_import_scanner_success(self):
         from app.services.scanner_engine import _import_scanner
