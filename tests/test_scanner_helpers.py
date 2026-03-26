@@ -218,7 +218,7 @@ class TestRunInputScan:
         import asyncio
         from app.services.scanner_engine import run_input_scan
         result = asyncio.run(
-            run_input_scan("hello", allowed_types={"EmbeddingShield"})
+            run_input_scan("hello")
         )
         assert result[0] is True
 

@@ -133,7 +133,7 @@ instructions:
             latency_ms=elapsed, detail=response_text,
         )
 
-    async def evaluate_output(self, prompt: str, output: str) -> NemoResult:
+    async def evaluate_output(self, _prompt: str, output: str) -> NemoResult:
         """Evaluate LLM output against output rails."""
         start = time.perf_counter()
         rails = self._get_output_rails()

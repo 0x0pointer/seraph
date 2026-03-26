@@ -161,7 +161,7 @@ class LangGraphJudge:
 
         return {"raw_response": raw}
 
-    async def _decide_node(self, state: JudgeState) -> dict:
+    def _decide_node(self, state: JudgeState) -> dict:
         """Parse the SLM response and apply the risk threshold."""
         raw = state.get("raw_response", "")
         threshold = state.get("risk_threshold", self._risk_threshold)
@@ -178,7 +178,7 @@ class LangGraphJudge:
             reasoning = parsed.get("reasoning", "No reasoning provided")
             threats = parsed.get("threats_detected", [])
             verdict_hint = parsed.get("verdict", "")
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             logger.warning("Judge response parse failed: %s — raw: %s", e, raw[:200])
             risk_score = 0.8
             reasoning = f"Failed to parse judge response: {raw[:200]}"
@@ -186,10 +186,7 @@ class LangGraphJudge:
             verdict_hint = "block"
 
         # Threshold is authoritative; SLM verdict is advisory
-        if risk_score >= threshold:
-            verdict = "block"
-            blocked = True
-        elif verdict_hint == "block" and risk_score >= threshold * 0.8:
+        if risk_score >= threshold or (verdict_hint == "block" and risk_score >= threshold * 0.8):
             verdict = "block"
             blocked = True
         else:
