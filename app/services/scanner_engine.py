@@ -209,6 +209,43 @@ def _run_one_scanner(scanner: Any, text: str, output: str = "") -> tuple[str, bo
     return scanner.scan(text, output) if output else scanner.scan(text)
 
 
+def _build_scanner_tasks(
+    entries: list, text: str, canonical_text: str, direction: str, prompt: str,
+) -> list:
+    """Build executor tasks for each first-party scanner."""
+    has_canonical = canonical_text != text
+    loop = asyncio.get_event_loop()
+    tasks = []
+    for e in entries:
+        scanner, scanner_name = e[0], e[1]
+        scan_text = canonical_text if has_canonical and scanner_name in _CANONICAL_SCANNERS else text
+        if direction == "output" and prompt:
+            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text, prompt))
+        else:
+            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text))
+    return tasks
+
+
+def _collect_scanner_results(
+    raw_results: list, entries: list,
+) -> tuple[dict[str, bool], dict[str, float], dict[str, tuple[str, str]]]:
+    """Collect raw scanner results into aggregated dicts."""
+    results_valid: dict[str, bool] = {}
+    results_score: dict[str, float] = {}
+    scanner_sanitized: dict[str, tuple[str, str]] = {}
+    for i, res in enumerate(raw_results):
+        if isinstance(res, Exception):
+            logger.warning("First-party scanner %s failed: %s", entries[i][1], res)
+            continue
+        sanitized, is_valid, risk_score = res
+        scanner_name, on_fail_action = entries[i][1], entries[i][5]
+        results_valid[scanner_name] = is_valid
+        results_score[scanner_name] = risk_score
+        if not is_valid:
+            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
+    return results_valid, results_score, scanner_sanitized
+
+
 async def _run_first_party_scanners(
     text: str, canonical_text: str, direction: str, prompt: str = "",
 ) -> tuple[bool, str, dict[str, float], list[str], dict[str, str], list[str], bool]:
@@ -220,43 +257,16 @@ async def _run_first_party_scanners(
     if not entries:
         return True, text, {}, [], {}, [], False
 
-    has_canonical = canonical_text != text
-
-    results_valid: dict[str, bool] = {}
-    results_score: dict[str, float] = {}
-    scanner_sanitized: dict[str, tuple[str, str]] = {}
-
-    loop = asyncio.get_event_loop()
-    tasks = []
-    for e in entries:
-        scanner, scanner_name = e[0], e[1]
-        scan_text = canonical_text if has_canonical and scanner_name in _CANONICAL_SCANNERS else text
-        if direction == "output" and prompt:
-            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text, prompt))
-        else:
-            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text))
-
+    tasks = _build_scanner_tasks(entries, text, canonical_text, direction, prompt)
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for i, res in enumerate(raw_results):
-        scanner_name = entries[i][1]
-        on_fail_action = entries[i][5]
-        if isinstance(res, Exception):
-            logger.warning("First-party scanner %s failed: %s", scanner_name, res)
-            continue
-        sanitized, is_valid, risk_score = res
-        results_valid[scanner_name] = is_valid
-        results_score[scanner_name] = risk_score
-        if not is_valid:
-            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
+    results_valid, results_score, scanner_sanitized = _collect_scanner_results(raw_results, entries)
 
     overall_valid, violation_scanners, on_fail_actions, reask_msgs, fix_applied, current_text = (
         _process_fp_violations(results_valid, results_score, entries, text, scanner_sanitized)
     )
 
-    # Custom phrase checking
     phrase_hit = _apply_custom_phrases(text, entries, results_score, violation_scanners)
-    if has_canonical and not phrase_hit:
+    if canonical_text != text and not phrase_hit:
         phrase_hit = _apply_custom_phrases(canonical_text, entries, results_score, violation_scanners)
     if phrase_hit:
         overall_valid = False
@@ -438,6 +448,25 @@ async def _run_judge_tier(
     return False
 
 
+def _merge_keyed_scores(
+    merged: dict[str, float], new_scores: dict[str, float], suffix: str,
+) -> None:
+    """Merge score dict into merged, adding suffix on key collision."""
+    for k, v in new_scores.items():
+        key = f"{k} ({suffix})" if suffix and k in merged else k
+        merged[key] = v
+
+
+def _merge_keyed_violations(
+    merged: list[str], new_violations: list[str], suffix: str,
+) -> None:
+    """Merge violation list into merged, adding suffix on name collision."""
+    for v in new_violations:
+        name = f"{v} ({suffix})" if suffix and v in merged else v
+        if name not in merged:
+            merged.append(name)
+
+
 def _merge_guard_results(
     gathered: list,
     coros: list[tuple[str, Any]],
@@ -448,14 +477,79 @@ def _merge_guard_results(
     for i, (label, _) in enumerate(coros):
         _, _, results, violations, *_ = gathered[i]
         suffix = "output" if label == "output" else ""
-        for k, v in results.items():
-            key = f"{k} ({suffix})" if suffix and k in merged_results else k
-            merged_results[key] = v
-        for v in violations:
-            name = f"{v} ({suffix})" if suffix and v in merged_violations else v
-            if name not in merged_violations:
-                merged_violations.append(name)
+        _merge_keyed_scores(merged_results, results, suffix)
+        _merge_keyed_violations(merged_violations, violations, suffix)
     return merged_results, merged_violations
+
+
+# ── Shared scan pipeline ─────────────────────────────────────────────────────
+
+def _unpack_fp_result(
+    fp_result, fallback_text: str,
+) -> tuple[bool, str, dict, list, dict, list, bool]:
+    """Unpack first-party scanner result, handling exceptions."""
+    if isinstance(fp_result, Exception):
+        logger.error("First-party scanners failed: %s", fp_result)
+        return True, fallback_text, {}, [], {}, [], False
+    return fp_result
+
+
+def _apply_nemo_block(
+    nemo_passed: bool, nemo_risk_score: float,
+    results_score: dict, violation_scanners: list, on_fail_actions: dict,
+) -> bool:
+    """Apply NeMo block to merged results. Returns updated overall_valid."""
+    if not nemo_passed:
+        results_score["NeMoGuardrails"] = nemo_risk_score
+        violation_scanners.append("NeMoGuardrails")
+        on_fail_actions["NeMoGuardrails"] = "blocked"
+        return False
+    return True
+
+
+def _build_scan_result(
+    overall_valid: bool, current_text: str, results_score: dict,
+    violation_scanners: list, on_fail_actions: dict, reask_msgs: list, fix_applied: bool,
+) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
+    """Build the 7-tuple scan result."""
+    reask_context = reask_msgs if reask_msgs else None
+    return (overall_valid, current_text, results_score, violation_scanners,
+            on_fail_actions, reask_context, fix_applied)
+
+
+async def _run_two_tier_scan(
+    text: str, direction: str, gathered: list, nemo,
+    judge_text: str, prompt_context: str | None = None,
+) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
+    """Shared two-tier pipeline for both input and output scanning."""
+    fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = (
+        _unpack_fp_result(gathered[0], text)
+    )
+    nemo_passed, nemo_risk_score = _unpack_nemo_result(gathered, nemo)
+
+    results_score = dict(fp_scores)
+    violation_scanners = list(fp_violations)
+    on_fail_actions = dict(fp_actions)
+    reask_msgs = list(fp_reask)
+    overall_valid = fp_valid
+
+    nemo_valid = _apply_nemo_block(nemo_passed, nemo_risk_score, results_score, violation_scanners, on_fail_actions)
+    if not nemo_valid:
+        overall_valid = False
+
+    if not overall_valid:
+        return _build_scan_result(False, fp_text, results_score, violation_scanners,
+                                  on_fail_actions, reask_msgs, fp_fix)
+
+    judge_blocked = await _run_judge_tier(
+        judge_text, direction, nemo_risk_score, results_score, violation_scanners, on_fail_actions,
+        prompt_context=prompt_context,
+    )
+    if judge_blocked:
+        overall_valid = False
+
+    return _build_scan_result(overall_valid, fp_text, results_score, violation_scanners,
+                              on_fail_actions, reask_msgs, fp_fix)
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -463,76 +557,21 @@ def _merge_guard_results(
 async def run_input_scan(
     text: str,
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """
-    Run the two-tier scanning pipeline on user input.
-
-    Returns:
-        (is_valid, sanitized_text, scanner_results, violation_scanners,
-         on_fail_actions, reask_context, fix_applied)
-    """
-    # Check result cache
+    """Run the two-tier scanning pipeline on user input."""
     cache_key = _result_cache_key("input", text)
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
-    # Canonicalize for first-party scanners
     canonical_text = canonicalize(text)
-
-    # ── Concurrent: first-party scanners + NeMo Tier 1 ──────────────────────
     nemo = _get_nemo_tier()
+
     tasks = [_run_first_party_scanners(text, canonical_text, "input")]
     if nemo is not None:
         tasks.append(nemo.evaluate(text))
 
     gathered = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Unpack first-party results
-    fp_result = gathered[0]
-    if isinstance(fp_result, Exception):
-        logger.error("First-party scanners failed: %s", fp_result)
-        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = (
-            True, text, {}, [], {}, [], False
-        )
-    else:
-        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = fp_result
-
-    # Unpack NeMo result
-    nemo_passed, nemo_risk_score = _unpack_nemo_result(gathered, nemo)
-
-    # Merge results
-    results_score = dict(fp_scores)
-    violation_scanners = list(fp_violations)
-    on_fail_actions = dict(fp_actions)
-    reask_msgs = list(fp_reask)
-    fix_applied = fp_fix
-    current_text = fp_text
-    overall_valid = fp_valid
-
-    if not nemo_passed:
-        results_score["NeMoGuardrails"] = nemo_risk_score
-        violation_scanners.append("NeMoGuardrails")
-        on_fail_actions["NeMoGuardrails"] = "blocked"
-        overall_valid = False
-
-    # Short-circuit: if already blocked, skip Tier 2
-    if not overall_valid:
-        reask_context = reask_msgs if reask_msgs else None
-        result = (False, current_text, results_score, violation_scanners,
-                  on_fail_actions, reask_context, fix_applied)
-        _result_cache_put(cache_key, result)
-        return result
-
-    # ── Tier 2: LLM-as-a-Judge ──────────────────────────────────────────────
-    judge_blocked = await _run_judge_tier(
-        text, "input", nemo_risk_score, results_score, violation_scanners, on_fail_actions,
-    )
-    if judge_blocked:
-        overall_valid = False
-
-    reask_context = reask_msgs if reask_msgs else None
-    result = (overall_valid, current_text, results_score, violation_scanners,
-              on_fail_actions, reask_context, fix_applied)
+    result = await _run_two_tier_scan(text, "input", gathered, nemo, judge_text=text)
     _result_cache_put(cache_key, result)
     return result
 
@@ -541,71 +580,22 @@ async def run_output_scan(
     prompt: str,
     output: str,
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """
-    Run the two-tier scanning pipeline on LLM output.
-
-    Returns:
-        (is_valid, sanitized_text, scanner_results, violation_scanners,
-         on_fail_actions, reask_context, fix_applied)
-    """
+    """Run the two-tier scanning pipeline on LLM output."""
     cache_key = _result_cache_key("output", f"{prompt}\x00{output}")
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
     canonical_output = canonicalize(output)
-
-    # ── Concurrent: first-party scanners + NeMo Tier 1 ──────────────────────
     nemo = _get_nemo_tier()
+
     tasks = [_run_first_party_scanners(output, canonical_output, "output", prompt=prompt)]
     if nemo is not None:
         tasks.append(nemo.evaluate_output(prompt, output))
 
     gathered = await asyncio.gather(*tasks, return_exceptions=True)
-
-    fp_result = gathered[0]
-    if isinstance(fp_result, Exception):
-        logger.error("First-party output scanners failed: %s", fp_result)
-        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = (
-            True, output, {}, [], {}, [], False
-        )
-    else:
-        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = fp_result
-
-    nemo_passed, nemo_risk_score = _unpack_nemo_result(gathered, nemo)
-
-    results_score = dict(fp_scores)
-    violation_scanners = list(fp_violations)
-    on_fail_actions = dict(fp_actions)
-    reask_msgs = list(fp_reask)
-    fix_applied = fp_fix
-    current_text = fp_text
-    overall_valid = fp_valid
-
-    if not nemo_passed:
-        results_score["NeMoGuardrails"] = nemo_risk_score
-        violation_scanners.append("NeMoGuardrails")
-        on_fail_actions["NeMoGuardrails"] = "blocked"
-        overall_valid = False
-
-    if not overall_valid:
-        reask_context = reask_msgs if reask_msgs else None
-        result = (False, current_text, results_score, violation_scanners,
-                  on_fail_actions, reask_context, fix_applied)
-        _result_cache_put(cache_key, result)
-        return result
-
-    # ── Tier 2: LLM-as-a-Judge ──────────────────────────────────────────────
-    judge_blocked = await _run_judge_tier(
-        output, "output", nemo_risk_score, results_score, violation_scanners, on_fail_actions,
-        prompt_context=prompt,
-    )
-    if judge_blocked:
-        overall_valid = False
-
-    reask_context = reask_msgs if reask_msgs else None
-    result = (overall_valid, current_text, results_score, violation_scanners,
-              on_fail_actions, reask_context, fix_applied)
+    result = await _run_two_tier_scan(output, "output", gathered, nemo,
+                                      judge_text=output, prompt_context=prompt)
     _result_cache_put(cache_key, result)
     return result
 

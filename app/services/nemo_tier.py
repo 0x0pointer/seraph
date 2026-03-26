@@ -104,15 +104,14 @@ instructions:
             logger.info("NeMo output rails loaded from %s", self._config_dir)
         return self._output_rails
 
-    async def evaluate(self, text: str) -> NemoResult:
-        """Evaluate user input against input rails."""
+    async def _evaluate_rails(self, rails: LLMRails, text: str, label: str) -> NemoResult:
+        """Shared evaluation logic for input and output rails."""
         start = time.perf_counter()
-        rails = self._get_input_rails()
 
         try:
             response = await rails.generate_async(prompt=text)
         except Exception as e:
-            logger.error("NeMo input evaluation failed: %s", e)
+            logger.error("NeMo %s evaluation failed: %s", label, e)
             elapsed = (time.perf_counter() - start) * 1000
             return NemoResult(
                 passed=False, matched_flow=None, risk_score=1.0,
@@ -132,35 +131,14 @@ instructions:
             passed=True, matched_flow=response_text, risk_score=0.0,
             latency_ms=elapsed, detail=response_text,
         )
+
+    async def evaluate(self, text: str) -> NemoResult:
+        """Evaluate user input against input rails."""
+        return await self._evaluate_rails(self._get_input_rails(), text, "input")
 
     async def evaluate_output(self, _prompt: str, output: str) -> NemoResult:
         """Evaluate LLM output against output rails."""
-        start = time.perf_counter()
-        rails = self._get_output_rails()
-
-        try:
-            response = await rails.generate_async(prompt=output)
-        except Exception as e:
-            logger.error("NeMo output evaluation failed: %s", e)
-            elapsed = (time.perf_counter() - start) * 1000
-            return NemoResult(
-                passed=False, matched_flow=None, risk_score=1.0,
-                latency_ms=elapsed, detail=f"NeMo error: {e}",
-            )
-
-        elapsed = (time.perf_counter() - start) * 1000
-        response_text = response.strip() if isinstance(response, str) else str(response).strip()
-
-        if response_text.startswith(_BLOCKED_PREFIX):
-            return NemoResult(
-                passed=False, matched_flow=None, risk_score=1.0,
-                latency_ms=elapsed, detail=response_text,
-            )
-
-        return NemoResult(
-            passed=True, matched_flow=response_text, risk_score=0.0,
-            latency_ms=elapsed, detail=response_text,
-        )
+        return await self._evaluate_rails(self._get_output_rails(), output, "output")
 
     def reload(self, config_dir: str | None = None,
                embedding_threshold: float | None = None,
