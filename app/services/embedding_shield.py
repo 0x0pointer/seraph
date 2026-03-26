@@ -2,14 +2,12 @@
 Embedding Similarity Shield — catches paraphrased prompt injection attacks by
 comparing input embeddings against a corpus of known attack patterns.
 
-Uses sentence-transformers/all-MiniLM-L6-v2 (already available as a dependency
-of llm-guard's Relevance scanner) to embed input and compute cosine similarity
-against pre-computed attack embeddings.
+Uses sentence-transformers/all-MiniLM-L6-v2 to embed input and compute cosine
+similarity against pre-computed attack embeddings.
 
 Why this layer matters:
-  - BanSubstrings catches exact phrases → defeated by synonym substitution
+  - Keyword matching catches exact phrases → defeated by synonym substitution
   - Regex catches structural patterns → defeated by novel phrasing
-  - DeBERTa PromptInjection is a binary classifier → may miss novel paraphrases
   - This scanner compares MEANING, not surface form → catches semantic evasion
 
 Performance:
@@ -111,12 +109,12 @@ class EmbeddingShield:
     """
     Semantic similarity scanner for prompt injection detection.
 
-    Compatible with llm-guard's scanner interface:
+    Interface:
         scan(prompt) -> (sanitized_text, is_valid, risk_score)
 
-    The scanner embeds the input and computes cosine similarity against
-    pre-computed attack corpus embeddings. If the max similarity exceeds
-    the threshold, the input is flagged as a potential injection.
+    Embeds the input and computes cosine similarity against pre-computed
+    attack corpus embeddings. If the max similarity exceeds the threshold,
+    the input is flagged as a potential injection.
     """
 
     def __init__(self, threshold: float = 0.72, model_name: str = "all-MiniLM-L6-v2"):
@@ -135,7 +133,7 @@ class EmbeddingShield:
         except ImportError:
             raise ImportError(
                 "sentence-transformers is required for EmbeddingShield. "
-                "It should already be installed as a dependency of llm-guard."
+                "Install it with: pip install sentence-transformers"
             )
 
         logger.info("EmbeddingShield: loading model '%s'...", self.model_name)

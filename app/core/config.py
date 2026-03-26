@@ -41,13 +41,38 @@ class StreamingConfig(BaseModel):
     buffer_timeout_seconds: float = 30.0
 
 
+class NemoTierConfig(BaseModel):
+    enabled: bool = True
+    config_dir: str = "app/services/nemo_config"
+    embedding_threshold: float = 0.85
+    model: str = "gpt-4o-mini"
+    model_engine: str = "openai"
+    api_key: str | None = None  # Falls back to upstream_api_key
+
+
+class JudgeConfig(BaseModel):
+    enabled: bool = True
+    model: str = "gpt-4o-mini"
+    base_url: str | None = None  # For Ollama / vLLM local endpoints
+    api_key: str | None = None  # Falls back to upstream_api_key
+    temperature: float = 0.0
+    max_tokens: int = 512
+    risk_threshold: float = 0.7
+    prompt_file: str = "app/services/judge_prompt.txt"
+    run_on_every_request: bool = True
+    uncertainty_band_low: float = 0.70
+    uncertainty_band_high: float = 0.85
+
+
 class Config(BaseModel):
     listen: str = "0.0.0.0:8000"
     upstream: str = ""
     upstream_api_key: str = ""  # LLM provider key — injected server-side, never from client
     api_keys: list[str] = []
     logging: LoggingConfig = LoggingConfig()
-    scanners: ScannersConfig | None = None  # None = use guardrail_catalog defaults
+    nemo_tier: NemoTierConfig = NemoTierConfig()
+    judge: JudgeConfig = JudgeConfig()
+    scanners: ScannersConfig | None = None  # None = first-party scanners only
     streaming: StreamingConfig = StreamingConfig()
 
 

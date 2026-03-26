@@ -1,8 +1,8 @@
 """
 Text canonicalization pre-processor — normalizes input to defeat evasion techniques.
 
-Runs BEFORE rule-based scanners (BanSubstrings, Regex), making them resistant
-to character-level evasion without changing any scanner logic.
+Runs BEFORE rule-based scanners (CustomRule), making them resistant to
+character-level evasion without changing any scanner logic.
 
 Evasion techniques neutralized:
   1. Unicode NFKC normalization  — ﬁ→fi, ①→1, fullwidth→ASCII

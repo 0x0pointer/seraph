@@ -1,35 +1,28 @@
 """
-Scanner engine — dynamically loads and runs llm-guard scanners from YAML config.
+Scanner engine — two-tier architecture: NeMo Guardrails + LLM-as-a-Judge.
 
-llm-guard API:
-  scan_prompt(scanners, prompt) -> (sanitized_prompt, results_valid, results_score)
-  scan_output(scanners, prompt, output) -> (sanitized_output, results_valid, results_score)
+Tier 1 (NeMo Guardrails):
+  Semantic allow-list firewall. User input is matched against Colang flow
+  definitions via embedding similarity. If no allowed flow matches, the
+  request is blocked immediately.
 
-  results_valid: dict[str, bool]  — True = valid, False = violation
-  results_score: dict[str, float] — 0.0 = no risk, 1.0 = high risk
+Tier 2 (LLM-as-a-Judge via LangGraph):
+  A small language model evaluates requests that pass Tier 1 for deeper
+  threats: prompt injection, data exfiltration, social engineering, etc.
+  Configurable to run on every request or only when Tier 1 is uncertain.
 
-Custom meta-params (stripped before passing to llm-guard):
-  custom_blocked_phrases: list[str] — exact substrings that always trigger a block,
-                                       checked case-insensitively after the main scan.
+First-party scanners (EmbeddingShield, CustomRule):
+  Run in parallel with Tier 1 for fast, deterministic checks.
 
-Parallel execution:
-  Each scanner is run in its own thread via run_in_executor so ML models execute
-  concurrently instead of sequentially.  This cuts wall-clock time from the sum of
-  all model latencies to roughly the latency of the slowest single model.
-
-Text canonicalization (v17):
-  Before scanning, the engine produces a canonical form of the input text
-  (homoglyphs resolved, leetspeak reversed, spaced-out letters collapsed, etc.).
-  Rule-based scanners (BanSubstrings, Regex) run on the CANONICAL text so that
-  evasion techniques like Cyrillic substitution or leetspeak are neutralized.
-  ML-based scanners run on the ORIGINAL text for best classification accuracy.
+Text canonicalization:
+  Before first-party scanning, the engine produces a canonical form of the
+  input (homoglyphs resolved, leetspeak reversed, etc.). First-party
+  rule-based scanners run on the canonical text for evasion resistance.
 """
+
 import asyncio
-import concurrent.futures
 import hashlib
-import importlib
 import logging
-import re
 from collections import OrderedDict
 from typing import Any
 
@@ -38,47 +31,25 @@ from app.services.text_canonicalizer import canonicalize
 
 logger = logging.getLogger(__name__)
 
+# ── Module-level singletons for tiers ────────────────────────────────────────
+
+_nemo_tier = None  # Lazy init: NemoTier instance
+_judge = None      # Lazy init: LangGraphJudge instance
+
 # Scanner types that benefit from text canonicalization.
-_CANONICAL_SCANNERS = {"BanSubstrings", "Regex"}
-
-# Shared thread-pool for blocking scanner inference.
-_executor: concurrent.futures.ThreadPoolExecutor | None = None
-
-
-def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
-    """Lazily create the thread pool so it's not spawned on import."""
-    global _executor
-    if _executor is None:
-        _executor = concurrent.futures.ThreadPoolExecutor()
-    return _executor
-
-# Keys consumed by the engine, never forwarded to llm-guard scanner constructors.
-_META_PARAMS = {"custom_blocked_phrases", "_description"}
-
-# Shared Vault instance for Anonymize/Deanonymize scanner pair.
-_vault = None
-
-
-def _get_vault():
-    """Lazily create a shared Vault for Anonymize/Deanonymize."""
-    global _vault
-    if _vault is None:
-        from llm_guard.vault import Vault
-        _vault = Vault()
-    return _vault
+_CANONICAL_SCANNERS = {"CustomRule"}
 
 # Cache: direction -> list of (scanner_instance, scanner_name, custom_phrases, index, scanner_params, on_fail_action)
 _cache: dict[str, list[tuple[Any, str, list[str], int, dict, str]]] = {}
 _cache_valid: set[str] = set()
 
-# LRU result cache — avoids re-running ML inference on identical inputs.
+# LRU result cache — avoids re-running scans on identical inputs.
 _RESULT_CACHE_SIZE = 1000
 _result_cache: OrderedDict = OrderedDict()
 
 
-def _result_cache_key(direction: str, entries: list, text: str) -> str:
-    ids = ",".join(f"{e[3]}:{e[5]}" for e in entries)
-    raw = f"{direction}:{ids}:{text}"
+def _result_cache_key(direction: str, text: str) -> str:
+    raw = f"{direction}:{text}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -97,22 +68,68 @@ def _result_cache_put(key: str, value) -> None:
 
 
 def invalidate_cache() -> None:
-    global _cache_valid
+    global _cache_valid, _nemo_tier, _judge
     _cache_valid.clear()
     _cache.clear()
     _result_cache.clear()
+    _nemo_tier = None
+    _judge = None
 
 
-def _import_scanner(scanner_type: str, direction: str, params: dict) -> Any:
-    """Dynamically import and instantiate a scanner from llm-guard."""
-    module_name = f"llm_guard.{'input' if direction == 'input' else 'output'}_scanners"
-    try:
-        module = importlib.import_module(module_name)
-        scanner_class = getattr(module, scanner_type)
-        return scanner_class(**params)
-    except (ImportError, AttributeError, TypeError) as e:
-        logger.error(f"Failed to load scanner {scanner_type} from {module_name}: {e}")
-        raise
+# ── Tier singletons ──────────────────────────────────────────────────────────
+
+def _get_nemo_tier():
+    """Lazily initialize the NeMo Guardrails tier."""
+    global _nemo_tier
+    if _nemo_tier is not None:
+        return _nemo_tier
+
+    config = get_config()
+    if not config.nemo_tier.enabled:
+        return None
+
+    from app.services.nemo_tier import NemoTier
+    _nemo_tier = NemoTier(
+        config_dir=config.nemo_tier.config_dir,
+        embedding_threshold=config.nemo_tier.embedding_threshold,
+        model=config.nemo_tier.model,
+        model_engine=config.nemo_tier.model_engine,
+        api_key=config.nemo_tier.api_key or config.upstream_api_key or None,
+    )
+    logger.info("NeMo tier initialized (model=%s, threshold=%.2f)",
+                config.nemo_tier.model, config.nemo_tier.embedding_threshold)
+    return _nemo_tier
+
+
+def _get_judge():
+    """Lazily initialize the LangGraph judge."""
+    global _judge
+    if _judge is not None:
+        return _judge
+
+    config = get_config()
+    if not config.judge.enabled:
+        return None
+
+    from app.services.langgraph_judge import LangGraphJudge
+    _judge = LangGraphJudge(
+        model=config.judge.model,
+        base_url=config.judge.base_url,
+        api_key=config.judge.api_key or config.upstream_api_key or None,
+        temperature=config.judge.temperature,
+        max_tokens=config.judge.max_tokens,
+        risk_threshold=config.judge.risk_threshold,
+        prompt_file=config.judge.prompt_file,
+    )
+    logger.info("LangGraph judge initialized (model=%s, threshold=%.2f)",
+                config.judge.model, config.judge.risk_threshold)
+    return _judge
+
+
+# ── First-party scanner loading ──────────────────────────────────────────────
+
+# Keys consumed by the engine, never forwarded to scanner constructors.
+_META_PARAMS = {"custom_blocked_phrases", "_description"}
 
 
 def _import_custom_scanner(direction: str, params: dict) -> Any:
@@ -127,112 +144,13 @@ def _import_embedding_shield(params: dict) -> Any:
     return EmbeddingShield(**params)
 
 
-# Exact language names accepted by the llm-guard Code scanner.
-_LANG_MATHEMATICA = "Mathematica/Wolfram Language"
-_LANG_VB_NET = "Visual Basic .NET"
-
-_CODE_SCANNER_LANGUAGES = [
-    "ARM Assembly", "AppleScript", "C", "C#", "C++", "COBOL", "Erlang", "Fortran",
-    "Go", "Java", "JavaScript", "Kotlin", "Lua", _LANG_MATHEMATICA,
-    "PHP", "Pascal", "Perl", "PowerShell", "Python", "R", "Ruby", "Rust", "Scala",
-    "Swift", _LANG_VB_NET, "jq",
-]
-_LANG_NORMALIZE: dict[str, str] = {l.lower(): l for l in _CODE_SCANNER_LANGUAGES}
-_LANG_NORMALIZE.update({
-    "js": "JavaScript",
-    "ts": "JavaScript",
-    "typescript": "JavaScript",
-    "bash": "PowerShell",
-    "shell": "PowerShell",
-    "sh": "PowerShell",
-    "csharp": "C#",
-    "cpp": "C++",
-    "vb.net": _LANG_VB_NET,
-    "vb": _LANG_VB_NET,
-    "wolfram": _LANG_MATHEMATICA,
-    "mathematica": _LANG_MATHEMATICA,
-})
-
-
-def _normalize_languages(languages: list) -> list[str]:
-    """Normalize user-entered language names to exact llm-guard names."""
-    result = []
-    for lang in languages:
-        if not lang:
-            continue
-        normalized = _LANG_NORMALIZE.get(lang.strip().lower(), lang.strip())
-        if normalized not in result:
-            result.append(normalized)
-    return result
-
-
-_MARKDOWN_CODE_FENCE_RE = re.compile(r"```[\w]*\n.+?```", re.DOTALL)
-
-
-class BanCode:
-    """
-    Wraps llm_guard's BanCode output scanner to correctly detect markdown-fenced code.
-    """
-
-    def __init__(self, inner: Any) -> None:
-        self._inner = inner
-
-    def scan(self, prompt: str, output: str) -> tuple[str, bool, float]:
-        if _MARKDOWN_CODE_FENCE_RE.search(output):
-            logger.warning("BanCode: markdown code fence detected in output — blocked")
-            return output, False, 1.0
-        return self._inner.scan(prompt, output)
-
-
 def _build_scanner(scanner_type: str, direction: str, params: dict) -> Any:
-    """
-    Instantiate a scanner, with smart routing for BanCode.
-    """
+    """Instantiate a first-party scanner by type."""
     if scanner_type == "CustomRule":
         return _import_custom_scanner(direction, params)
-
     if scanner_type == "EmbeddingShield":
         return _import_embedding_shield(params)
-
-    if scanner_type in ("Anonymize", "Deanonymize"):
-        return _import_scanner(scanner_type, direction, {"vault": _get_vault(), **params})
-
-    if scanner_type == "BanCode":
-        languages = params.get("languages")
-        if languages:
-            normalized = _normalize_languages(languages)
-            if not normalized:
-                clean = {k: v for k, v in params.items() if k not in ("languages", "is_blocked")}
-                return _import_scanner("BanCode", direction, clean)
-            code_params = {
-                "languages": normalized,
-                "is_blocked": True,
-                "threshold": params.get("threshold", 0.4),
-            }
-            logger.info(f"BanCode with languages={normalized} → routing to Code scanner")
-            return _import_scanner("Code", direction, code_params)
-        clean = {k: v for k, v in params.items() if k not in ("languages", "is_blocked")}
-        scanner = _import_scanner("BanCode", direction, clean)
-        if direction == "output":
-            return BanCode(scanner)
-        return scanner
-
-    return _import_scanner(scanner_type, direction, params)
-
-
-def _scanner_configs_from_catalog(direction: str) -> list:
-    """Build ScannerConfig list from the guardrail_catalog defaults."""
-    from app.core.guardrail_catalog import GUARDRAIL_CATALOG
-    return [
-        ScannerConfig(
-            type=e["scanner_type"],
-            threshold=e.get("params", {}).get("threshold"),
-            params=e.get("params", {}),
-            on_fail=e.get("on_fail_action", "block"),
-        )
-        for e in GUARDRAIL_CATALOG
-        if e["direction"] == direction and e.get("is_active", False)
-    ]
+    raise ValueError(f"Unknown first-party scanner type: {scanner_type}")
 
 
 def _prepare_scanner_params(sc: ScannerConfig) -> tuple[dict, list[str], str]:
@@ -249,26 +167,24 @@ def _prepare_scanner_params(sc: ScannerConfig) -> tuple[dict, list[str], str]:
     return scanner_params, custom_phrases, sc.on_fail
 
 
-def _load_scanners_from_config(
+def _load_first_party_scanners(
     direction: str,
 ) -> list[tuple[Any, str, list[str], int, dict, str]]:
     """
-    Load scanners from YAML config (or guardrail_catalog defaults).
-    Returns list of (scanner_instance, scanner_name, custom_blocked_phrases, index, scanner_params, on_fail_action).
+    Load first-party scanners (EmbeddingShield, CustomRule) from YAML config.
+    Returns list of (scanner_instance, scanner_name, custom_blocked_phrases,
+                     index, scanner_params, on_fail_action).
     """
-    global _cache_valid
-
     if direction in _cache_valid and direction in _cache:
         return _cache[direction]
 
     config = get_config()
 
+    scanner_configs: list[ScannerConfig] = []
     if config.scanners is not None:
-        scanner_configs: list[ScannerConfig] = (
+        scanner_configs = (
             config.scanners.input if direction == "input" else config.scanners.output
         )
-    else:
-        scanner_configs = _scanner_configs_from_catalog(direction)
 
     entries: list[tuple[Any, str, list[str], int, dict, str]] = []
     for idx, sc in enumerate(scanner_configs):
@@ -276,15 +192,104 @@ def _load_scanners_from_config(
         try:
             scanner = _build_scanner(sc.type, direction, scanner_params)
             entries.append((scanner, sc.type, custom_phrases, idx, scanner_params, on_fail_action))
-            logger.info(f"Loaded scanner: {sc.type} (index={idx}, on_fail={on_fail_action})")
+            logger.info("Loaded first-party scanner: %s (direction=%s, on_fail=%s)",
+                        sc.type, direction, on_fail_action)
         except Exception as e:
-            logger.warning(f"Skipping scanner {sc.type}: {e}")
+            logger.warning("Skipping scanner %s: %s", sc.type, e)
 
     _cache[direction] = entries
     _cache_valid.add(direction)
-
     return entries
 
+
+# ── First-party scanner execution ────────────────────────────────────────────
+
+def _run_one_scanner(scanner: Any, text: str, output: str = "") -> tuple[str, bool, float]:
+    """Run a single first-party scanner (sync, called in thread pool or directly)."""
+    return scanner.scan(text, output) if output else scanner.scan(text)
+
+
+async def _run_first_party_scanners(
+    text: str, canonical_text: str, direction: str, prompt: str = "",
+) -> tuple[bool, str, dict[str, float], list[str], dict[str, str], list[str], bool]:
+    """
+    Run all first-party scanners and return aggregated results.
+    Returns the same shape as the 7-tuple but scoped to first-party scanners.
+    """
+    entries = _load_first_party_scanners(direction)
+    if not entries:
+        return True, text, {}, [], {}, [], False
+
+    has_canonical = canonical_text != text
+    target_text = text if direction == "input" else text
+
+    results_valid: dict[str, bool] = {}
+    results_score: dict[str, float] = {}
+    scanner_sanitized: dict[str, tuple[str, str]] = {}
+
+    loop = asyncio.get_event_loop()
+    tasks = []
+    for e in entries:
+        scanner, scanner_name = e[0], e[1]
+        scan_text = canonical_text if has_canonical and scanner_name in _CANONICAL_SCANNERS else target_text
+        if direction == "output" and prompt:
+            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text, prompt))
+        else:
+            tasks.append(loop.run_in_executor(None, _run_one_scanner, scanner, scan_text))
+
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for i, res in enumerate(raw_results):
+        scanner_name = entries[i][1]
+        on_fail_action = entries[i][5]
+        if isinstance(res, Exception):
+            logger.warning("First-party scanner %s failed: %s", scanner_name, res)
+            continue
+        sanitized, is_valid, risk_score = res
+        results_valid[scanner_name] = is_valid
+        results_score[scanner_name] = risk_score
+        if not is_valid:
+            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
+
+    # Process violations
+    overall_valid = True
+    violation_scanners: list[str] = []
+    on_fail_actions: dict[str, str] = {}
+    reask_msgs: list[str] = []
+    fix_applied = False
+    current_text = text
+
+    for scanner_name, is_valid_flag in results_valid.items():
+        if is_valid_flag:
+            continue
+        action = _find_action_for_scanner(entries, scanner_name)
+        score = results_score.get(scanner_name, 1.0)
+
+        should_block, fixed_text, label, reask_msg = _handle_violation_action(
+            action, scanner_name, score, text, scanner_sanitized,
+        )
+
+        on_fail_actions[scanner_name] = label
+        if should_block:
+            overall_valid = False
+            violation_scanners.append(scanner_name)
+        if fixed_text is not None:
+            current_text = fixed_text
+            fix_applied = True
+        if reask_msg:
+            reask_msgs.append(reask_msg)
+
+    # Custom phrase checking
+    phrase_hit = _apply_custom_phrases(text, entries, results_score, violation_scanners)
+    if has_canonical and not phrase_hit:
+        phrase_hit = _apply_custom_phrases(canonical_text, entries, results_score, violation_scanners)
+    if phrase_hit:
+        overall_valid = False
+
+    return overall_valid, current_text, results_score, violation_scanners, on_fail_actions, reask_msgs, fix_applied
+
+
+# ── Shared helpers ───────────────────────────────────────────────────────────
 
 def _apply_custom_phrases(
     text: str,
@@ -292,10 +297,7 @@ def _apply_custom_phrases(
     results_score: dict,
     violation_scanners: list,
 ) -> bool:
-    """
-    Check custom_blocked_phrases for every scanner entry.
-    Returns True if any phrase matched.
-    """
+    """Check custom_blocked_phrases. Returns True if any phrase matched."""
     text_lower = text.lower()
     matched = False
     for _, scanner_name, custom_phrases, _, _, _ in entries:
@@ -313,22 +315,7 @@ def _apply_custom_phrases(
     return matched
 
 
-def _scan_one_input(scanner: Any, text: str) -> tuple[str, dict, dict]:
-    """Run a single input scanner synchronously (called in thread pool)."""
-    from llm_guard.evaluate import scan_prompt
-    sanitized, valid_dict, score_dict = scan_prompt([scanner], text)
-    return sanitized, valid_dict, score_dict
-
-
-def _scan_one_output(scanner: Any, prompt: str, output: str) -> tuple[str, dict, dict]:
-    """Run a single output scanner synchronously (called in thread pool)."""
-    from llm_guard.evaluate import scan_output
-    sanitized, valid_dict, score_dict = scan_output([scanner], prompt, output)
-    return sanitized, valid_dict, score_dict
-
-
 def _build_reask_message(scanner_name: str, score: float) -> str:
-    """Build a human-readable correction instruction for a failed scanner."""
     return (
         f"Your response was flagged by the '{scanner_name}' guardrail "
         f"(confidence: {score:.0%}). Please revise your message to comply with the policy."
@@ -336,7 +323,6 @@ def _build_reask_message(scanner_name: str, score: float) -> str:
 
 
 def _find_action_for_scanner(entries: list, scanner_name: str) -> str:
-    """Look up the on_fail_action for a scanner by name."""
     for e in entries:
         if e[1] == scanner_name:
             return e[5]
@@ -351,11 +337,11 @@ def _handle_violation_action(
     scanner_sanitized: dict[str, tuple[str, str]],
 ) -> tuple[bool, str | None, str, str | None]:
     """
-    Process a single scanner violation based on its on_fail_action.
+    Process a single scanner violation.
     Returns (should_block, fixed_text_or_None, action_label, reask_msg_or_None).
     """
     if action == "monitor":
-        logger.info("Scanner %s: violation monitored (score=%.3f, action=monitor)", scanner_name, score)
+        logger.info("Scanner %s: violation monitored (score=%.3f)", scanner_name, score)
         return False, None, "monitored", None
 
     if action == "fix":
@@ -369,137 +355,130 @@ def _handle_violation_action(
     if action == "reask":
         return True, None, "reask", _build_reask_message(scanner_name, score)
 
-    # Default: block
     return True, None, "blocked", None
 
 
-def _process_violations(
-    results_valid: dict[str, bool],
-    results_score: dict[str, float],
-    entries: list,
-    scanner_sanitized: dict[str, tuple[str, str]],
-    original_text: str,
-) -> tuple[bool, str, list[str], dict[str, str], list[str], bool]:
-    """
-    Process all scanner violations and apply on_fail_action logic.
-    Returns (overall_valid, current_text, violation_scanners,
-             on_fail_actions, reask_msgs, fix_applied).
-    """
-    overall_valid = True
-    violation_scanners: list[str] = []
-    on_fail_actions: dict[str, str] = {}
-    reask_msgs: list[str] = []
-    fix_applied = False
-    current_text = original_text
-
-    for scanner_name, is_valid_flag in results_valid.items():
-        if is_valid_flag:
-            continue
-        action = _find_action_for_scanner(entries, scanner_name)
-        score = results_score.get(scanner_name, 1.0)
-
-        should_block, fixed_text, label, reask_msg = _handle_violation_action(
-            action, scanner_name, score, original_text, scanner_sanitized,
-        )
-
-        on_fail_actions[scanner_name] = label
-        if should_block:
-            overall_valid = False
-            violation_scanners.append(scanner_name)
-        if fixed_text is not None:
-            current_text = fixed_text
-            fix_applied = True
-        if reask_msg:
-            reask_msgs.append(reask_msg)
-
-    return overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied
+def _should_run_judge(nemo_risk_score: float) -> bool:
+    """Determine if Tier 2 judge should run based on config and NeMo result."""
+    config = get_config()
+    if not config.judge.enabled:
+        return False
+    if config.judge.run_on_every_request:
+        return True
+    # Run only when NeMo is uncertain (score in uncertainty band)
+    return config.judge.uncertainty_band_low <= nemo_risk_score <= config.judge.uncertainty_band_high
 
 
-def _load_and_filter_entries(
-    entries: list,
-    allowed_types: set[str] | None,
-) -> list:
-    """Filter scanner entries by allowed types."""
-    if allowed_types is not None:
-        return [e for e in entries if e[1] in allowed_types]
-    return entries
-
-
-def _collect_raw_results(
-    raw_results: list,
-    entries: list,
-) -> tuple[dict[str, bool], dict[str, float], dict[str, tuple[str, str]]]:
-    """Collect raw scanner results into aggregated dicts."""
-    results_valid: dict[str, bool] = {}
-    results_score: dict[str, float] = {}
-    scanner_sanitized: dict[str, tuple[str, str]] = {}
-
-    for i, res in enumerate(raw_results):
-        if isinstance(res, Exception):
-            logger.warning("Scanner %s failed: %s", entries[i][1], res)
-            continue
-        sanitized, valid_dict, score_dict = res
-        scanner_name = entries[i][1]
-        on_fail_action = entries[i][5]
-        results_valid.update(valid_dict)
-        results_score.update(score_dict)
-        if not all(valid_dict.values()):
-            scanner_sanitized[scanner_name] = (sanitized, on_fail_action)
-
-    return results_valid, results_score, scanner_sanitized
-
+# ── Public API ───────────────────────────────────────────────────────────────
 
 async def run_input_scan(
     text: str,
     allowed_types: set[str] | None = None,
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
     """
-    Run all active input scanners in parallel threads.
+    Run the two-tier scanning pipeline on user input.
 
     Returns:
         (is_valid, sanitized_text, scanner_results, violation_scanners,
          on_fail_actions, reask_context, fix_applied)
     """
-    entries = _load_and_filter_entries(
-        _load_scanners_from_config("input"), allowed_types)
-    if not entries:
-        return True, text, {}, [], {}, None, False
-
-    canonical_text = canonicalize(text)
-    _has_canonical = canonical_text != text
-    if _has_canonical:
-        logger.debug("Text canonicalized: original=%d chars, canonical=%d chars", len(text), len(canonical_text))
-
-    _cache_input = f"{text}\x01{canonical_text}" if _has_canonical else text
-    cache_key = _result_cache_key("input", entries, _cache_input)
+    # Check result cache
+    cache_key = _result_cache_key("input", text)
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
-    loop = asyncio.get_event_loop()
-    tasks = [
-        loop.run_in_executor(
-            _get_executor(), _scan_one_input, e[0],
-            canonical_text if _has_canonical and e[1] in _CANONICAL_SCANNERS else text,
+    # Canonicalize for first-party scanners
+    canonical_text = canonicalize(text)
+
+    # ── Concurrent: first-party scanners + NeMo Tier 1 ──────────────────────
+    nemo = _get_nemo_tier()
+    tasks = [_run_first_party_scanners(text, canonical_text, "input")]
+    if nemo is not None:
+        tasks.append(nemo.evaluate(text))
+
+    gathered = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Unpack first-party results
+    fp_result = gathered[0]
+    if isinstance(fp_result, Exception):
+        logger.error("First-party scanners failed: %s", fp_result)
+        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = (
+            True, text, {}, [], {}, [], False
         )
-        for e in entries
-    ]
-    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+    else:
+        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = fp_result
 
-    results_valid, results_score, scanner_sanitized = _collect_raw_results(raw_results, entries)
+    # Unpack NeMo result
+    nemo_risk_score = 0.0
+    nemo_passed = True
+    nemo_detail = ""
+    if nemo is not None and len(gathered) > 1:
+        nemo_result = gathered[1]
+        if isinstance(nemo_result, Exception):
+            logger.error("NeMo tier failed: %s", nemo_result)
+            nemo_passed = False
+            nemo_risk_score = 1.0
+            nemo_detail = f"NeMo error: {nemo_result}"
+        else:
+            nemo_passed = nemo_result.passed
+            nemo_risk_score = nemo_result.risk_score
+            nemo_detail = nemo_result.detail
 
-    overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied = (
-        _process_violations(results_valid, results_score, entries, scanner_sanitized, text)
-    )
+    # Merge results
+    results_score = dict(fp_scores)
+    violation_scanners = list(fp_violations)
+    on_fail_actions = dict(fp_actions)
+    reask_msgs = list(fp_reask)
+    fix_applied = fp_fix
+    current_text = fp_text
+    overall_valid = fp_valid
 
-    phrase_hit = _apply_custom_phrases(text, entries, results_score, violation_scanners)
-    if _has_canonical and not phrase_hit:
-        phrase_hit = _apply_custom_phrases(canonical_text, entries, results_score, violation_scanners)
-    if phrase_hit:
+    if not nemo_passed:
+        results_score["NeMoGuardrails"] = nemo_risk_score
+        violation_scanners.append("NeMoGuardrails")
+        on_fail_actions["NeMoGuardrails"] = "blocked"
         overall_valid = False
 
+    # Short-circuit: if already blocked, skip Tier 2
+    if not overall_valid:
+        reask_context = reask_msgs if reask_msgs else None
+        result = (False, current_text, results_score, violation_scanners,
+                  on_fail_actions, reask_context, fix_applied)
+        _result_cache_put(cache_key, result)
+        return result
+
+    # ── Tier 2: LLM-as-a-Judge ──────────────────────────────────────────────
+    if _should_run_judge(nemo_risk_score):
+        judge = _get_judge()
+        if judge is not None:
+            try:
+                judge_result = await judge.evaluate(text, direction="input")
+                results_score["LLMJudge"] = judge_result.risk_score
+
+                if not judge_result.passed:
+                    violation_scanners.append("LLMJudge")
+                    on_fail_actions["LLMJudge"] = "blocked"
+                    overall_valid = False
+                    logger.warning(
+                        "LLM Judge blocked input: score=%.3f, threats=%s, reasoning=%s",
+                        judge_result.risk_score, judge_result.threats, judge_result.reasoning,
+                    )
+                else:
+                    logger.debug(
+                        "LLM Judge passed input: score=%.3f, reasoning=%s",
+                        judge_result.risk_score, judge_result.reasoning,
+                    )
+            except Exception as e:
+                logger.error("LLM Judge failed: %s", e)
+                results_score["LLMJudge"] = 1.0
+                violation_scanners.append("LLMJudge")
+                on_fail_actions["LLMJudge"] = "blocked"
+                overall_valid = False
+
     reask_context = reask_msgs if reask_msgs else None
-    result = (overall_valid, current_text, results_score, violation_scanners, on_fail_actions, reask_context, fix_applied)
+    result = (overall_valid, current_text, results_score, violation_scanners,
+              on_fail_actions, reask_context, fix_applied)
     _result_cache_put(cache_key, result)
     return result
 
@@ -510,71 +489,99 @@ async def run_output_scan(
     allowed_types: set[str] | None = None,
 ) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
     """
-    Run all active output scanners in parallel threads.
+    Run the two-tier scanning pipeline on LLM output.
 
     Returns:
         (is_valid, sanitized_text, scanner_results, violation_scanners,
          on_fail_actions, reask_context, fix_applied)
     """
-    entries = _load_and_filter_entries(
-        _load_scanners_from_config("output"), allowed_types)
-    if not entries:
-        return True, output, {}, [], {}, None, False
-
-    canonical_output = canonicalize(output)
-    _has_canonical_out = canonical_output != output
-    if _has_canonical_out:
-        logger.debug("Output canonicalized: original=%d chars, canonical=%d chars", len(output), len(canonical_output))
-
-    _cache_out = f"{prompt}\x00{output}\x01{canonical_output}" if _has_canonical_out else f"{prompt}\x00{output}"
-    cache_key = _result_cache_key("output", entries, _cache_out)
+    cache_key = _result_cache_key("output", f"{prompt}\x00{output}")
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
-    loop = asyncio.get_event_loop()
-    tasks = [
-        loop.run_in_executor(
-            _get_executor(), _scan_one_output, e[0], prompt,
-            canonical_output if _has_canonical_out and e[1] in _CANONICAL_SCANNERS else output,
+    canonical_output = canonicalize(output)
+
+    # ── Concurrent: first-party scanners + NeMo Tier 1 ──────────────────────
+    nemo = _get_nemo_tier()
+    tasks = [_run_first_party_scanners(output, canonical_output, "output", prompt=prompt)]
+    if nemo is not None:
+        tasks.append(nemo.evaluate_output(prompt, output))
+
+    gathered = await asyncio.gather(*tasks, return_exceptions=True)
+
+    fp_result = gathered[0]
+    if isinstance(fp_result, Exception):
+        logger.error("First-party output scanners failed: %s", fp_result)
+        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = (
+            True, output, {}, [], {}, [], False
         )
-        for e in entries
-    ]
-    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+    else:
+        fp_valid, fp_text, fp_scores, fp_violations, fp_actions, fp_reask, fp_fix = fp_result
 
-    results_valid, results_score, scanner_sanitized = _collect_raw_results(raw_results, entries)
+    nemo_risk_score = 0.0
+    nemo_passed = True
+    if nemo is not None and len(gathered) > 1:
+        nemo_result = gathered[1]
+        if isinstance(nemo_result, Exception):
+            logger.error("NeMo output tier failed: %s", nemo_result)
+            nemo_passed = False
+            nemo_risk_score = 1.0
+        else:
+            nemo_passed = nemo_result.passed
+            nemo_risk_score = nemo_result.risk_score
 
-    overall_valid, current_text, violation_scanners, on_fail_actions, reask_msgs, fix_applied = (
-        _process_violations(results_valid, results_score, entries, scanner_sanitized, output)
-    )
+    results_score = dict(fp_scores)
+    violation_scanners = list(fp_violations)
+    on_fail_actions = dict(fp_actions)
+    reask_msgs = list(fp_reask)
+    fix_applied = fp_fix
+    current_text = fp_text
+    overall_valid = fp_valid
 
-    phrase_hit = _apply_custom_phrases(output, entries, results_score, violation_scanners)
-    if _has_canonical_out and not phrase_hit:
-        phrase_hit = _apply_custom_phrases(canonical_output, entries, results_score, violation_scanners)
-    if phrase_hit:
+    if not nemo_passed:
+        results_score["NeMoGuardrails"] = nemo_risk_score
+        violation_scanners.append("NeMoGuardrails")
+        on_fail_actions["NeMoGuardrails"] = "blocked"
         overall_valid = False
 
+    if not overall_valid:
+        reask_context = reask_msgs if reask_msgs else None
+        result = (False, current_text, results_score, violation_scanners,
+                  on_fail_actions, reask_context, fix_applied)
+        _result_cache_put(cache_key, result)
+        return result
+
+    # ── Tier 2: LLM-as-a-Judge ──────────────────────────────────────────────
+    if _should_run_judge(nemo_risk_score):
+        judge = _get_judge()
+        if judge is not None:
+            try:
+                judge_result = await judge.evaluate(
+                    output, direction="output", prompt_context=prompt,
+                )
+                results_score["LLMJudge"] = judge_result.risk_score
+
+                if not judge_result.passed:
+                    violation_scanners.append("LLMJudge")
+                    on_fail_actions["LLMJudge"] = "blocked"
+                    overall_valid = False
+                    logger.warning(
+                        "LLM Judge blocked output: score=%.3f, threats=%s",
+                        judge_result.risk_score, judge_result.threats,
+                    )
+            except Exception as e:
+                logger.error("LLM Judge (output) failed: %s", e)
+                results_score["LLMJudge"] = 1.0
+                violation_scanners.append("LLMJudge")
+                on_fail_actions["LLMJudge"] = "blocked"
+                overall_valid = False
+
     reask_context = reask_msgs if reask_msgs else None
-    result = (overall_valid, current_text, results_score, violation_scanners, on_fail_actions, reask_context, fix_applied)
+    result = (overall_valid, current_text, results_score, violation_scanners,
+              on_fail_actions, reask_context, fix_applied)
     _result_cache_put(cache_key, result)
     return result
-
-
-def _merge_scan_results(
-    merged_results: dict[str, float],
-    merged_violations: list[str],
-    results: dict[str, float],
-    violations: list[str],
-    suffix: str = "",
-) -> None:
-    """Merge scan results/violations into the running totals, with optional namespace suffix."""
-    for k, v in results.items():
-        key = f"{k} ({suffix})" if suffix and k in merged_results else k
-        merged_results[key] = v
-    for v in violations:
-        name = f"{v} ({suffix})" if suffix and v in merged_violations else v
-        if name not in merged_violations:
-            merged_violations.append(name)
 
 
 async def run_guard_scan(
@@ -582,9 +589,9 @@ async def run_guard_scan(
     allowed_input_types: set[str] | None = None,
     allowed_output_types: set[str] | None = None,
 ) -> tuple[bool, dict[str, float], list[str]]:
-    user_text      = "\n".join(m["content"] for m in messages if m["role"] == "user")
+    """Run guard scan on a conversation (input + output + indirect injection)."""
+    user_text = "\n".join(m["content"] for m in messages if m["role"] == "user")
     assistant_text = "\n".join(m["content"] for m in messages if m["role"] == "assistant")
-    full_convo     = "\n".join(f"[{m['role'].upper()}]: {m['content']}" for m in messages)
 
     merged_results: dict[str, float] = {}
     merged_violations: list[str] = []
@@ -593,40 +600,57 @@ async def run_guard_scan(
     if user_text.strip():
         coros.append(("input", run_input_scan(user_text, allowed_types=allowed_input_types)))
     if assistant_text.strip():
-        coros.append(("output", run_output_scan(user_text or "", assistant_text, allowed_types=allowed_output_types)))
+        coros.append(("output", run_output_scan(
+            user_text or "", assistant_text, allowed_types=allowed_output_types)))
 
     gathered = await asyncio.gather(*(c for _, c in coros))
     for i, (label, _) in enumerate(coros):
         _, _, results, violations, *_ = gathered[i]
         suffix = "output" if label == "output" else ""
-        _merge_scan_results(merged_results, merged_violations, results, violations, suffix)
-
-    # Pass 3 — full conversation through PromptInjection only (indirect injection)
-    if full_convo.strip():
-        _, _, r3, v3, *_ = await run_input_scan(full_convo, allowed_types={"PromptInjection"})
-        _merge_scan_results(merged_results, merged_violations, r3, v3, "indirect")
+        for k, v in results.items():
+            key = f"{k} ({suffix})" if suffix and k in merged_results else k
+            merged_results[key] = v
+        for v in violations:
+            name = f"{v} ({suffix})" if suffix and v in merged_violations else v
+            if name not in merged_violations:
+                merged_violations.append(name)
 
     return len(merged_violations) > 0, merged_results, merged_violations
 
 
 def reload_scanners() -> None:
-    """Reload scanners (call after config reload)."""
+    """Reload scanners and tiers (call after config reload)."""
     invalidate_cache()
-    logger.info("Scanner cache invalidated — scanners will be reloaded on next scan")
+    logger.info("Scanner cache invalidated — tiers and scanners will be reloaded on next scan")
 
 
 async def warmup() -> None:
-    """
-    Pre-load all active scanner models by running a short dummy scan.
-    """
+    """Pre-load all tier components by running dummy scans."""
+    # Warm up first-party scanners
     dummy = "warmup check"
     try:
-        await run_input_scan(dummy)
-        logger.info("Scanner warm-up: input scanners ready.")
+        entries = _load_first_party_scanners("input")
+        if entries:
+            logger.info("First-party input scanners loaded: %d",  len(entries))
+        entries = _load_first_party_scanners("output")
+        if entries:
+            logger.info("First-party output scanners loaded: %d", len(entries))
     except Exception as e:
-        logger.warning("Scanner warm-up (input) failed: %s", e)
-    try:
-        await run_output_scan(dummy, dummy)
-        logger.info("Scanner warm-up: output scanners ready.")
-    except Exception as e:
-        logger.warning("Scanner warm-up (output) failed: %s", e)
+        logger.warning("First-party scanner warm-up failed: %s", e)
+
+    # Warm up NeMo tier
+    nemo = _get_nemo_tier()
+    if nemo is not None:
+        try:
+            await nemo.warmup()
+        except Exception as e:
+            logger.warning("NeMo tier warm-up failed: %s", e)
+
+    # Warm up LangGraph judge (just initialize, no dummy call needed)
+    judge = _get_judge()
+    if judge is not None:
+        logger.info("LangGraph judge initialized during warm-up")
+
+    # Clear warmup results from cache
+    _result_cache.clear()
+    logger.info("Scanner engine warm-up complete")

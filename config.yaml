@@ -1,4 +1,4 @@
-# Seraph — YAML-configured LLM guardrail proxy
+# Seraph — Two-Tier LLM Guardrail Proxy
 # Documentation: https://github.com/0x0pointer/seraph
 
 listen: "0.0.0.0:8000"
@@ -20,276 +20,69 @@ logging:
   # Set to a file path for SQLite audit storage, null for stdout JSON
   audit_file: null
 
-# ─── Scanner configuration ───────────────────────────────────────────────────
+# ─── Tier 1: NeMo Guardrails ────────────────────────────────────────────────
 #
-# By default (when the scanners section is absent), Seraph loads the full
-# built-in guardrail catalog: 42 scanners with 322+ trained rules from
-# SecLists, Garak, Promptfoo, and Deck of Many Prompts — including
-# multi-language injection defense, text canonicalization, and the
-# Embedding Similarity Shield.
+# Semantic allow-list firewall. Defines approved conversational flows via
+# Colang definitions. Any input that doesn't match an allowed intent is
+# blocked immediately — no deny-list chasing required.
+
+nemo_tier:
+  enabled: true
+  config_dir: "app/services/nemo_config"
+  embedding_threshold: 0.85
+  model: "gpt-4o-mini"
+  model_engine: "openai"
+  # api_key: ""  # Falls back to upstream_api_key / UPSTREAM_API_KEY env var
+
+# ─── Tier 2: LLM-as-a-Judge (LangGraph) ─────────────────────────────────────
 #
-# To activate or deactivate a scanner, comment or uncomment its block below.
-# Each scanner has:
-#   type:      Scanner class name
-#   on_fail:   block | fix | monitor | reask
-#   threshold: Detection threshold (0.0–1.0, lower = more sensitive)
-#   params:    Scanner-specific parameters
+# Small language model evaluates requests that pass Tier 1 for deeper threats:
+# prompt injection, data exfiltration, social engineering, policy violations.
+# Configurable to run on every request or only when Tier 1 is uncertain.
+
+judge:
+  enabled: true
+  model: "gpt-4o-mini"
+  # base_url: "http://localhost:11434/v1"  # Uncomment for Ollama / vLLM
+  # api_key: ""                            # Falls back to upstream_api_key
+  temperature: 0.0
+  max_tokens: 512
+  risk_threshold: 0.7
+  prompt_file: "app/services/judge_prompt.txt"
+  run_on_every_request: true
+  # When run_on_every_request is false, judge only runs when NeMo's
+  # embedding score falls in this uncertain band:
+  uncertainty_band_low: 0.70
+  uncertainty_band_high: 0.85
+
+# ─── First-Party Scanners ───────────────────────────────────────────────────
+#
+# These run in parallel with Tier 1 (NeMo). They are fast, deterministic,
+# and do not depend on external LLM calls.
 
 scanners:
 
-  # ── INPUT SCANNERS ──────────────────────────────────────────────────────────
   input:
 
-    # ML prompt injection detector (DeBERTa v3)
-    - type: PromptInjection
-      on_fail: block
-      params:
-        use_onnx: true
-
-    # ML toxicity classifier (DistilBERT)
-    - type: Toxicity
-      on_fail: block
-      params:
-        threshold: 0.5
-        use_onnx: true
-
-    # Credential/secret detection — redacts matches in-place
-    - type: Secrets
-      on_fail: fix
-      params: {}
-
-    # Token count limiter (tiktoken)
-    - type: TokenLimit
-      on_fail: block
-      params:
-        limit: 4096
-
-    # NER-based PII anonymization
-    - type: Anonymize
-      on_fail: fix
-      params:
-        use_onnx: true
-
-    # Code detection — blocks code in input
-    - type: BanCode
-      on_fail: block
-      params:
-        threshold: 0.4
-
-    # Competitor mention detection (NLI zero-shot)
-    - type: BanCompetitors
-      on_fail: monitor
-      params:
-        competitors: ["OpenAI", "Anthropic", "Google"]
-        threshold: 0.5
-
-    # Exact attack phrase blocklist — 273 phrases from 4 red-team datasets
-    # + v17 multi-language (ES, FR, DE, PT, IT) injection defense.
-    # Full list in app/core/guardrails/
-    - type: BanSubstrings
-      on_fail: block
-      params:
-        substrings: []  # see app/core/guardrails/input/ban_substrings.py for full 272-phrase list
-        case_sensitive: false
-        contains_all: false
-
-    # NLI-based semantic topic blocking (14 topics)
-    - type: BanTopics
-      on_fail: block
-      params:
-        topics: []  # see app/core/guardrails/input/ban_topics.py for full topic list
-        threshold: 0.4
-        use_onnx: true
-
-    # Per-language code blocking (routes to Code scanner)
-    - type: Code
-      on_fail: block
-      params:
-        languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
-        is_blocked: true
-        threshold: 0.5
-
-    # Emotion classification (not available in llm-guard 0.3.16)
-    # - type: EmotionDetection
-    #   on_fail: monitor
-    #   params: {}
-
-    # Gibberish text detector
-    - type: Gibberish
-      on_fail: block
-      params:
-        threshold: 0.7
-
-    # Unicode invisible character detection
-    - type: InvisibleText
-      on_fail: block
-      params: {}
-
-    # Language detection — monitors non-English input (v17)
-    # Set on_fail: block if your app only serves English users.
-    - type: Language
-      on_fail: monitor
-      params:
-        valid_languages: ["en"]
-
-    # Structural attack pattern matching — 93 regex patterns
-    # Full list in app/core/guardrails/
-    - type: Regex
-      on_fail: block
-      params:
-        patterns: []  # see app/core/guardrails/input/regex.py for full 91-pattern list
-
-    # Sentiment analysis (VADER lexicon)
-    - type: Sentiment
-      on_fail: monitor
-      params:
-        threshold: 0.0
-
     # Semantic similarity scanner — catches paraphrased prompt injections
-    # by comparing embeddings against 49 known attack patterns.
+    # by comparing embeddings against 49+ known attack patterns.
     - type: EmbeddingShield
       on_fail: block
       params:
         threshold: 0.72
 
-  # ── OUTPUT SCANNERS ─────────────────────────────────────────────────────────
+    # User-defined keyword + regex rules
+    # - type: CustomRule
+    #   on_fail: block
+    #   params:
+    #     blocked_keywords: []
+    #     blocked_patterns: []
+
   output:
 
-    # ML toxicity classifier (DistilBERT)
-    - type: Toxicity
-      on_fail: block
-      params:
-        threshold: 0.5
-        use_onnx: true
-
-    # Refusal detection — triggers reask for LLM retry
-    - type: NoRefusal
-      on_fail: reask
-      params: {}
-
-    # Competitor mention detection (NLI zero-shot)
-    - type: BanCompetitors
-      on_fail: monitor
-      params:
-        competitors: ["OpenAI", "Anthropic", "Google"]
-        threshold: 0.5
-
-    # Bias detection (DistilRoBERTa)
-    - type: Bias
-      on_fail: reask
-      params:
-        threshold: 0.75
-
-    # Code detection — blocks code in output
-    - type: BanCode
-      on_fail: block
-      params:
-        threshold: 0.4
-
-    # Jailbreak success detection — 61 phrases
-    # Full list in app/core/guardrails/
-    - type: BanSubstrings
-      on_fail: block
-      params:
-        substrings: []  # see app/core/guardrails/output/ban_substrings.py for full 60-phrase list
-        case_sensitive: false
-        contains_all: false
-
-    # NLI-based semantic topic blocking (13 output topics)
-    - type: BanTopics
-      on_fail: block
-      params:
-        topics: []  # see app/core/guardrails/output/ban_topics.py for full topic list
-        threshold: 0.5
-        use_onnx: true
-
-    # Per-language code blocking
-    - type: Code
-      on_fail: block
-      params:
-        languages: ["Python", "JavaScript", "Java", "C", "C++", "C#", "Ruby", "Go", "Rust", "PHP"]
-        is_blocked: true
-        threshold: 0.5
-
-    # PII re-insertion detection
-    - type: Deanonymize
-      on_fail: fix
-      params: {}
-
-    # Emotion classification (not available in llm-guard 0.3.16)
-    # - type: EmotionDetection
-    #   on_fail: monitor
-    #   params: {}
-
-    # Factual consistency / hallucination detection (Vectara) — SLOW
-    # - type: FactualConsistency
-    #   on_fail: reask
+    # User-defined keyword + regex rules for output
+    # - type: CustomRule
+    #   on_fail: block
     #   params:
-    #     minimum_score: 0.5
-
-    # Gibberish text detector
-    - type: Gibberish
-      on_fail: block
-      params:
-        threshold: 0.7
-
-    # JSON schema validation
-    - type: JSON
-      on_fail: reask
-      params: {}
-
-    # Output language enforcement
-    - type: Language
-      on_fail: block
-      params:
-        valid_languages: ["en"]
-
-    # Input/output language consistency
-    - type: LanguageSame
-      on_fail: reask
-      params: {}
-
-    # Malicious URL detection
-    - type: MaliciousURLs
-      on_fail: block
-      params: {}
-
-    # Lightweight refusal classifier
-    - type: NoRefusalLight
-      on_fail: reask
-      params: {}
-
-    # Reading time estimation
-    - type: ReadingTime
-      on_fail: monitor
-      params:
-        max_time: 5.0
-
-    # Output regex patterns — 8 rules for credential leaks, PII, system prompt echo
-    # Full list in app/core/guardrails/
-    - type: Regex
-      on_fail: fix
-      params:
-        patterns: []  # see app/core/guardrails/output/regex.py for full 7-pattern list
-
-    # Semantic relevance check (sentence-transformers) — SLOW
-    # - type: Relevance
-    #   on_fail: reask
-    #   params:
-    #     threshold: 0.5
-
-    # Sensitive data pattern detection
-    - type: Sensitive
-      on_fail: fix
-      params: {}
-
-    # Sentiment analysis (VADER lexicon)
-    - type: Sentiment
-      on_fail: monitor
-      params:
-        threshold: 0.0
-
-    # URL reachability check (HTTP HEAD) — SLOW
-    # - type: URLReachability
-    #   on_fail: monitor
-    #   params: {}
+    #     blocked_keywords: []
+    #     blocked_patterns: []
