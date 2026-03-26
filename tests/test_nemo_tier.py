@@ -1,0 +1,207 @@
+"""Unit tests for app/services/nemo_tier.py — NeMo Guardrails wrapper."""
+import asyncio
+from unittest.mock import patch, MagicMock, AsyncMock
+
+from app.services.nemo_tier import NemoTier, NemoResult, _BLOCKED_PREFIX
+
+_run = lambda coro: asyncio.run(coro)
+
+
+class TestNemoResult:
+    def test_dataclass_fields(self):
+        r = NemoResult(passed=True, matched_flow="PASS", risk_score=0.0, latency_ms=5.0, detail="PASS")
+        assert r.passed is True
+        assert r.risk_score == 0.0
+
+    def test_blocked_result(self):
+        r = NemoResult(passed=False, matched_flow=None, risk_score=1.0, latency_ms=10.0, detail="BLOCKED: test")
+        assert r.passed is False
+        assert r.detail.startswith("BLOCKED:")
+
+
+class TestNemoTierInit:
+    def test_default_values(self):
+        tier = NemoTier(config_dir="/tmp/fake")
+        assert tier._embedding_threshold == 0.85
+        assert tier._model == "gpt-4o-mini"
+        assert tier._model_engine == "openai"
+        assert tier._input_rails is None
+        assert tier._output_rails is None
+
+    def test_custom_values(self):
+        tier = NemoTier(
+            config_dir="/tmp/fake",
+            embedding_threshold=0.90,
+            model="gpt-4",
+            model_engine="azure",
+            api_key="sk-test",
+        )
+        assert tier._embedding_threshold == 0.90
+        assert tier._model == "gpt-4"
+        assert tier._api_key == "sk-test"
+
+
+class TestEnsureApiKey:
+    def test_sets_from_api_key(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        tier = NemoTier(config_dir="/tmp", api_key="sk-from-config")
+        tier._ensure_api_key()
+        import os
+        assert os.environ.get("OPENAI_API_KEY") == "sk-from-config"
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    def test_sets_from_upstream_env(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("UPSTREAM_API_KEY", "sk-from-upstream")
+        tier = NemoTier(config_dir="/tmp")
+        tier._ensure_api_key()
+        import os
+        assert os.environ.get("OPENAI_API_KEY") == "sk-from-upstream"
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("UPSTREAM_API_KEY", raising=False)
+
+
+class TestBuildYamlContent:
+    def test_contains_model_and_threshold(self):
+        tier = NemoTier(config_dir="/tmp", model="gpt-4o-mini", embedding_threshold=0.85)
+        yaml = tier._build_yaml_content()
+        assert "gpt-4o-mini" in yaml
+        assert "0.85" in yaml
+        assert "allow_free_text: false" in yaml
+
+
+class TestLoadColang:
+    def test_missing_file_returns_empty(self, tmp_path):
+        tier = NemoTier(config_dir=str(tmp_path))
+        result = tier._load_colang("nonexistent.co")
+        assert result == ""
+
+    def test_existing_file_returns_content(self, tmp_path):
+        colang_file = tmp_path / "test.co"
+        colang_file.write_text("define flow test\n  bot say hello")
+        tier = NemoTier(config_dir=str(tmp_path))
+        result = tier._load_colang("test.co")
+        assert "define flow test" in result
+
+
+class TestEvaluateRails:
+    def test_pass_result(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value="PASS")
+
+        result = _run(tier._evaluate_rails(mock_rails, "hello", "input"))
+        assert result.passed is True
+        assert result.risk_score == 0.0
+        assert result.matched_flow == "PASS"
+
+    def test_blocked_result(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value="BLOCKED: No matching flow")
+
+        result = _run(tier._evaluate_rails(mock_rails, "hack this", "input"))
+        assert result.passed is False
+        assert result.risk_score == 1.0
+        assert result.detail.startswith("BLOCKED:")
+
+    def test_exception_returns_block(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(side_effect=RuntimeError("model failed"))
+
+        result = _run(tier._evaluate_rails(mock_rails, "test", "input"))
+        assert result.passed is False
+        assert result.risk_score == 1.0
+        assert "NeMo error" in result.detail
+
+    def test_non_string_response(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value=12345)
+
+        result = _run(tier._evaluate_rails(mock_rails, "test", "input"))
+        assert result.passed is True
+        assert result.matched_flow == "12345"
+
+
+class TestEvaluate:
+    def test_delegates_to_input_rails(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value="PASS")
+        tier._input_rails = mock_rails
+
+        result = _run(tier.evaluate("hello"))
+        assert result.passed is True
+        mock_rails.generate_async.assert_called_once_with(prompt="hello")
+
+
+class TestEvaluateOutput:
+    def test_delegates_to_output_rails(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value="PASS")
+        tier._output_rails = mock_rails
+
+        result = _run(tier.evaluate_output("prompt", "response"))
+        assert result.passed is True
+        mock_rails.generate_async.assert_called_once_with(prompt="response")
+
+
+class TestReload:
+    def test_reload_clears_rails(self):
+        tier = NemoTier(config_dir="/tmp")
+        tier._input_rails = MagicMock()
+        tier._output_rails = MagicMock()
+
+        tier.reload(config_dir="/tmp/new", embedding_threshold=0.9)
+        assert tier._input_rails is None
+        assert tier._output_rails is None
+        assert tier._config_dir == "/tmp/new"
+        assert tier._embedding_threshold == 0.9
+
+    def test_reload_partial_update(self):
+        tier = NemoTier(config_dir="/tmp", model="old-model")
+        tier.reload(model="new-model")
+        assert tier._model == "new-model"
+        assert tier._config_dir == "/tmp"
+
+    def test_reload_api_key(self):
+        tier = NemoTier(config_dir="/tmp")
+        tier.reload(api_key="new-key")
+        assert tier._api_key == "new-key"
+
+
+class TestWarmup:
+    def test_warmup_calls_evaluate(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_rails = MagicMock()
+        mock_rails.generate_async = AsyncMock(return_value="PASS")
+        tier._input_rails = mock_rails
+        tier._output_rails = mock_rails
+
+        _run(tier.warmup())
+        assert mock_rails.generate_async.call_count == 2
+
+    def test_warmup_handles_input_failure(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_input = MagicMock()
+        mock_input.generate_async = AsyncMock(side_effect=RuntimeError("fail"))
+        mock_output = MagicMock()
+        mock_output.generate_async = AsyncMock(return_value="PASS")
+        tier._input_rails = mock_input
+        tier._output_rails = mock_output
+
+        _run(tier.warmup())  # Should not raise
+
+    def test_warmup_handles_output_failure(self):
+        tier = NemoTier(config_dir="/tmp")
+        mock_input = MagicMock()
+        mock_input.generate_async = AsyncMock(return_value="PASS")
+        mock_output = MagicMock()
+        mock_output.generate_async = AsyncMock(side_effect=RuntimeError("fail"))
+        tier._input_rails = mock_input
+        tier._output_rails = mock_output
+
+        _run(tier.warmup())  # Should not raise
