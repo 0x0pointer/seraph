@@ -1,4 +1,4 @@
-# Test configuration — no API keys (open mode), minimal scanners
+# Test configuration — no API keys (open mode), tiers disabled, no scanners
 listen: "0.0.0.0:8000"
 upstream: "https://api.openai.com"
 api_keys: []
@@ -6,6 +6,12 @@ api_keys: []
 logging:
   level: warning
   audit: false
+
+nemo_tier:
+  enabled: false
+
+judge:
+  enabled: false
 
 scanners:
   input: []

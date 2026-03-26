@@ -19,14 +19,26 @@ logging:
   audit: true
   audit_file: null
 
-# Uses the full built-in scanner catalog (42 scanners, 322+ rules).
-# Uncomment below to customize:
-# scanners:
-#   input:
-#     - type: PromptInjection
-#       on_fail: block
-#     - type: Toxicity
-#       on_fail: block
-#   output:
-#     - type: Toxicity
-#       on_fail: block
+# Tier 1: NeMo Guardrails — semantic allow-list firewall
+nemo_tier:
+  enabled: true
+  embedding_threshold: 0.85
+  model: "gpt-4o-mini"
+  model_engine: "openai"
+
+# Tier 2: LLM-as-a-Judge via LangGraph
+judge:
+  enabled: true
+  model: "gpt-4o-mini"
+  temperature: 0.0
+  risk_threshold: 0.7
+  run_on_every_request: true
+
+# First-party scanners (run in parallel with Tier 1)
+scanners:
+  input:
+    - type: EmbeddingShield
+      on_fail: block
+      params:
+        threshold: 0.72
+  output: []

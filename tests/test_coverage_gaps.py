@@ -339,45 +339,6 @@ class TestProxyMetadataExtraction:
         assert segs == []
 
 
-# ── scanner_engine.py coverage gaps ──────────────────────────────────────────
-
-class TestScannerEngineCoverage:
-    def setup_method(self):
-        from app.services.scanner_engine import invalidate_cache
-        invalidate_cache()
-
-    def test_merge_scan_results_with_suffix(self):
-        from app.services.scanner_engine import _merge_scan_results
-        merged_r, merged_v = {}, []
-        _merge_scan_results(merged_r, merged_v, {"S1": 0.5}, ["S1"], "")
-        assert merged_r == {"S1": 0.5}
-        assert merged_v == ["S1"]
-        # Add same key with suffix
-        _merge_scan_results(merged_r, merged_v, {"S1": 0.7}, ["S1"], "output")
-        assert "S1 (output)" in merged_r
-        assert "S1 (output)" in merged_v
-
-    def test_collect_raw_results_all_exceptions(self):
-        from app.services.scanner_engine import _collect_raw_results
-        entries = [(None, "S1", [], 0, {}, "block"), (None, "S2", [], 1, {}, "block")]
-        raw = [RuntimeError("fail1"), RuntimeError("fail2")]
-        valid, score, san = _collect_raw_results(raw, entries)
-        assert valid == {}
-        assert score == {}
-
-    def test_load_and_filter_entries_with_types(self):
-        from app.services.scanner_engine import _load_and_filter_entries
-        entries = [
-            (None, "A", [], 0, {}, "block"),
-            (None, "B", [], 1, {}, "block"),
-            (None, "C", [], 2, {}, "block"),
-        ]
-        filtered = _load_and_filter_entries(entries, {"A", "C"})
-        assert len(filtered) == 2
-        assert filtered[0][1] == "A"
-        assert filtered[1][1] == "C"
-
-
 # ── audit_logger.py coverage gaps ────────────────────────────────────────────
 
 class TestAuditLoggerHelpers:

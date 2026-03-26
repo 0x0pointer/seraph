@@ -1,0 +1,76 @@
+# Seraph Output Rails — Allowed Assistant Response Patterns
+#
+# Defines what valid LLM outputs look like. Anything that does not match
+# a defined assistant intent is caught by the fallback and BLOCKED.
+
+# ── ALLOWED ASSISTANT INTENTS ───────────────────────────────────────────────
+
+define bot gives informational response
+    "Here is what I found"
+    "The answer to your question is"
+    "Based on the information available"
+    "Let me explain how this works"
+    "According to the data"
+
+define bot provides code help
+    "Here is the code you requested"
+    "This function does the following"
+    "You can fix this error by"
+    "Here is an example implementation"
+    "The bug is on this line"
+
+define bot gives creative output
+    "Here is a poem for you"
+    "Once upon a time"
+    "Here is the marketing copy"
+    "Here are some name suggestions"
+
+define bot gives analysis
+    "Based on my analysis"
+    "The pros and cons are"
+    "Comparing the two approaches"
+    "Here is a step by step breakdown"
+
+define bot continues conversation
+    "You are welcome"
+    "Sure, let me elaborate"
+    "To clarify"
+    "Is there anything else I can help with?"
+    "Let me know if you have more questions"
+
+define bot declines appropriately
+    "I am not able to help with that specific request"
+    "That falls outside what I can assist with"
+    "I would recommend consulting a professional for that"
+
+# ── ALLOWED OUTPUT FLOWS ────────────────────────────────────────────────────
+
+define user receives response
+    "ok"
+
+define flow output informational
+    bot gives informational response
+
+define flow output code
+    bot provides code help
+
+define flow output creative
+    bot gives creative output
+
+define flow output analysis
+    bot gives analysis
+
+define flow output conversation
+    bot continues conversation
+
+define flow output decline
+    bot declines appropriately
+
+# ── FALLBACK — blocks policy-violating outputs ──────────────────────────────
+
+define bot block output
+    "BLOCKED: Response does not match any allowed output pattern"
+
+define flow output fallback
+    when true:
+        bot block output

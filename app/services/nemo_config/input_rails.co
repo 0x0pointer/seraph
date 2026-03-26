@@ -1,0 +1,111 @@
+# Seraph Input Rails — Semantic Allow-List
+#
+# Each "define user ..." block lists example utterances for an allowed intent.
+# NeMo converts these + the incoming prompt into embeddings and checks
+# cosine similarity >= embedding_threshold. If no flow matches, the
+# fallback fires and the request is BLOCKED.
+
+# ── ALLOWED USER INTENTS ────────────────────────────────────────────────────
+
+define user ask factual question
+    "What is the capital of France?"
+    "How does photosynthesis work?"
+    "Explain quantum computing in simple terms"
+    "What are the symptoms of the flu?"
+    "When was the Eiffel Tower built?"
+    "What is the speed of light?"
+    "How many continents are there?"
+
+define user ask for help with task
+    "Help me write an email to my colleague"
+    "Can you summarize this document?"
+    "Translate this paragraph to Spanish"
+    "Review my report for grammar errors"
+    "Help me plan a presentation outline"
+    "Proofread this text for me"
+    "Help me draft a response to this message"
+
+define user make creative request
+    "Write a poem about autumn"
+    "Generate a short story about space travel"
+    "Come up with marketing copy for my product"
+    "Write a haiku about the ocean"
+    "Create a tagline for my startup"
+    "Help me brainstorm names for my project"
+
+define user ask about code
+    "How do I sort a list in Python?"
+    "What does this error message mean?"
+    "Write a function that calculates fibonacci numbers"
+    "Explain the difference between GET and POST"
+    "How do I connect to a database in Java?"
+    "What is a REST API?"
+    "Debug this function for me"
+    "How do I set up a Docker container?"
+
+define user engage in conversation
+    "Thank you for your help"
+    "That makes sense, can you elaborate?"
+    "I have a follow-up question"
+    "Can you explain that differently?"
+    "Yes, that is what I meant"
+    "No, I was asking about something else"
+    "Great, what about this?"
+
+define user ask for analysis
+    "Analyze this data for trends"
+    "Compare these two approaches"
+    "What are the pros and cons of this?"
+    "Evaluate this business strategy"
+    "Break down this problem step by step"
+    "What are the tradeoffs here?"
+
+define user ask for explanation
+    "Why does this happen?"
+    "How does this process work?"
+    "What is the reasoning behind this?"
+    "Can you walk me through this concept?"
+    "Explain this like I am five"
+    "What does this term mean?"
+
+# ── ALLOWED FLOWS ───────────────────────────────────────────────────────────
+
+define bot allow request
+    "PASS"
+
+define flow allowed factual
+    user ask factual question
+    bot allow request
+
+define flow allowed task help
+    user ask for help with task
+    bot allow request
+
+define flow allowed creative
+    user make creative request
+    bot allow request
+
+define flow allowed code
+    user ask about code
+    bot allow request
+
+define flow allowed conversation
+    user engage in conversation
+    bot allow request
+
+define flow allowed analysis
+    user ask for analysis
+    bot allow request
+
+define flow allowed explanation
+    user ask for explanation
+    bot allow request
+
+# ── FALLBACK — catches everything not matched above ─────────────────────────
+
+define bot block request
+    "BLOCKED: Request does not match any allowed intent"
+
+define flow fallback
+    when true:
+        bot block request

@@ -4,55 +4,120 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=bugs)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=coverage)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
 
-Seraph is a transparent security proxy for LLM applications. Point your app at Seraph instead of the LLM — it scans every request and response for prompt injection, toxicity, secrets, and other threats, then blocks, sanitizes, or logs them.
+Seraph is a transparent security proxy for LLM applications. Point your app at Seraph instead of the LLM — it scans every request and response through a two-tier guardrail pipeline, then blocks, sanitizes, or logs threats.
 
 - **Drop-in replacement** for any LLM API endpoint — zero code changes
 - Works with **any LLM provider** (OpenAI, Anthropic, Azure, Ollama, vLLM, etc.)
-- Works behind **any frontend** (chatbot, reverse proxy, gateway, custom app)
+- **Two-tier defense-in-depth** — fast deterministic layer + deep LLM evaluation
 - Configured with a **single YAML file** — no database, no frontend
-- Uses [llm-guard](https://llm-guard.com/) scanners with parallel execution
 - Includes text canonicalization to defeat evasion tricks (leetspeak, homoglyphs, unicode)
 
-## How it works
+## Architecture
 
-Seraph acts as a **transparent proxy** between your app and the LLM provider. It intercepts every request, scans the input, forwards to the upstream LLM, scans the output, and returns the result. If a threat is detected at any point, the request is blocked before it reaches the LLM (or before the response reaches your app).
+Seraph uses a **two-tier scanning pipeline** inspired by the [AI firewall](https://eviltux.com/2025/05/21/the-dawn-of-the-ai-firewall/) allow-list approach:
+
+```
+Request text
+    |
+    v
++------------------------------------------+
+|  Concurrent (asyncio.gather)             |
+|  +-------------------+ +---------------+ |
+|  | First-party       | | Tier 1: NeMo  | |
+|  | - EmbeddingShield | | Guardrails    | |
+|  | - CustomRule      | | (Colang flows)| |
+|  +--------+----------+ +------+--------+ |
++-----------|--------------------|-----------+
+            v                    v
+       Any block? --YES--> return 400
+            |
+            NO
+            v
++------------------------------+
+| Tier 2: LLM-as-a-Judge      |
+| (LangGraph StateGraph)      |
+| - classify node (SLM call)  |
+| - decide node (threshold)   |
++-------------+----------------+
+              |
+       +------+------+
+       v             v
+    BLOCK          PASS
+    (400)       forward to LLM
+```
+
+### Tier 1: NeMo Guardrails
+
+A **semantic allow-list firewall** using [NVIDIA NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails). Instead of maintaining an ever-growing deny-list of forbidden phrases, you define **what users are allowed to ask** via Colang flow definitions. Anything that doesn't match an allowed intent is blocked by the fallback rail.
+
+- Uses embedding similarity (configurable threshold) to match intents semantically
+- `allow_free_text: false` enforces strict allow-list behavior
+- Catches novel phrasings that keyword matching would miss
+- Separate Colang files for input and output rails
+
+### Tier 2: LLM-as-a-Judge (LangGraph)
+
+A **small language model** evaluates requests that pass Tier 1 for deeper threats. Built as a [LangGraph](https://langchain-ai.github.io/langgraph/) `StateGraph` with two nodes:
+
+1. **classify** — calls the SLM with a security evaluation prompt via `ChatPromptTemplate`
+2. **decide** — applies a risk threshold to produce a pass/block verdict
+
+Checks for: prompt injection, jailbreak attempts, harmful intent, data exfiltration, social engineering, and policy violations. Returns structured JSON with `verdict`, `risk_score`, `reasoning`, and `threats_detected`.
+
+### First-Party Scanners
+
+Run **in parallel** with Tier 1 for fast, deterministic checks:
+
+| Scanner | What it does |
+|---------|-------------|
+| **EmbeddingShield** | Cosine similarity against 49 known attack patterns (sentence-transformers) |
+| **CustomRule** | User-defined blocked keywords + regex patterns |
+| **Text Canonicalizer** | Pre-processes text to defeat evasion (leetspeak, homoglyphs, unicode normalization) |
+
+## How it works
 
 ```mermaid
 flowchart LR
     App["Your App"] -->|"user prompt"| Seraph
-    Seraph -->|"1. scan input"| S["llm-guard\nScanners"]
-    S -->|"safe"| Seraph
+    Seraph -->|"1. scan input"| T1["Tier 1: NeMo\n+ First-party"]
+    T1 -->|"pass"| T2["Tier 2: LLM\nJudge"]
+    T2 -->|"safe"| Seraph
     Seraph -->|"2. forward"| LLM["LLM Provider\n(OpenAI, Anthropic, etc.)"]
     LLM -->|"response"| Seraph
-    Seraph -->|"3. scan output"| S
-    S -->|"safe"| Seraph
+    Seraph -->|"3. scan output"| T1
+    T1 -->|"pass"| T2
+    T2 -->|"safe"| Seraph
     Seraph -->|"clean response"| App
 
     style Seraph fill:#e67e22,stroke:#d35400,color:#fff
-    style S fill:#2ecc71,stroke:#27ae60,color:#fff
+    style T1 fill:#2ecc71,stroke:#27ae60,color:#fff
+    style T2 fill:#3498db,stroke:#2980b9,color:#fff
 ```
 
 ```mermaid
 sequenceDiagram
     participant App
     participant Seraph
-    participant Scanners as Scanners
+    participant NeMo as Tier 1: NeMo + Scanners
+    participant Judge as Tier 2: LLM Judge
     participant LLM as LLM Provider
 
-    App->>Seraph: POST /v1/chat/completions<br/>Authorization: Bearer seraph-key<br/>X-Upstream-Auth: Bearer provider-key
+    App->>Seraph: POST /v1/chat/completions
 
-    Seraph->>Seraph: Auth check (seraph-key)
-    Seraph->>Scanners: Scan user message
-    Scanners-->>Seraph: Safe (or sanitized)
+    Seraph->>Seraph: Auth check
+    Seraph->>NeMo: Scan input (concurrent)
+    NeMo-->>Seraph: Pass
+    Seraph->>Judge: Deep evaluation (SLM)
+    Judge-->>Seraph: Safe
 
-    Note over Seraph: Replace Authorization header:<br/>seraph-key → provider-key
+    Seraph->>LLM: Forward request
 
-    Seraph->>LLM: Forward to upstream<br/>Authorization: Bearer provider-key
+    LLM-->>Seraph: Response
 
-    LLM-->>Seraph: Assistant response
-
-    Seraph->>Scanners: Scan assistant response
-    Scanners-->>Seraph: Safe
+    Seraph->>NeMo: Scan output (concurrent)
+    NeMo-->>Seraph: Pass
+    Seraph->>Judge: Evaluate output
+    Judge-->>Seraph: Safe
 
     Seraph-->>App: Return response
 ```
@@ -66,6 +131,9 @@ git clone https://github.com/0x0pointer/seraph.git
 cd seraph
 pip install poetry && poetry install
 
+# Set your LLM provider key
+export UPSTREAM_API_KEY=sk-your-openai-key
+
 # Start Seraph
 SERAPH_CONFIG=config.yaml uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
@@ -78,54 +146,61 @@ docker compose up
 
 ### 2. Configure
 
-Edit `config.yaml` — this single file controls everything:
+Edit `config.yaml`:
 
 ```yaml
 listen: "0.0.0.0:8000"
-
-# Default LLM backend. Override per-request with the X-Upstream-URL header.
 upstream: "https://api.openai.com"
 
-# Seraph's own API keys. Clients must send one as "Authorization: Bearer <key>".
-# Leave empty for open mode (no auth).
 api_keys:
   - "your-seraph-key-here"
 
-logging:
-  level: info
-  audit: true           # log every scan result
-  audit_file: null      # null = stdout JSON, set a path for SQLite
+# Tier 1: NeMo Guardrails
+nemo_tier:
+  enabled: true
+  embedding_threshold: 0.85       # similarity threshold for intent matching
+  model: "gpt-4o-mini"            # backing LLM for NeMo flow matching
+  model_engine: "openai"
 
-# Which scanners to run. Remove this section entirely to use built-in defaults.
+# Tier 2: LLM-as-a-Judge
+judge:
+  enabled: true
+  model: "gpt-4o-mini"            # SLM for security evaluation
+  # base_url: "http://localhost:11434/v1"  # uncomment for Ollama
+  temperature: 0.0
+  risk_threshold: 0.7             # score >= this = block
+  run_on_every_request: true      # false = only when Tier 1 is uncertain
+  prompt_file: "app/services/judge_prompt.txt"
+
+# First-party scanners (run in parallel with Tier 1)
 scanners:
   input:
-    - type: PromptInjection
-      threshold: 0.8
+    - type: EmbeddingShield
       on_fail: block
-    - type: BanSubstrings
       params:
-        substrings: ["ignore previous instructions"]
-      on_fail: block
-  output:
-    - type: Toxicity
-      threshold: 0.7
-      on_fail: block
+        threshold: 0.72
+    # - type: CustomRule
+    #   on_fail: block
+    #   params:
+    #     blocked_keywords: ["do anything now"]
+    #     blocked_patterns: ["ignore.*instructions"]
+  output: []
 ```
 
 ### 3. Use it
 
-Point your LLM client at Seraph instead of the LLM provider. That's it — Seraph handles input scanning, forwarding, output scanning, and response delivery transparently.
+Point your LLM client at Seraph instead of the LLM provider:
 
-**OpenAI SDK — zero code changes:**
+**OpenAI SDK:**
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:8000/v1",           # Point at Seraph
-    api_key="your-seraph-key",                     # Seraph key (NOT your OpenAI key)
+    base_url="http://localhost:8000/v1",
+    api_key="your-seraph-key",
     default_headers={
-        "X-Upstream-Auth": "Bearer sk-your-openai-key",  # Real OpenAI key
+        "X-Upstream-Auth": "Bearer sk-your-openai-key",
     },
 )
 
@@ -141,10 +216,10 @@ response = client.chat.completions.create(
 import anthropic
 
 client = anthropic.Anthropic(
-    base_url="http://localhost:8000",              # Point at Seraph
-    api_key="your-seraph-key",                     # Seraph key
+    base_url="http://localhost:8000",
+    api_key="your-seraph-key",
     default_headers={
-        "X-Upstream-Auth": "Bearer sk-ant-your-key",  # Real Anthropic key
+        "X-Upstream-Auth": "Bearer sk-ant-your-key",
     },
 )
 
@@ -162,26 +237,84 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-seraph-key" \
   -H "X-Upstream-Auth: Bearer sk-your-openai-key" \
-  -H "X-Upstream-URL: https://api.openai.com" \
-  -d '{
-    "model": "gpt-4",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
+  -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-## How the auth swap works
+## Configuration Reference
+
+### `nemo_tier` — Tier 1: NeMo Guardrails
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Enable/disable the NeMo tier |
+| `config_dir` | `app/services/nemo_config` | Directory containing Colang files and NeMo config |
+| `embedding_threshold` | `0.85` | Cosine similarity threshold for intent matching (lower = more permissive) |
+| `model` | `gpt-4o-mini` | Backing LLM for NeMo's internal flow matching |
+| `model_engine` | `openai` | LLM engine (`openai`, `azure`, etc.) |
+| `api_key` | `null` | API key for NeMo's LLM (falls back to `upstream_api_key`) |
+
+### `judge` — Tier 2: LLM-as-a-Judge
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Enable/disable the LLM judge |
+| `model` | `gpt-4o-mini` | SLM for security evaluation |
+| `base_url` | `null` | Custom endpoint for local models (Ollama: `http://localhost:11434/v1`) |
+| `api_key` | `null` | API key (falls back to `upstream_api_key`) |
+| `temperature` | `0.0` | LLM temperature (keep at 0 for deterministic evaluation) |
+| `max_tokens` | `512` | Max response tokens for the judge |
+| `risk_threshold` | `0.7` | Risk score >= this value triggers a block |
+| `prompt_file` | `app/services/judge_prompt.txt` | Path to the security evaluation rubric |
+| `run_on_every_request` | `true` | If `false`, judge only runs when Tier 1 is uncertain |
+| `uncertainty_band_low` | `0.70` | Lower bound of the uncertainty band |
+| `uncertainty_band_high` | `0.85` | Upper bound of the uncertainty band |
+
+### `scanners` — First-Party Scanners
+
+| Scanner | Direction | What it does |
+|---------|-----------|-------------|
+| `EmbeddingShield` | input | Cosine similarity against known attack embeddings |
+| `CustomRule` | input/output | Blocked keywords + regex patterns |
+
+### Customizing NeMo Flows
+
+The Colang flow definitions live in `app/services/nemo_config/`:
+
+```
+app/services/nemo_config/
+  config.yml        # NeMo settings (model, embedding threshold)
+  input_rails.co    # Allowed user intent flows
+  output_rails.co   # Allowed assistant output flows
+```
+
+To allow a new user intent, add it to `input_rails.co`:
+
+```colang
+define user ask about weather
+    "What is the weather like today?"
+    "Will it rain tomorrow?"
+    "Temperature forecast for this week"
+
+define flow allowed weather
+    user ask about weather
+    bot allow request
+```
+
+NeMo uses embedding similarity, so 5-10 example phrases per intent are enough to generalize to novel phrasings.
+
+### Customizing the Judge Prompt
+
+Edit `app/services/judge_prompt.txt` to change what the LLM judge evaluates. The prompt should instruct the SLM to return JSON with `verdict`, `risk_score`, `reasoning`, and `threats_detected`.
+
+## How the Auth Swap Works
 
 | Header | What it is | Who uses it |
 |--------|-----------|-------------|
 | `Authorization: Bearer <seraph-key>` | Seraph's own API key | Seraph checks this, then strips it |
 | `X-Upstream-Auth: Bearer <provider-key>` | Your LLM provider key | Seraph forwards this as `Authorization` to the LLM |
-| `X-Upstream-URL: <url>` | Override upstream URL | Optional — overrides the `upstream` in config.yaml |
+| `X-Upstream-URL: <url>` | Override upstream URL | Optional — overrides `upstream` in config.yaml |
 
-If `api_keys` is empty in your config (open mode), the `Authorization` header can be any non-empty string — the SDK requires it but Seraph won't check it.
-
-## Supported providers
-
-Seraph auto-detects the API format from the request body:
+## Supported Providers
 
 | Provider | Format | Example `upstream` |
 |----------|--------|-------------------|
@@ -190,45 +323,39 @@ Seraph auto-detects the API format from the request body:
 | Anthropic | `messages[].content: [{type, text}]` | `https://api.anthropic.com` |
 | Ollama | Same as OpenAI | `http://localhost:11434` |
 | vLLM | Same as OpenAI | `http://localhost:8000` |
-| LiteLLM | Same as OpenAI | Your LiteLLM proxy URL |
-
-Any provider that follows the OpenAI or Anthropic message format works out of the box.
 
 ## Streaming
 
-Streaming requests (`"stream": true`) are supported. Input is scanned before forwarding, and the SSE stream is passed through transparently. Output scanning is skipped for streaming responses (the chunks are forwarded as-is).
+Streaming (`"stream": true`) is supported. Input is scanned before forwarding; the SSE stream is passed through transparently. Output scanning is skipped for streaming responses.
 
 ## Scanner Actions
 
-When a scanner detects a threat, the `on_fail` setting controls what happens:
-
 | Action | What happens |
 |--------|-------------|
-| `block` | Reject the request entirely (default) |
-| `fix` | Auto-sanitize the text (e.g., redact secrets) and let it through |
-| `monitor` | Log the violation but allow the request through |
-| `reask` | Reject with a hint telling the user what to fix |
+| `block` | Reject the request (default) |
+| `fix` | Auto-sanitize the text and let it through |
+| `monitor` | Log the violation but allow through |
+| `reask` | Reject with a correction hint |
 
 ## API Reference
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/{path}` | POST | Transparent proxy — scans input, forwards to upstream, scans output |
-| `/{path}` | GET/PUT/DELETE/PATCH | Pass-through to upstream (no scanning) |
+| `/{path}` | POST | Transparent proxy with scanning |
+| `/{path}` | GET/PUT/DELETE/PATCH | Pass-through (no scanning) |
 | `/health` | GET | Health check |
-| `/reload` | POST | Hot-reload config and scanners |
+| `/reload` | POST | Hot-reload config and all tiers |
 
 ## Hot Reload
 
-Change scanners or settings without restarting:
-
 ```bash
-# Edit config.yaml, then:
 curl -X POST http://localhost:8000/reload
 
 # Or send SIGHUP
 kill -HUP $(pgrep -f "uvicorn app.main")
 ```
+
+Reloads NeMo Colang definitions, judge prompt, first-party scanners, and all configuration without restarting.
 
 ## Development
 
