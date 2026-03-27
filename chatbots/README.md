@@ -50,8 +50,7 @@ The LLM provider key stays server-side in Seraph. The browser never sees it.
 Every message passes through the full pipeline:
 
 1. **Tier 1 — NeMo Guardrails**: Checks if the request matches an allowed intent flow. Anything outside the defined flows is blocked immediately.
-2. **First-party scanners** (EmbeddingShield, CustomRule): Run in parallel with Tier 1 for fast pattern-based detection.
-3. **Tier 2 — LLM Judge**: A small language model evaluates the request for deeper threats (prompt injection, social engineering, data exfiltration).
+2. **Tier 2 — LLM Judge**: A small language model evaluates the request for deeper threats (prompt injection, social engineering, data exfiltration).
 
 Output scanning follows the same pipeline on the LLM's response.
 
@@ -80,7 +79,6 @@ Each setup has its own `config.yaml`. By default:
 - **Upstream** — set to `https://api.openai.com` (change in config.yaml for other providers)
 - **NeMo Guardrails** — enabled with `embedding_threshold: 0.85`
 - **LLM Judge** — enabled with `gpt-4o-mini` and `risk_threshold: 0.7`
-- **EmbeddingShield** — enabled with `threshold: 0.72`
 
 Edit `config.yaml` and run `curl -X POST http://localhost:3000/reload` to hot-reload without restarting.
 

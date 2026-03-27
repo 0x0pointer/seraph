@@ -33,12 +33,3 @@ judge:
   temperature: 0.0
   risk_threshold: 0.7
   run_on_every_request: true
-
-# First-party scanners (run in parallel with Tier 1)
-scanners:
-  input:
-    - type: EmbeddingShield
-      on_fail: block
-      params:
-        threshold: 0.72
-  output: []

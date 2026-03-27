@@ -7,7 +7,7 @@ Supports hot-reload via SIGHUP or POST /reload.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel
@@ -22,18 +22,6 @@ class LoggingConfig(BaseModel):
     level: str = "info"
     audit: bool = True
     audit_file: str | None = None  # None = stdout JSON, path = SQLite
-
-
-class ScannerConfig(BaseModel):
-    type: str
-    threshold: float | None = None
-    params: dict[str, Any] = {}
-    on_fail: str = "block"  # block | fix | monitor | reask
-
-
-class ScannersConfig(BaseModel):
-    input: list[ScannerConfig] = []
-    output: list[ScannerConfig] = []
 
 
 class StreamingConfig(BaseModel):
@@ -72,7 +60,6 @@ class Config(BaseModel):
     logging: LoggingConfig = LoggingConfig()
     nemo_tier: NemoTierConfig = NemoTierConfig()
     judge: JudgeConfig = JudgeConfig()
-    scanners: ScannersConfig | None = None  # None = first-party scanners only
     streaming: StreamingConfig = StreamingConfig()
 
 

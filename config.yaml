@@ -54,35 +54,3 @@ judge:
   # embedding score falls in this uncertain band:
   uncertainty_band_low: 0.70
   uncertainty_band_high: 0.85
-
-# ─── First-Party Scanners ───────────────────────────────────────────────────
-#
-# These run in parallel with Tier 1 (NeMo). They are fast, deterministic,
-# and do not depend on external LLM calls.
-
-scanners:
-
-  input:
-
-    # Semantic similarity scanner — catches paraphrased prompt injections
-    # by comparing embeddings against 49+ known attack patterns.
-    - type: EmbeddingShield
-      on_fail: block
-      params:
-        threshold: 0.72
-
-    # User-defined keyword + regex rules
-    # - type: CustomRule
-    #   on_fail: block
-    #   params:
-    #     blocked_keywords: []
-    #     blocked_patterns: []
-
-  output:
-
-    # User-defined keyword + regex rules for output
-    # - type: CustomRule
-    #   on_fail: block
-    #   params:
-    #     blocked_keywords: []
-    #     blocked_patterns: []

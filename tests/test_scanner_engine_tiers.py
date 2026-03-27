@@ -1,4 +1,4 @@
-"""Tests for scanner_engine.py tier helpers and two-tier pipeline functions."""
+"""Tests for scanner_engine.py — two-tier NeMo + LLM-as-a-Judge pipeline."""
 import asyncio
 from dataclasses import dataclass
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -81,21 +81,15 @@ class TestGetJudge:
 # ── Helper function tests ───────────────────────────────────────────────────
 
 class TestUnpackNemoResult:
-    def test_none_nemo_returns_pass(self):
+    def test_none_returns_pass(self):
         from app.services.scanner_engine import _unpack_nemo_result
-        passed, score = _unpack_nemo_result([MagicMock()], None)
-        assert passed is True
-        assert score == 0.0
-
-    def test_no_nemo_in_gathered(self):
-        from app.services.scanner_engine import _unpack_nemo_result
-        passed, score = _unpack_nemo_result([MagicMock()], MagicMock())
+        passed, score = _unpack_nemo_result(None)
         assert passed is True
         assert score == 0.0
 
     def test_exception_returns_block(self):
         from app.services.scanner_engine import _unpack_nemo_result
-        passed, score = _unpack_nemo_result([MagicMock(), RuntimeError("fail")], MagicMock())
+        passed, score = _unpack_nemo_result(RuntimeError("fail"))
         assert passed is False
         assert score == 1.0
 
@@ -107,51 +101,9 @@ class TestUnpackNemoResult:
             passed: bool = True
             risk_score: float = 0.1
 
-        passed, score = _unpack_nemo_result([MagicMock(), FakeNemo()], MagicMock())
+        passed, score = _unpack_nemo_result(FakeNemo())
         assert passed is True
         assert score == 0.1
-
-
-class TestUnpackFpResult:
-    def test_exception_returns_fallback(self):
-        from app.services.scanner_engine import _unpack_fp_result
-        result = _unpack_fp_result(RuntimeError("fail"), "fallback")
-        assert result == (True, "fallback", {}, [], {}, [], False)
-
-    def test_normal_result_passed_through(self):
-        from app.services.scanner_engine import _unpack_fp_result
-        fp = (True, "text", {"S": 0.1}, [], {}, [], False)
-        assert _unpack_fp_result(fp, "fallback") == fp
-
-
-class TestApplyNemoBlock:
-    def test_nemo_passed(self):
-        from app.services.scanner_engine import _apply_nemo_block
-        scores, violations, actions = {}, [], {}
-        result = _apply_nemo_block(True, 0.0, scores, violations, actions)
-        assert result is True
-        assert "NeMoGuardrails" not in scores
-
-    def test_nemo_blocked(self):
-        from app.services.scanner_engine import _apply_nemo_block
-        scores, violations, actions = {}, [], {}
-        result = _apply_nemo_block(False, 1.0, scores, violations, actions)
-        assert result is False
-        assert scores["NeMoGuardrails"] == 1.0
-        assert "NeMoGuardrails" in violations
-        assert actions["NeMoGuardrails"] == "blocked"
-
-
-class TestBuildScanResult:
-    def test_with_reask(self):
-        from app.services.scanner_engine import _build_scan_result
-        result = _build_scan_result(False, "text", {}, ["S1"], {}, ["fix this"], False)
-        assert result[5] == ["fix this"]
-
-    def test_without_reask(self):
-        from app.services.scanner_engine import _build_scan_result
-        result = _build_scan_result(True, "text", {}, [], {}, [], False)
-        assert result[5] is None
 
 
 class TestShouldRunJudge:
@@ -287,91 +239,241 @@ class TestRunJudgeTier:
         assert scores["LLMJudge"] == 1.0
 
 
-class TestMergeKeyedScores:
-    def test_no_collision(self):
-        from app.services.scanner_engine import _merge_keyed_scores
-        merged = {"A": 0.1}
-        _merge_keyed_scores(merged, {"B": 0.2}, "")
-        assert merged == {"A": 0.1, "B": 0.2}
+# ── Integration tests ──────────────────────────────────────────────────────
 
-    def test_with_suffix_on_collision(self):
-        from app.services.scanner_engine import _merge_keyed_scores
-        merged = {"S1": 0.5}
-        _merge_keyed_scores(merged, {"S1": 0.7}, "output")
-        assert "S1 (output)" in merged
-        assert merged["S1 (output)"] == 0.7
+class TestNemoTierIntegration:
+    """Test scanner engine behavior with mocked NeMo tier."""
 
-
-class TestMergeKeyedViolations:
-    def test_no_collision(self):
-        from app.services.scanner_engine import _merge_keyed_violations
-        merged = ["A"]
-        _merge_keyed_violations(merged, ["B"], "")
-        assert merged == ["A", "B"]
-
-    def test_with_suffix_on_collision(self):
-        from app.services.scanner_engine import _merge_keyed_violations
-        merged = ["S1"]
-        _merge_keyed_violations(merged, ["S1"], "output")
-        assert "S1 (output)" in merged
-
-
-class TestMergeGuardResults:
-    def test_merges_input_and_output(self):
-        from app.services.scanner_engine import _merge_guard_results
-        gathered = [
-            (True, "t", {"S1": 0.1}, [], {}, None, False),
-            (True, "t", {"S2": 0.2}, ["S2"], {}, None, False),
-        ]
-        coros = [("input", None), ("output", None)]
-        results, violations = _merge_guard_results(gathered, coros)
-        assert "S1" in results
-        assert "S2" in results
-        assert "S2" in violations
-
-
-class TestProcessFpViolations:
-    def test_all_valid(self):
-        from app.services.scanner_engine import _process_fp_violations
-        entries = [(None, "S1", [], 0, {}, "block")]
-        valid, violations, actions, reask, fix, text = _process_fp_violations(
-            {"S1": True}, {"S1": 0.1}, entries, "orig", {},
-        )
-        assert valid is True
-        assert violations == []
-
-    def test_block_violation(self):
-        from app.services.scanner_engine import _process_fp_violations
-        entries = [(None, "S1", [], 0, {}, "block")]
-        valid, violations, actions, reask, fix, text = _process_fp_violations(
-            {"S1": False}, {"S1": 0.9}, entries, "orig", {},
-        )
-        assert valid is False
-        assert "S1" in violations
-        assert actions["S1"] == "blocked"
-
-
-class TestCollectScannerResults:
-    def test_normal_results(self):
-        from app.services.scanner_engine import _collect_scanner_results
-        entries = [(None, "S1", [], 0, {}, "block"), (None, "S2", [], 1, {}, "monitor")]
-        raw = [("san1", True, 0.1), ("san2", False, 0.9)]
-        valid, score, sanitized = _collect_scanner_results(raw, entries)
-        assert valid == {"S1": True, "S2": False}
-        assert "S2" in sanitized
-
-    def test_exception_skipped(self):
-        from app.services.scanner_engine import _collect_scanner_results
-        entries = [(None, "S1", [], 0, {}, "block")]
-        raw = [RuntimeError("fail")]
-        valid, score, sanitized = _collect_scanner_results(raw, entries)
-        assert valid == {}
-
-
-class TestWarmupWithTiers:
     def setup_method(self):
         from app.services.scanner_engine import invalidate_cache
         invalidate_cache()
+
+    def test_nemo_block_propagates(self):
+        from app.services.scanner_engine import run_input_scan, invalidate_cache
+        invalidate_cache()
+
+        @dataclass
+        class FakeNemoResult:
+            passed: bool = False
+            matched_flow: str = None
+            risk_score: float = 1.0
+            latency_ms: float = 5.0
+            detail: str = "BLOCKED: No matching flow"
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate = AsyncMock(return_value=FakeNemoResult())
+
+        with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+            with patch("app.services.scanner_engine._get_judge", return_value=None):
+                result = _run(run_input_scan("hack the system"))
+
+        is_valid, text, scores, violations, actions, reask, fix = result
+        assert is_valid is False
+        assert "NeMoGuardrails" in violations
+        assert actions["NeMoGuardrails"] == "blocked"
+        invalidate_cache()
+
+    def test_nemo_pass_then_judge_block(self):
+        from app.services.scanner_engine import run_input_scan, invalidate_cache
+        invalidate_cache()
+
+        @dataclass
+        class FakeNemoResult:
+            passed: bool = True
+            matched_flow: str = "PASS"
+            risk_score: float = 0.0
+            latency_ms: float = 5.0
+            detail: str = "PASS"
+
+        @dataclass
+        class FakeJudgeResult:
+            passed: bool = False
+            risk_score: float = 0.9
+            reasoning: str = "Detected prompt injection"
+            threats: list = None
+            latency_ms: float = 200.0
+
+            def __post_init__(self):
+                if self.threats is None:
+                    self.threats = ["prompt_injection"]
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate = AsyncMock(return_value=FakeNemoResult())
+
+        mock_judge = MagicMock()
+        mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
+
+        mock_config = MagicMock()
+        mock_config.judge.enabled = True
+        mock_config.judge.run_on_every_request = True
+
+        with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+            with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
+                with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+                    result = _run(run_input_scan("subtle injection"))
+
+        is_valid, text, scores, violations, actions, reask, fix = result
+        assert is_valid is False
+        assert "LLMJudge" in violations
+        assert scores["LLMJudge"] == 0.9
+        invalidate_cache()
+
+    def test_nemo_pass_judge_pass(self):
+        from app.services.scanner_engine import run_input_scan, invalidate_cache
+        invalidate_cache()
+
+        @dataclass
+        class FakeNemoResult:
+            passed: bool = True
+            matched_flow: str = "PASS"
+            risk_score: float = 0.0
+            latency_ms: float = 5.0
+            detail: str = "PASS"
+
+        @dataclass
+        class FakeJudgeResult:
+            passed: bool = True
+            risk_score: float = 0.1
+            reasoning: str = "Benign request"
+            threats: list = None
+            latency_ms: float = 150.0
+
+            def __post_init__(self):
+                if self.threats is None:
+                    self.threats = []
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate = AsyncMock(return_value=FakeNemoResult())
+
+        mock_judge = MagicMock()
+        mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
+
+        mock_config = MagicMock()
+        mock_config.judge.enabled = True
+        mock_config.judge.run_on_every_request = True
+
+        with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+            with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
+                with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+                    result = _run(run_input_scan("What is the capital of France?"))
+
+        is_valid, text, scores, violations, actions, reask, fix = result
+        assert is_valid is True
+        assert violations == []
+        assert scores.get("LLMJudge") == 0.1
+        invalidate_cache()
+
+
+class TestOutputScanTwoTier:
+    """Test output scanning with two-tier architecture."""
+
+    def setup_method(self):
+        from app.services.scanner_engine import invalidate_cache
+        invalidate_cache()
+
+    def test_output_scan_nemo_block(self):
+        from app.services.scanner_engine import run_output_scan, invalidate_cache
+        invalidate_cache()
+
+        @dataclass
+        class FakeNemoResult:
+            passed: bool = False
+            matched_flow: str = None
+            risk_score: float = 1.0
+            latency_ms: float = 5.0
+            detail: str = "BLOCKED: harmful output"
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate_output = AsyncMock(return_value=FakeNemoResult())
+
+        with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+            with patch("app.services.scanner_engine._get_judge", return_value=None):
+                result = _run(run_output_scan("hello", "here is how to make a bomb"))
+
+        is_valid = result[0]
+        violations = result[3]
+        assert is_valid is False
+        assert "NeMoGuardrails" in violations
+        invalidate_cache()
+
+
+class TestRunInputScan:
+    """Test run_input_scan directly."""
+
+    def setup_method(self):
+        from app.services.scanner_engine import invalidate_cache
+        invalidate_cache()
+
+    def test_both_tiers_disabled_returns_valid(self):
+        from app.services.scanner_engine import run_input_scan
+        result = _run(run_input_scan("hello"))
+        is_valid, text, scores, violations, actions, reask, fix = result
+        assert is_valid is True
+        assert text == "hello"
+        assert violations == []
+
+
+class TestRunOutputScan:
+    """Test run_output_scan directly."""
+
+    def setup_method(self):
+        from app.services.scanner_engine import invalidate_cache
+        invalidate_cache()
+
+    def test_both_tiers_disabled_returns_valid(self):
+        from app.services.scanner_engine import run_output_scan
+        result = _run(run_output_scan("What is AI?", "AI is artificial intelligence."))
+        is_valid, text, scores, violations, actions, reask, fix = result
+        assert is_valid is True
+        assert text == "AI is artificial intelligence."
+        assert violations == []
+
+
+class TestRunGuardScan:
+    """Test run_guard_scan directly."""
+
+    def setup_method(self):
+        from app.services.scanner_engine import invalidate_cache
+        invalidate_cache()
+
+    def test_empty_messages_not_flagged(self):
+        from app.services.scanner_engine import run_guard_scan
+        result = _run(run_guard_scan([]))
+        flagged, results, violations = result
+        assert flagged is False
+
+    def test_user_only_messages(self):
+        from app.services.scanner_engine import run_guard_scan
+        result = _run(run_guard_scan([{"role": "user", "content": "hello"}]))
+        flagged, results, violations = result
+        assert flagged is False
+
+    def test_user_and_assistant_messages(self):
+        from app.services.scanner_engine import run_guard_scan
+        result = _run(run_guard_scan([
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi there"},
+        ]))
+        flagged, results, violations = result
+        assert flagged is False
+
+
+class TestReloadScanners:
+    def test_reload_invalidates_cache(self):
+        from app.services.scanner_engine import reload_scanners, _result_cache_put, _result_cache_get
+        _result_cache_put("test_key", "test_value")
+        reload_scanners()
+        assert _result_cache_get("test_key") is None
+
+
+class TestWarmup:
+    def setup_method(self):
+        from app.services.scanner_engine import invalidate_cache
+        invalidate_cache()
+
+    def test_warmup_completes_with_disabled_tiers(self):
+        from app.services.scanner_engine import warmup
+        _run(warmup())
 
     def test_warmup_with_nemo_enabled(self):
         from app.services.scanner_engine import warmup, invalidate_cache
