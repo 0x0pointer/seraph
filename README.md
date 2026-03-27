@@ -4,13 +4,12 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=bugs)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=0x0pointer_seraph&metric=coverage)](https://sonarcloud.io/summary/new_code?id=0x0pointer_seraph)
 
-Seraph is a transparent security proxy for LLM applications. Point your app at Seraph instead of the LLM — it scans every request and response through a two-tier guardrail pipeline, then blocks, sanitizes, or logs threats.
+Seraph is a transparent security proxy for LLM applications. Point your app at Seraph instead of the LLM — it scans every request and response through a two-tier guardrail pipeline, then blocks or logs threats.
 
 - **Drop-in replacement** for any LLM API endpoint — zero code changes
 - Works with **any LLM provider** (OpenAI, Anthropic, Azure, Ollama, vLLM, etc.)
-- **Two-tier defense-in-depth** — fast deterministic layer + deep LLM evaluation
+- **Two-tier defense-in-depth** — semantic allow-list + deep LLM evaluation
 - Configured with a **single YAML file** — no database, no frontend
-- Includes text canonicalization to defeat evasion tricks (leetspeak, homoglyphs, unicode)
 
 ## Architecture
 
@@ -20,19 +19,15 @@ Seraph uses a **two-tier scanning pipeline** inspired by the [AI firewall](https
 Request text
     |
     v
-+------------------------------------------+
-|  Concurrent (asyncio.gather)             |
-|  +-------------------+ +---------------+ |
-|  | First-party       | | Tier 1: NeMo  | |
-|  | - EmbeddingShield | | Guardrails    | |
-|  | - CustomRule      | | (Colang flows)| |
-|  +--------+----------+ +------+--------+ |
-+-----------|--------------------|-----------+
-            v                    v
-       Any block? --YES--> return 400
-            |
-            NO
-            v
++------------------------------+
+| Tier 1: NeMo Guardrails     |
+| (Colang semantic allow-list) |
++-------------+----------------+
+              |
+         Any block? --YES--> return 400
+              |
+              NO
+              v
 +------------------------------+
 | Tier 2: LLM-as-a-Judge      |
 | (LangGraph StateGraph)      |
@@ -64,22 +59,12 @@ A **small language model** evaluates requests that pass Tier 1 for deeper threat
 
 Checks for: prompt injection, jailbreak attempts, harmful intent, data exfiltration, social engineering, and policy violations. Returns structured JSON with `verdict`, `risk_score`, `reasoning`, and `threats_detected`.
 
-### First-Party Scanners
-
-Run **in parallel** with Tier 1 for fast, deterministic checks:
-
-| Scanner | What it does |
-|---------|-------------|
-| **EmbeddingShield** | Cosine similarity against 49 known attack patterns (sentence-transformers) |
-| **CustomRule** | User-defined blocked keywords + regex patterns |
-| **Text Canonicalizer** | Pre-processes text to defeat evasion (leetspeak, homoglyphs, unicode normalization) |
-
 ## How it works
 
 ```mermaid
 flowchart LR
     App["Your App"] -->|"user prompt"| Seraph
-    Seraph -->|"1. scan input"| T1["Tier 1: NeMo\n+ First-party"]
+    Seraph -->|"1. scan input"| T1["Tier 1: NeMo\nGuardrails"]
     T1 -->|"pass"| T2["Tier 2: LLM\nJudge"]
     T2 -->|"safe"| Seraph
     Seraph -->|"2. forward"| LLM["LLM Provider\n(OpenAI, Anthropic, etc.)"]
@@ -98,14 +83,14 @@ flowchart LR
 sequenceDiagram
     participant App
     participant Seraph
-    participant NeMo as Tier 1: NeMo + Scanners
+    participant NeMo as Tier 1: NeMo Guardrails
     participant Judge as Tier 2: LLM Judge
     participant LLM as LLM Provider
 
     App->>Seraph: POST /v1/chat/completions
 
     Seraph->>Seraph: Auth check
-    Seraph->>NeMo: Scan input (concurrent)
+    Seraph->>NeMo: Scan input
     NeMo-->>Seraph: Pass
     Seraph->>Judge: Deep evaluation (SLM)
     Judge-->>Seraph: Safe
@@ -114,7 +99,7 @@ sequenceDiagram
 
     LLM-->>Seraph: Response
 
-    Seraph->>NeMo: Scan output (concurrent)
+    Seraph->>NeMo: Scan output
     NeMo-->>Seraph: Pass
     Seraph->>Judge: Evaluate output
     Judge-->>Seraph: Safe
@@ -171,20 +156,6 @@ judge:
   risk_threshold: 0.7             # score >= this = block
   run_on_every_request: true      # false = only when Tier 1 is uncertain
   prompt_file: "app/services/judge_prompt.txt"
-
-# First-party scanners (run in parallel with Tier 1)
-scanners:
-  input:
-    - type: EmbeddingShield
-      on_fail: block
-      params:
-        threshold: 0.72
-    # - type: CustomRule
-    #   on_fail: block
-    #   params:
-    #     blocked_keywords: ["do anything now"]
-    #     blocked_patterns: ["ignore.*instructions"]
-  output: []
 ```
 
 ### 3. Use it
@@ -269,13 +240,6 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 | `uncertainty_band_low` | `0.70` | Lower bound of the uncertainty band |
 | `uncertainty_band_high` | `0.85` | Upper bound of the uncertainty band |
 
-### `scanners` — First-Party Scanners
-
-| Scanner | Direction | What it does |
-|---------|-----------|-------------|
-| `EmbeddingShield` | input | Cosine similarity against known attack embeddings |
-| `CustomRule` | input/output | Blocked keywords + regex patterns |
-
 ### Customizing NeMo Flows
 
 The Colang flow definitions live in `app/services/nemo_config/`:
@@ -328,15 +292,6 @@ Edit `app/services/judge_prompt.txt` to change what the LLM judge evaluates. The
 
 Streaming (`"stream": true`) is supported. Input is scanned before forwarding; the SSE stream is passed through transparently. Output scanning is skipped for streaming responses.
 
-## Scanner Actions
-
-| Action | What happens |
-|--------|-------------|
-| `block` | Reject the request (default) |
-| `fix` | Auto-sanitize the text and let it through |
-| `monitor` | Log the violation but allow through |
-| `reask` | Reject with a correction hint |
-
 ## API Reference
 
 | Endpoint | Method | Description |
@@ -355,7 +310,7 @@ curl -X POST http://localhost:8000/reload
 kill -HUP $(pgrep -f "uvicorn app.main")
 ```
 
-Reloads NeMo Colang definitions, judge prompt, first-party scanners, and all configuration without restarting.
+Reloads NeMo Colang definitions, judge prompt, and all configuration without restarting.
 
 ## Development
 
