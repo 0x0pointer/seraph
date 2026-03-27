@@ -12,11 +12,22 @@ _run = lambda coro: asyncio.run(coro)
 
 
 def _clean_scan_result(text=""):
-    return (True, text, {}, [], {}, None, False)
+    return {
+        "raw_text": text, "direction": "output", "prompt_context": "",
+        "scanner_results": {}, "violations": [], "on_fail_actions": {},
+        "sanitized_text": text, "blocked": False, "block_reason": None,
+        "nemo_risk_score": 0.0,
+    }
 
 
 def _blocked_scan_result(text=""):
-    return (False, text, {"Toxicity": 0.95}, ["Toxicity"], {"Toxicity": "blocked"}, None, False)
+    return {
+        "raw_text": text, "direction": "output", "prompt_context": "",
+        "scanner_results": {"Toxicity": 0.95}, "violations": ["Toxicity"],
+        "on_fail_actions": {"Toxicity": "blocked"}, "sanitized_text": text,
+        "blocked": True, "block_reason": "Response blocked by guardrail(s): Toxicity",
+        "nemo_risk_score": 0.95,
+    }
 
 
 async def _collect_stream(scanner, chunks):

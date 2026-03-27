@@ -94,9 +94,7 @@ class StreamScanner:
         # Scan the full accumulated response
         if accumulated_text.strip():
             scan_start = time.monotonic()
-            is_valid, _, results, violations, actions, reask, fix_applied = (
-                await scanner_engine.run_output_scan(self.prompt_text, accumulated_text)
-            )
+            state = await scanner_engine.run_output_scan(self.prompt_text, accumulated_text)
             scan_ms = (time.monotonic() - scan_start) * 1000
 
             # Build metadata for audit
@@ -109,21 +107,21 @@ class StreamScanner:
             # Log to audit
             await audit_logger.log_scan(
                 direction="output",
-                is_valid=is_valid,
-                scanner_results=results,
-                violations=violations,
-                on_fail_actions=actions,
+                is_valid=not state["blocked"],
+                scanner_results=state["scanner_results"],
+                violations=state["violations"],
+                on_fail_actions=state["on_fail_actions"],
                 text_length=len(accumulated_text),
-                fix_applied=fix_applied,
+                fix_applied=False,
                 ip_address=self.ip_address,
                 segments=[{"role": "assistant", "source": "streamed_response", "text": accumulated_text}],
                 metadata=meta,
             )
 
-            if not is_valid:
+            if state["blocked"]:
                 detail = (
-                    reask[0] if reask
-                    else f"Response blocked by guardrail(s): {', '.join(violations)}"
+                    state["block_reason"]
+                    or f"Response blocked by guardrail(s): {', '.join(state['violations'])}"
                 )
                 logger.warning("Streaming output blocked: %s", detail)
                 error_payload = json.dumps({"error": {"message": detail, "type": "guardrail_violation"}})
@@ -173,8 +171,8 @@ class StreamScanner:
 
     async def _check_accumulated(self, text: str) -> bool:
         """Run output scan on accumulated text. Returns True if valid."""
-        is_valid, *_ = await scanner_engine.run_output_scan(self.prompt_text, text)
-        return is_valid
+        state = await scanner_engine.run_output_scan(self.prompt_text, text)
+        return not state["blocked"]
 
 
 def _build_guardrail_error() -> list[bytes]:

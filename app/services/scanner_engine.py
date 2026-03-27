@@ -1,36 +1,38 @@
 """
-Scanner engine — two-tier architecture: NeMo Guardrails + LLM-as-a-Judge.
+Scanner engine — public API over the guard LangGraph pipeline.
 
-Tier 1 (NeMo Guardrails):
-  Semantic allow-list firewall. User input is matched against Colang flow
-  definitions via embedding similarity. If no allowed flow matches, the
-  request is blocked immediately.
+Thin orchestration layer that:
+  - manages NeMo and judge singletons
+  - maintains an LRU result cache
+  - exposes run_input_scan / run_output_scan returning GuardState
+  - exposes run_guard_scan for conversation-level scanning
 
-Tier 2 (LLM-as-a-Judge via LangGraph):
-  A small language model evaluates requests that pass Tier 1 for deeper
-  threats: prompt injection, data exfiltration, social engineering, etc.
-  Configurable to run on every request or only when Tier 1 is uncertain.
+The actual scan logic lives in app/services/graph.py and the nodes under
+app/services/nodes/.  This file is intentionally kept small: it only handles
+lifecycle (init, cache, reload, warmup) and builds the initial GuardState.
 """
+from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
-from typing import Any
 
 from app.core.config import get_config
+from app.services.state import GuardState
 
 logger = logging.getLogger(__name__)
 
-# ── Module-level singletons for tiers ────────────────────────────────────────
+# ── Module-level singletons ───────────────────────────────────────────────────
 
-_nemo_tier = None  # Lazy init: NemoTier instance
-_judge = None      # Lazy init: LangGraphJudge instance
+_nemo_tier = None
+_judge = None
 
 # LRU result cache — avoids re-running scans on identical inputs.
 _RESULT_CACHE_SIZE = 1000
 _result_cache: OrderedDict = OrderedDict()
 
+
+# ── Cache helpers ─────────────────────────────────────────────────────────────
 
 def _result_cache_key(direction: str, text: str) -> str:
     raw = f"{direction}:{text}"
@@ -56,9 +58,11 @@ def invalidate_cache() -> None:
     _result_cache.clear()
     _nemo_tier = None
     _judge = None
+    from app.services.graph import invalidate_guard_graph
+    invalidate_guard_graph()
 
 
-# ── Tier singletons ──────────────────────────────────────────────────────────
+# ── Tier singletons ───────────────────────────────────────────────────────────
 
 def _get_nemo_tier():
     """Lazily initialize the NeMo Guardrails tier."""
@@ -108,146 +112,66 @@ def _get_judge():
     return _judge
 
 
-# ── Tier helpers ─────────────────────────────────────────────────────────────
-
 def _should_run_judge(nemo_risk_score: float) -> bool:
-    """Determine if Tier 2 judge should run based on config and NeMo result."""
+    """Determine if Tier 2 judge should run based on config and NeMo score."""
     config = get_config()
     if not config.judge.enabled:
         return False
     if config.judge.run_on_every_request:
         return True
-    # Run only when NeMo is uncertain (score in uncertainty band)
     return config.judge.uncertainty_band_low <= nemo_risk_score <= config.judge.uncertainty_band_high
 
 
-def _unpack_nemo_result(nemo_result) -> tuple[bool, float]:
-    """Unpack NeMo tier result. Returns (nemo_passed, nemo_risk_score)."""
-    if nemo_result is None:
-        return True, 0.0
-    if isinstance(nemo_result, Exception):
-        logger.error("NeMo tier failed: %s", nemo_result)
-        return False, 1.0
-    return nemo_result.passed, nemo_result.risk_score
+# ── Initial state builder ─────────────────────────────────────────────────────
 
-
-async def _run_judge_tier(
+def _build_initial_state(
     text: str,
     direction: str,
-    nemo_risk_score: float,
-    results_score: dict[str, float],
-    violation_scanners: list[str],
-    on_fail_actions: dict[str, str],
-    prompt_context: str | None = None,
-) -> bool:
-    """Run Tier 2 LLM-as-a-Judge if applicable. Returns True if judge blocked."""
-    if not _should_run_judge(nemo_risk_score):
-        return False
-    judge = _get_judge()
-    if judge is None:
-        return False
-    try:
-        judge_result = await judge.evaluate(text, direction=direction, prompt_context=prompt_context)
-        results_score["LLMJudge"] = judge_result.risk_score
-        if not judge_result.passed:
-            violation_scanners.append("LLMJudge")
-            on_fail_actions["LLMJudge"] = "blocked"
-            logger.warning(
-                "LLM Judge blocked %s: score=%.3f, threats=%s",
-                direction, judge_result.risk_score, judge_result.threats,
-            )
-            return True
-        logger.debug(
-            "LLM Judge passed %s: score=%.3f, reasoning=%s",
-            direction, judge_result.risk_score, judge_result.reasoning,
-        )
-    except Exception as e:
-        logger.error("LLM Judge (%s) failed: %s", direction, e)
-        results_score["LLMJudge"] = 1.0
-        violation_scanners.append("LLMJudge")
-        on_fail_actions["LLMJudge"] = "blocked"
-        return True
-    return False
-
-
-def _build_scan_result(
-    overall_valid: bool, current_text: str, results_score: dict,
-    violation_scanners: list, on_fail_actions: dict,
-) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """Build the 7-tuple scan result."""
-    return (overall_valid, current_text, results_score, violation_scanners,
-            on_fail_actions, None, False)
-
-
-# ── Two-tier scan pipeline ───────────────────────────────────────────────────
-
-async def _run_two_tier_scan(
-    text: str, direction: str, nemo_result,
-    prompt_context: str | None = None,
-) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """Two-tier pipeline: NeMo Guardrails then LLM-as-a-Judge."""
-    nemo_passed, nemo_risk_score = _unpack_nemo_result(nemo_result)
-
-    results_score: dict[str, float] = {}
-    violation_scanners: list[str] = []
-    on_fail_actions: dict[str, str] = {}
-
-    if not nemo_passed:
-        results_score["NeMoGuardrails"] = nemo_risk_score
-        violation_scanners.append("NeMoGuardrails")
-        on_fail_actions["NeMoGuardrails"] = "blocked"
-        return _build_scan_result(False, text, results_score, violation_scanners, on_fail_actions)
-
-    judge_blocked = await _run_judge_tier(
-        text, direction, nemo_risk_score, results_score, violation_scanners, on_fail_actions,
+    prompt_context: str = "",
+) -> GuardState:
+    """Build a clean GuardState to feed into the guard graph."""
+    return GuardState(
+        raw_text=text,
+        direction=direction,
         prompt_context=prompt_context,
+        scanner_results={},
+        violations=[],
+        on_fail_actions={},
+        sanitized_text=text,
+        blocked=False,
+        block_reason=None,
+        nemo_risk_score=0.0,
     )
 
-    overall_valid = not judge_blocked
-    return _build_scan_result(overall_valid, text, results_score, violation_scanners, on_fail_actions)
 
+# ── Public API ────────────────────────────────────────────────────────────────
 
-# ── Public API ───────────────────────────────────────────────────────────────
-
-async def run_input_scan(
-    text: str,
-) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """Run the two-tier scanning pipeline on user input."""
+async def run_input_scan(text: str) -> GuardState:
+    """Run the guard pipeline on user input. Returns a GuardState."""
     cache_key = _result_cache_key("input", text)
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
-    nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate(text), return_exceptions=True)
-        nemo_result = nemo_result[0]
-
-    result = await _run_two_tier_scan(text, "input", nemo_result)
-    _result_cache_put(cache_key, result)
-    return result
+    from app.services.graph import get_guard_graph
+    state = await get_guard_graph().ainvoke(_build_initial_state(text, "input"))
+    _result_cache_put(cache_key, state)
+    return state
 
 
-async def run_output_scan(
-    prompt: str,
-    output: str,
-) -> tuple[bool, str, dict, list, dict, list[str] | None, bool]:
-    """Run the two-tier scanning pipeline on LLM output."""
+async def run_output_scan(prompt: str, output: str) -> GuardState:
+    """Run the guard pipeline on LLM output. Returns a GuardState."""
     cache_key = _result_cache_key("output", f"{prompt}\x00{output}")
     cached = _result_cache_get(cache_key)
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
-    nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate_output(prompt, output), return_exceptions=True)
-        nemo_result = nemo_result[0]
-
-    result = await _run_two_tier_scan(output, "output", nemo_result, prompt_context=prompt)
-    _result_cache_put(cache_key, result)
-    return result
+    from app.services.graph import get_guard_graph
+    state = await get_guard_graph().ainvoke(
+        _build_initial_state(output, "output", prompt_context=prompt)
+    )
+    _result_cache_put(cache_key, state)
+    return state
 
 
 async def run_guard_scan(
@@ -261,16 +185,16 @@ async def run_guard_scan(
     merged_violations: list[str] = []
 
     if user_text.strip():
-        _, _, scores, violations, *_ = await run_input_scan(user_text)
-        merged_results.update(scores)
-        merged_violations.extend(violations)
+        state = await run_input_scan(user_text)
+        merged_results.update(state["scanner_results"])
+        merged_violations.extend(state["violations"])
 
     if assistant_text.strip():
-        _, _, scores, violations, *_ = await run_output_scan(user_text or "", assistant_text)
-        for k, v in scores.items():
+        state = await run_output_scan(user_text or "", assistant_text)
+        for k, v in state["scanner_results"].items():
             key = f"{k} (output)" if k in merged_results else k
             merged_results[key] = v
-        for v in violations:
+        for v in state["violations"]:
             name = f"{v} (output)" if v in merged_violations else v
             if name not in merged_violations:
                 merged_violations.append(name)
@@ -286,7 +210,6 @@ def reload_scanners() -> None:
 
 async def warmup() -> None:
     """Pre-load all tier components."""
-    # Warm up NeMo tier
     nemo = _get_nemo_tier()
     if nemo is not None:
         try:
@@ -294,11 +217,9 @@ async def warmup() -> None:
         except Exception as e:
             logger.warning("NeMo tier warm-up failed: %s", e)
 
-    # Warm up LangGraph judge (just initialize, no dummy call needed)
     judge = _get_judge()
     if judge is not None:
         logger.info("LangGraph judge initialized during warm-up")
 
-    # Clear warmup results from cache
     _result_cache.clear()
     logger.info("Scanner engine warm-up complete")

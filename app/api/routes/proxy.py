@@ -311,12 +311,10 @@ async def _run_input(
     ip = request.client.host if request.client else None
     scan_start = time.monotonic()
 
-    is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
-        await scanner_engine.run_input_scan(text)
-    )
+    state = await scanner_engine.run_input_scan(text)
 
     scan_ms = (time.monotonic() - scan_start) * 1000
-    monitored = [k for k, v in on_fail_actions.items() if v == "monitored"]
+    monitored = [k for k, v in state["on_fail_actions"].items() if v == "monitored"]
 
     # Extract all message segments for audit trail
     segments = _extract_all_messages(body) if body else [{"role": "user", "source": "text", "text": text}]
@@ -325,12 +323,14 @@ async def _run_input(
     meta = dict(request_meta) if request_meta else {}
     meta["scan_duration_ms"] = round(scan_ms, 1)
 
+    fix_applied = state["sanitized_text"] != text
+
     await audit_logger.log_scan(
         direction="input",
-        is_valid=is_valid,
-        scanner_results=results,
-        violations=violations + monitored,
-        on_fail_actions=on_fail_actions,
+        is_valid=not state["blocked"],
+        scanner_results=state["scanner_results"],
+        violations=state["violations"] + monitored,
+        on_fail_actions=state["on_fail_actions"],
         text_length=len(text),
         fix_applied=fix_applied,
         ip_address=ip,
@@ -338,16 +338,15 @@ async def _run_input(
         metadata=meta,
     )
 
-    if not is_valid:
+    if state["blocked"]:
         detail = (
-            reask_context[0] if reask_context
-            else f"Request blocked by guardrail(s): {', '.join(violations)}"
+            state["block_reason"]
+            or f"Request blocked by guardrail(s): {', '.join(state['violations'])}"
         )
         raise HTTPException(status_code=400, detail=detail)
-
     return {
         "status": "allowed",
-        "sanitized_text": sanitized,
+        "sanitized_text": state["sanitized_text"],
         "fix_applied": fix_applied,
         "monitored_scanners": monitored,
     }
@@ -361,12 +360,11 @@ async def _run_output(
     ip = request.client.host if request.client else None
     scan_start = time.monotonic()
 
-    is_valid, sanitized, results, violations, on_fail_actions, reask_context, fix_applied = (
-        await scanner_engine.run_output_scan(prompt_text, assistant_text)
-    )
+    state = await scanner_engine.run_output_scan(prompt_text, assistant_text)
 
     scan_ms = (time.monotonic() - scan_start) * 1000
-    monitored = [k for k, v in on_fail_actions.items() if v == "monitored"]
+    monitored = [k for k, v in state["on_fail_actions"].items() if v == "monitored"]
+    fix_applied = state["sanitized_text"] != assistant_text
 
     # Build metadata with response info
     meta = dict(response_meta) if response_meta else {}
@@ -374,10 +372,10 @@ async def _run_output(
 
     await audit_logger.log_scan(
         direction="output",
-        is_valid=is_valid,
-        scanner_results=results,
-        violations=violations + monitored,
-        on_fail_actions=on_fail_actions,
+        is_valid=not state["blocked"],
+        scanner_results=state["scanner_results"],
+        violations=state["violations"] + monitored,
+        on_fail_actions=state["on_fail_actions"],
         text_length=len(assistant_text),
         fix_applied=fix_applied,
         ip_address=ip,
@@ -385,16 +383,16 @@ async def _run_output(
         metadata=meta,
     )
 
-    if not is_valid:
+    if state["blocked"]:
         detail = (
-            reask_context[0] if reask_context
-            else f"Response blocked by guardrail(s): {', '.join(violations)}"
+            state["block_reason"]
+            or f"Response blocked by guardrail(s): {', '.join(state['violations'])}"
         )
         raise HTTPException(status_code=400, detail=detail)
 
     return {
         "status": "allowed",
-        "sanitized_text": sanitized,
+        "sanitized_text": state["sanitized_text"],
         "fix_applied": fix_applied,
         "monitored_scanners": monitored,
     }

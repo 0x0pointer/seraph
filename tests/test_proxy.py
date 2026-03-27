@@ -13,11 +13,26 @@ def _get_proxy_client():
 
 
 def _clean_scan_result(text: str = "hello world"):
-    return (True, text, {"Toxicity": 0.05}, [], {}, None, False)
+    """Return a GuardState representing a clean (allowed) scan."""
+    return {
+        "raw_text": text, "direction": "input", "prompt_context": "",
+        "scanner_results": {"Toxicity": 0.05}, "violations": [],
+        "on_fail_actions": {}, "sanitized_text": text,
+        "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+    }
 
 
 def _blocked_scan_result(text: str = "bad content"):
-    return (False, text, {"PromptInjection": 0.97}, ["PromptInjection"], {"PromptInjection": "blocked"}, None, False)
+    """Return a GuardState representing a blocked scan."""
+    return {
+        "raw_text": text, "direction": "input", "prompt_context": "",
+        "scanner_results": {"PromptInjection": 0.97},
+        "violations": ["PromptInjection"],
+        "on_fail_actions": {"PromptInjection": "blocked"},
+        "sanitized_text": text,
+        "blocked": True, "block_reason": "Request blocked by guardrail(s): PromptInjection",
+        "nemo_risk_score": 0.97,
+    }
 
 
 # ── Message extraction tests ────────────────────────────────────────────────
@@ -233,7 +248,12 @@ class TestTransparentProxy:
 
     def test_proxy_input_sanitization_replaces_message(self, client):
         """When input scan applies a fix, the sanitized text replaces the user message."""
-        fixed_result = (True, "REDACTED", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        fixed_result = {
+            "raw_text": "my secret key=abc", "direction": "input", "prompt_context": "",
+            "scanner_results": {"Secrets": 0.99}, "violations": [],
+            "on_fail_actions": {"Secrets": "fixed"}, "sanitized_text": "REDACTED",
+            "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+        }
         upstream_response = httpx.Response(
             200,
             json={"choices": [{"message": {"role": "assistant", "content": "Got it."}}]},
@@ -272,7 +292,12 @@ class TestTransparentProxy:
             200,
             json={"choices": [{"message": {"role": "assistant", "content": "leak secret=xyz"}}]},
         )
-        output_fixed = (True, "leak secret=[REDACTED]", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        output_fixed = {
+            "raw_text": "leak secret=xyz", "direction": "output", "prompt_context": "hi",
+            "scanner_results": {"Secrets": 0.99}, "violations": [],
+            "on_fail_actions": {"Secrets": "fixed"}, "sanitized_text": "leak secret=[REDACTED]",
+            "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+        }
 
         with (
             patch(
@@ -435,9 +460,14 @@ class TestTransparentProxy:
 
 class TestReaskContext:
     def test_proxy_reask_context_in_error_detail(self, client):
-        """When reask_context is present, it appears in the 400 detail."""
-        reask_result = (False, "bad", {"Scanner": 0.9}, ["Scanner"], {"Scanner": "reask"},
-                        ["Please revise your message."], False)
+        """When block_reason is set, it appears in the 400 detail."""
+        reask_result = {
+            "raw_text": "bad input", "direction": "input", "prompt_context": "",
+            "scanner_results": {"Scanner": 0.9}, "violations": ["Scanner"],
+            "on_fail_actions": {"Scanner": "blocked"}, "sanitized_text": "bad input",
+            "blocked": True, "block_reason": "Please revise your message.",
+            "nemo_risk_score": 0.9,
+        }
         with patch(
             "app.services.scanner_engine.run_input_scan",
             new_callable=AsyncMock,
@@ -498,7 +528,12 @@ class TestAnthropicProxy:
             200,
             json={"content": [{"type": "text", "text": "secret=abc123"}]},
         )
-        output_fixed = (True, "secret=[REDACTED]", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        output_fixed = {
+            "raw_text": "secret=abc123", "direction": "output", "prompt_context": "hi",
+            "scanner_results": {"Secrets": 0.99}, "violations": [],
+            "on_fail_actions": {"Secrets": "fixed"}, "sanitized_text": "secret=[REDACTED]",
+            "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+        }
 
         with (
             patch(
@@ -530,7 +565,12 @@ class TestAnthropicProxy:
 
     def test_anthropic_input_fix_replaces_blocks(self, client):
         """When input fix is applied on Anthropic format, content blocks are replaced."""
-        fixed_result = (True, "REDACTED", {"Secrets": 0.99}, [], {"Secrets": "fixed"}, None, True)
+        fixed_result = {
+            "raw_text": "my secret", "direction": "input", "prompt_context": "",
+            "scanner_results": {"Secrets": 0.99}, "violations": [],
+            "on_fail_actions": {"Secrets": "fixed"}, "sanitized_text": "REDACTED",
+            "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+        }
         upstream_response = httpx.Response(
             200,
             json={"content": [{"type": "text", "text": "Got it."}]},
@@ -888,7 +928,12 @@ class TestEdgeCases:
 
     def test_monitored_scanner_allowed_through(self, client):
         """Monitored violations are logged but allowed."""
-        monitored_result = (True, "hi", {"Toxicity": 0.6}, [], {"Toxicity": "monitored"}, None, False)
+        monitored_result = {
+            "raw_text": "hi", "direction": "input", "prompt_context": "",
+            "scanner_results": {"Toxicity": 0.6}, "violations": [],
+            "on_fail_actions": {"Toxicity": "monitored"}, "sanitized_text": "hi",
+            "blocked": False, "block_reason": None, "nemo_risk_score": 0.0,
+        }
         upstream_response = httpx.Response(
             200,
             json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},

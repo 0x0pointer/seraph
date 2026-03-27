@@ -20,31 +20,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypedDict
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
+from app.services.prompts import DEFAULT_JUDGE_PROMPT as _DEFAULT_PROMPT
+from app.services.prompts import INPUT_JUDGE_PROMPT, OUTPUT_JUDGE_PROMPT  # noqa: F401 (re-exported)
+
 logger = logging.getLogger(__name__)
-
-_DEFAULT_PROMPT = (
-    "Evaluate the following text for security threats. "
-    "Respond with JSON: {{verdict, risk_score, reasoning, threats_detected}}"
-)
-
-# ── Prompt templates (following Tutur/LLM pattern) ───────────────────────────
-
-INPUT_JUDGE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "{system_prompt}"),
-    ("human", "Direction: User input\n\nText to evaluate:\n{text}"),
-])
-
-OUTPUT_JUDGE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "{system_prompt}"),
-    ("human",
-     "Direction: LLM output\n\n"
-     "Original user prompt:\n{prompt_context}\n\n"
-     "Text to evaluate:\n{text}"),
-])
 
 
 @dataclass

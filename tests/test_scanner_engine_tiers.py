@@ -1,12 +1,12 @@
-"""Tests for scanner_engine.py — two-tier NeMo + LLM-as-a-Judge pipeline."""
+"""Tests for scanner_engine.py — guard pipeline lifecycle and routing."""
 import asyncio
-from dataclasses import dataclass
-from unittest.mock import patch, MagicMock, AsyncMock
+from dataclasses import dataclass, field
+from unittest.mock import AsyncMock, MagicMock, patch
 
 _run = lambda coro: asyncio.run(coro)
 
 
-# ── Tier singleton tests ────────────────────────────────────────────────────
+# ── Tier singleton tests ──────────────────────────────────────────────────────
 
 class TestGetNemoTier:
     def setup_method(self):
@@ -78,34 +78,6 @@ class TestGetJudge:
         invalidate_cache()
 
 
-# ── Helper function tests ───────────────────────────────────────────────────
-
-class TestUnpackNemoResult:
-    def test_none_returns_pass(self):
-        from app.services.scanner_engine import _unpack_nemo_result
-        passed, score = _unpack_nemo_result(None)
-        assert passed is True
-        assert score == 0.0
-
-    def test_exception_returns_block(self):
-        from app.services.scanner_engine import _unpack_nemo_result
-        passed, score = _unpack_nemo_result(RuntimeError("fail"))
-        assert passed is False
-        assert score == 1.0
-
-    def test_successful_result(self):
-        from app.services.scanner_engine import _unpack_nemo_result
-
-        @dataclass
-        class FakeNemo:
-            passed: bool = True
-            risk_score: float = 0.1
-
-        passed, score = _unpack_nemo_result(FakeNemo())
-        assert passed is True
-        assert score == 0.1
-
-
 class TestShouldRunJudge:
     def test_disabled(self):
         from app.services.scanner_engine import _should_run_judge
@@ -143,110 +115,39 @@ class TestShouldRunJudge:
             assert _should_run_judge(0.5) is False
 
 
-class TestRunJudgeTier:
+class TestBuildInitialState:
+    def test_input_direction(self):
+        from app.services.scanner_engine import _build_initial_state
+        state = _build_initial_state("hello", "input")
+        assert state["raw_text"] == "hello"
+        assert state["direction"] == "input"
+        assert state["prompt_context"] == ""
+        assert state["blocked"] is False
+        assert state["violations"] == []
+        assert state["scanner_results"] == {}
+        assert state["sanitized_text"] == "hello"
+        assert state["nemo_risk_score"] == 0.0
+
+    def test_output_direction_with_context(self):
+        from app.services.scanner_engine import _build_initial_state
+        state = _build_initial_state("the response", "output", prompt_context="user asked")
+        assert state["direction"] == "output"
+        assert state["prompt_context"] == "user asked"
+
+
+# ── Public API integration tests ─────────────────────────────────────────────
+
+class TestRunInputScan:
     def setup_method(self):
         from app.services.scanner_engine import invalidate_cache
         invalidate_cache()
 
-    def test_skips_when_not_needed(self):
-        from app.services.scanner_engine import _run_judge_tier
-        mock_config = MagicMock()
-        mock_config.judge.enabled = False
-        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-            blocked = _run(_run_judge_tier("text", "input", 0.0, {}, [], {}))
-        assert blocked is False
-
-    def test_skips_when_no_judge(self):
-        from app.services.scanner_engine import _run_judge_tier
-        mock_config = MagicMock()
-        mock_config.judge.enabled = True
-        mock_config.judge.run_on_every_request = True
-        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-            with patch("app.services.scanner_engine._get_judge", return_value=None):
-                blocked = _run(_run_judge_tier("text", "input", 0.0, {}, [], {}))
-        assert blocked is False
-
-    def test_judge_blocks(self):
-        from app.services.scanner_engine import _run_judge_tier, invalidate_cache
-        invalidate_cache()
-
-        @dataclass
-        class FakeJudgeResult:
-            passed: bool = False
-            risk_score: float = 0.9
-            reasoning: str = "injection"
-            threats: list = None
-            latency_ms: float = 100.0
-            def __post_init__(self):
-                self.threats = self.threats or ["injection"]
-
-        mock_judge = MagicMock()
-        mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
-        mock_config = MagicMock()
-        mock_config.judge.enabled = True
-        mock_config.judge.run_on_every_request = True
-
-        scores, violations, actions = {}, [], {}
-        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-            with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
-                blocked = _run(_run_judge_tier("hack", "input", 0.0, scores, violations, actions))
-        assert blocked is True
-        assert "LLMJudge" in violations
-        assert scores["LLMJudge"] == 0.9
-
-    def test_judge_passes(self):
-        from app.services.scanner_engine import _run_judge_tier, invalidate_cache
-        invalidate_cache()
-
-        @dataclass
-        class FakeJudgeResult:
-            passed: bool = True
-            risk_score: float = 0.1
-            reasoning: str = "benign"
-            threats: list = None
-            latency_ms: float = 100.0
-            def __post_init__(self):
-                self.threats = self.threats or []
-
-        mock_judge = MagicMock()
-        mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
-        mock_config = MagicMock()
-        mock_config.judge.enabled = True
-        mock_config.judge.run_on_every_request = True
-
-        scores, violations, actions = {}, [], {}
-        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-            with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
-                blocked = _run(_run_judge_tier("hello", "input", 0.0, scores, violations, actions))
-        assert blocked is False
-        assert scores["LLMJudge"] == 0.1
-
-    def test_judge_exception(self):
-        from app.services.scanner_engine import _run_judge_tier, invalidate_cache
-        invalidate_cache()
-
-        mock_judge = MagicMock()
-        mock_judge.evaluate = AsyncMock(side_effect=RuntimeError("judge crashed"))
-        mock_config = MagicMock()
-        mock_config.judge.enabled = True
-        mock_config.judge.run_on_every_request = True
-
-        scores, violations, actions = {}, [], {}
-        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-            with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
-                blocked = _run(_run_judge_tier("test", "input", 0.0, scores, violations, actions))
-        assert blocked is True
-        assert scores["LLMJudge"] == 1.0
-
-
-# ── Integration tests ──────────────────────────────────────────────────────
-
-class TestNemoTierIntegration:
-    """Test scanner engine behavior with mocked NeMo tier."""
-
-    def setup_method(self):
-        from app.services.scanner_engine import invalidate_cache
-        invalidate_cache()
+    def test_both_tiers_disabled_returns_valid_guard_state(self):
+        from app.services.scanner_engine import run_input_scan
+        state = _run(run_input_scan("hello"))
+        assert state["blocked"] is False
+        assert state["raw_text"] == "hello"
+        assert state["violations"] == []
 
     def test_nemo_block_propagates(self):
         from app.services.scanner_engine import run_input_scan, invalidate_cache
@@ -265,12 +166,11 @@ class TestNemoTierIntegration:
 
         with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
             with patch("app.services.scanner_engine._get_judge", return_value=None):
-                result = _run(run_input_scan("hack the system"))
+                state = _run(run_input_scan("hack the system"))
 
-        is_valid, text, scores, violations, actions, reask, fix = result
-        assert is_valid is False
-        assert "NeMoGuardrails" in violations
-        assert actions["NeMoGuardrails"] == "blocked"
+        assert state["blocked"] is True
+        assert "NeMoGuardrails" in state["violations"]
+        assert state["on_fail_actions"]["NeMoGuardrails"] == "blocked"
         invalidate_cache()
 
     def test_nemo_pass_then_judge_block(self):
@@ -290,19 +190,13 @@ class TestNemoTierIntegration:
             passed: bool = False
             risk_score: float = 0.9
             reasoning: str = "Detected prompt injection"
-            threats: list = None
+            threats: list = field(default_factory=lambda: ["prompt_injection"])
             latency_ms: float = 200.0
-
-            def __post_init__(self):
-                if self.threats is None:
-                    self.threats = ["prompt_injection"]
 
         mock_nemo = MagicMock()
         mock_nemo.evaluate = AsyncMock(return_value=FakeNemoResult())
-
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
-
         mock_config = MagicMock()
         mock_config.judge.enabled = True
         mock_config.judge.run_on_every_request = True
@@ -310,12 +204,11 @@ class TestNemoTierIntegration:
         with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
             with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
                 with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-                    result = _run(run_input_scan("subtle injection"))
+                    state = _run(run_input_scan("subtle injection"))
 
-        is_valid, text, scores, violations, actions, reask, fix = result
-        assert is_valid is False
-        assert "LLMJudge" in violations
-        assert scores["LLMJudge"] == 0.9
+        assert state["blocked"] is True
+        assert "LLMJudge" in state["violations"]
+        assert state["scanner_results"]["LLMJudge"] == 0.9
         invalidate_cache()
 
     def test_nemo_pass_judge_pass(self):
@@ -335,19 +228,13 @@ class TestNemoTierIntegration:
             passed: bool = True
             risk_score: float = 0.1
             reasoning: str = "Benign request"
-            threats: list = None
+            threats: list = field(default_factory=list)
             latency_ms: float = 150.0
-
-            def __post_init__(self):
-                if self.threats is None:
-                    self.threats = []
 
         mock_nemo = MagicMock()
         mock_nemo.evaluate = AsyncMock(return_value=FakeNemoResult())
-
         mock_judge = MagicMock()
         mock_judge.evaluate = AsyncMock(return_value=FakeJudgeResult())
-
         mock_config = MagicMock()
         mock_config.judge.enabled = True
         mock_config.judge.run_on_every_request = True
@@ -355,21 +242,25 @@ class TestNemoTierIntegration:
         with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
             with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
                 with patch("app.services.scanner_engine.get_config", return_value=mock_config):
-                    result = _run(run_input_scan("What is the capital of France?"))
+                    state = _run(run_input_scan("What is the capital of France?"))
 
-        is_valid, text, scores, violations, actions, reask, fix = result
-        assert is_valid is True
-        assert violations == []
-        assert scores.get("LLMJudge") == 0.1
+        assert state["blocked"] is False
+        assert state["violations"] == []
+        assert state["scanner_results"].get("LLMJudge") == 0.1
         invalidate_cache()
 
 
-class TestOutputScanTwoTier:
-    """Test output scanning with two-tier architecture."""
-
+class TestRunOutputScan:
     def setup_method(self):
         from app.services.scanner_engine import invalidate_cache
         invalidate_cache()
+
+    def test_both_tiers_disabled_returns_valid_guard_state(self):
+        from app.services.scanner_engine import run_output_scan
+        state = _run(run_output_scan("What is AI?", "AI is artificial intelligence."))
+        assert state["blocked"] is False
+        assert state["raw_text"] == "AI is artificial intelligence."
+        assert state["violations"] == []
 
     def test_output_scan_nemo_block(self):
         from app.services.scanner_engine import run_output_scan, invalidate_cache
@@ -388,73 +279,34 @@ class TestOutputScanTwoTier:
 
         with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
             with patch("app.services.scanner_engine._get_judge", return_value=None):
-                result = _run(run_output_scan("hello", "here is how to make a bomb"))
+                state = _run(run_output_scan("hello", "here is how to make a bomb"))
 
-        is_valid = result[0]
-        violations = result[3]
-        assert is_valid is False
-        assert "NeMoGuardrails" in violations
+        assert state["blocked"] is True
+        assert "NeMoGuardrails" in state["violations"]
         invalidate_cache()
-
-
-class TestRunInputScan:
-    """Test run_input_scan directly."""
-
-    def setup_method(self):
-        from app.services.scanner_engine import invalidate_cache
-        invalidate_cache()
-
-    def test_both_tiers_disabled_returns_valid(self):
-        from app.services.scanner_engine import run_input_scan
-        result = _run(run_input_scan("hello"))
-        is_valid, text, scores, violations, actions, reask, fix = result
-        assert is_valid is True
-        assert text == "hello"
-        assert violations == []
-
-
-class TestRunOutputScan:
-    """Test run_output_scan directly."""
-
-    def setup_method(self):
-        from app.services.scanner_engine import invalidate_cache
-        invalidate_cache()
-
-    def test_both_tiers_disabled_returns_valid(self):
-        from app.services.scanner_engine import run_output_scan
-        result = _run(run_output_scan("What is AI?", "AI is artificial intelligence."))
-        is_valid, text, scores, violations, actions, reask, fix = result
-        assert is_valid is True
-        assert text == "AI is artificial intelligence."
-        assert violations == []
 
 
 class TestRunGuardScan:
-    """Test run_guard_scan directly."""
-
     def setup_method(self):
         from app.services.scanner_engine import invalidate_cache
         invalidate_cache()
 
     def test_empty_messages_not_flagged(self):
         from app.services.scanner_engine import run_guard_scan
-        result = _run(run_guard_scan([]))
-        flagged, results, violations = result
+        flagged, results, violations = _run(run_guard_scan([]))
         assert flagged is False
 
     def test_user_only_messages(self):
         from app.services.scanner_engine import run_guard_scan
-        result = _run(run_guard_scan([{"role": "user", "content": "hello"}]))
-        flagged, results, violations = result
+        flagged, results, violations = _run(run_guard_scan([{"role": "user", "content": "hello"}]))
         assert flagged is False
 
     def test_user_and_assistant_messages(self):
         from app.services.scanner_engine import run_guard_scan
-        result = _run(run_guard_scan([
+        flagged, results, violations = _run(run_guard_scan([
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "hi there"},
         ]))
-        flagged, results, violations = result
         assert flagged is False
 
 
@@ -481,7 +333,6 @@ class TestWarmup:
 
         mock_nemo = MagicMock()
         mock_nemo.warmup = AsyncMock()
-
         mock_judge = MagicMock()
 
         with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):

@@ -168,7 +168,12 @@ class TestStreamScannerEdgeCases:
         with patch(
             "app.services.scanner_engine.run_output_scan",
             new_callable=AsyncMock,
-            return_value=(False, "bad", {"T": 0.9}, ["T"], {"T": "blocked"}, None, False),
+            return_value={
+                "raw_text": "bad", "direction": "output", "prompt_context": "",
+                "scanner_results": {"T": 0.9}, "violations": ["T"],
+                "on_fail_actions": {"T": "blocked"}, "sanitized_text": "bad",
+                "blocked": True, "block_reason": "blocked", "nemo_risk_score": 0.9,
+            },
         ):
             result = _run(self._collect(scanner, chunks))
 
@@ -187,7 +192,12 @@ class TestStreamScannerEdgeCases:
         with patch(
             "app.services.scanner_engine.run_output_scan",
             new_callable=AsyncMock,
-            return_value=(True, "", {}, [], {}, None, False),
+            return_value={
+                "raw_text": "", "direction": "output", "prompt_context": "",
+                "scanner_results": {}, "violations": [], "on_fail_actions": {},
+                "sanitized_text": "", "blocked": False, "block_reason": None,
+                "nemo_risk_score": 0.0,
+            },
         ) as mock_scan:
             result = _run(self._collect(scanner, chunks))
 
@@ -230,7 +240,12 @@ class TestStreamScannerEdgeCases:
 
         with (
             patch("app.services.scanner_engine.run_output_scan", new_callable=AsyncMock,
-                  return_value=(True, "hi", {}, [], {}, None, False)),
+                  return_value={
+                      "raw_text": "hi", "direction": "output", "prompt_context": "",
+                      "scanner_results": {}, "violations": [], "on_fail_actions": {},
+                      "sanitized_text": "hi", "blocked": False, "block_reason": None,
+                      "nemo_risk_score": 0.0,
+                  }),
             patch("app.services.audit_logger.log_scan", new_callable=AsyncMock) as mock_log,
         ):
             _run(self._collect(scanner, chunks))
