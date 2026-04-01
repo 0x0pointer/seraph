@@ -2,7 +2,7 @@
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from app.services.nemo_tier import NemoTier, NemoResult, _BLOCKED_PREFIX
+from app.services.nemo_tier import NemoTier, NemoResult, _BLOCKED_PREFIXES
 
 _run = lambda coro: asyncio.run(coro)
 
@@ -62,9 +62,9 @@ class TestEnsureApiKey:
 
 
 class TestBuildYamlContent:
-    def test_contains_model_and_threshold(self):
-        tier = NemoTier(config_dir="/tmp", model="gpt-4o-mini", embedding_threshold=0.85)
-        yaml = tier._build_yaml_content()
+    def test_contains_model_and_threshold(self, tmp_path):
+        tier = NemoTier(config_dir=str(tmp_path), model="gpt-4o-mini", embedding_threshold=0.85)
+        yaml = tier._build_yaml_content("input_rails.co")
         assert "gpt-4o-mini" in yaml
         assert "0.85" in yaml
         assert "allow_free_text: false" in yaml
