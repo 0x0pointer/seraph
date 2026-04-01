@@ -60,16 +60,18 @@ class NemoTier:
         current_intent: str | None = None
         current_examples: list[str] = []
 
+        def _flush():
+            if current_intent and current_examples:
+                intents.append((current_intent, list(current_examples)))
+
         for line in colang_content.splitlines():
             stripped = line.strip()
             if stripped.startswith("define user "):
-                if current_intent and current_examples:
-                    intents.append((current_intent, current_examples))
+                _flush()
                 current_intent = stripped[len("define user "):]
                 current_examples = []
             elif stripped.startswith(("define bot ", "define flow")):
-                if current_intent and current_examples:
-                    intents.append((current_intent, current_examples))
+                _flush()
                 current_intent = None
                 current_examples = []
             elif current_intent and stripped.startswith('"') and stripped.endswith('"'):
@@ -77,9 +79,7 @@ class NemoTier:
                 if example:
                     current_examples.append(example)
 
-        if current_intent and current_examples:
-            intents.append((current_intent, current_examples))
-
+        _flush()
         return intents
 
     def _build_sample_conversation(self, colang_file: str) -> str:
