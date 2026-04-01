@@ -157,7 +157,7 @@ async def _run_judge_tier(
                 direction, judge_result.risk_score, judge_result.threats,
             )
             return True
-        logger.debug(
+        logger.info(
             "LLM Judge passed %s: score=%.3f, reasoning=%s",
             direction, judge_result.risk_score, judge_result.reasoning,
         )

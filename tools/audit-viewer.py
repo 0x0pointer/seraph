@@ -233,22 +233,10 @@ h1{color:#e67e22;font-size:20px;margin-bottom:4px}
   </div>
   <div class="legend-body" id="legend-body">
     <div class="legend-grid">
-      <div class="legend-item"><span class="sname">PromptInjection</span><span class="sdesc">ML model (DeBERTa v3) detecting prompt injection attempts — instruction overrides, jailbreaks, persona hijacking</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Toxicity</span><span class="sdesc">ML classifier (DistilBERT) detecting hate speech, threats, harassment, self-harm content</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">BanSubstrings</span><span class="sdesc">Exact phrase blocklist — 273 input phrases (DAN, instruction wipes, identity reassignment) + 61 output phrases (jailbreak success indicators)</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">BanTopics</span><span class="sdesc">NLI zero-shot topic classifier blocking 14 categories: weapons, drugs, hacking, malware, exploits, phishing, terrorism, etc.</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">Regex</span><span class="sdesc">93 structural patterns: credential leaks, DAN/jailbreak syntax, no-restriction declarations, encoding attacks, system prompt extraction, multi-language evasion</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">EmbeddingShield</span><span class="sdesc">Semantic similarity scanner using sentence-transformers — compares input embeddings against 49 known attack patterns (paraphrased injections)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Secrets</span><span class="sdesc">Detects API keys, tokens, credentials in text. Action: fix (redacts in-place rather than blocking)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">TokenLimit</span><span class="sdesc">Token counter (tiktoken) — blocks requests exceeding 4096 tokens to prevent context stuffing</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">InvisibleText</span><span class="sdesc">Detects Unicode invisible characters (zero-width spaces, RTL overrides) used to hide injection payloads</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Language</span><span class="sdesc">Language detection — flags non-English input. Defends against multi-language injection bypass (ES/FR/DE/PT/IT)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Sentiment</span><span class="sdesc">VADER lexicon sentiment analysis — flags extremely negative sentiment (threats, hostility)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Gibberish</span><span class="sdesc">ML classifier detecting nonsensical/gibberish text — catches encoded payloads and adversarial strings</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">NoRefusal</span><span class="sdesc">Detects when the LLM refuses to answer — triggers reask so the model retries with adjusted phrasing</span><span class="sdir out">output</span></div>
-      <div class="legend-item"><span class="sname">BanCode</span><span class="sdesc">Detects code in output (markdown fences, programming languages) — blocks code generation when enabled</span><span class="sdir out">output</span></div>
+      <div class="legend-item"><span class="sname">NeMo Guardrails</span><span class="sdesc">Tier 1 — Semantic allow-list firewall using NVIDIA NeMo with Colang DSL. Matches user input against allowed intents via embedding similarity (threshold 0.85). Blocks anything that doesn't match known-safe categories.</span><span class="sdir inp">in+out</span></div>
+      <div class="legend-item"><span class="sname">LLM-as-a-Judge</span><span class="sdesc">Tier 2 — LangGraph StateGraph evaluating: prompt injection, jailbreak attempts, harmful intent, data exfiltration, social engineering, policy violations, information leakage, harmful content generation.</span><span class="sdir inp">in+out</span></div>
     </div>
-    <p style="color:#444;font-size:10px;margin-top:10px">Score interpretation: -1.0 = passed cleanly (no risk detected) | 0.0-0.3 = low risk | 0.3-0.7 = medium (near miss) | 0.7+ = high (violation triggered)</p>
+    <p style="color:#444;font-size:10px;margin-top:10px">Score interpretation: 0.0 = no risk detected | 0.0-0.3 = low risk | 0.3-0.7 = medium (near miss) | 0.7+ = high (violation triggered, blocked)</p>
   </div>
 </div>
 

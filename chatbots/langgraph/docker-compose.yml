@@ -20,11 +20,12 @@ services:
       dockerfile: Dockerfile
     environment:
       - SERAPH_CONFIG=/app/seraph-config.yaml
+      - SERAPH_AUDIT_FILE=/data/seraph_audit.db
     env_file:
       - ../../.env
     volumes:
       - audit-data:/data
-      - ./config.yaml:/app/seraph-config.yaml:ro
+      - ../../config.yaml:/app/seraph-config.yaml:ro
     restart: unless-stopped
 
   chatbot:

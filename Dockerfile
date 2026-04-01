@@ -19,23 +19,16 @@ RUN pip install --no-cache-dir \
     "pyyaml==6.0.3" \
     "httpx==0.27.0" \
     "aiosqlite==0.20.0" \
-    "llm-guard==0.3.16" \
-    "onnxruntime==1.18.1" \
-    "optimum==1.27.0" \
-    "sentence-transformers==2.7.0"
-
-# Patch transitive dependencies pinned by llm-guard 0.3.16 to fix CVEs:
-# - transformers 4.51.3 → 4.53.0 (ReDoS in tokenizers)
-# - cryptography 44.0.3 → 46.0.5 (subgroup attack on SECT curves)
-# - presidio-anonymizer 2.2.358 → 2.2.362 (unblocks cryptography >=46)
-RUN pip install --no-cache-dir --force-reinstall --no-deps \
-    transformers==4.53.0 \
-    cryptography==46.0.5 \
-    presidio-anonymizer==2.2.362
+    "sentence-transformers==2.7.0" \
+    "nemoguardrails==0.21.0" \
+    "langgraph==1.1.3" \
+    "langchain-core==1.2.22" \
+    "langchain-openai==1.1.12"
 
 COPY . .
 
-RUN useradd --create-home --shell /bin/bash seraph
+RUN useradd --create-home --shell /bin/bash seraph \
+    && mkdir -p /data && chown seraph:seraph /data
 USER seraph
 
 EXPOSE 8000

@@ -110,3 +110,19 @@ class TestUpstreamApiKey:
         )
         config = load_config(str(cfg_file))
         assert config.logging.audit_file == "/tmp/seraph_audit.db"
+
+
+class TestAuditFileEnvOverride:
+    def test_seraph_audit_file_env_overrides_yaml(self, tmp_path, monkeypatch):
+        cfg_file = tmp_path / "audit_env.yaml"
+        cfg_file.write_text("logging:\n  audit_file: null\n")
+        monkeypatch.setenv("SERAPH_AUDIT_FILE", "/data/seraph_audit.db")
+        config = load_config(str(cfg_file))
+        assert config.logging.audit_file == "/data/seraph_audit.db"
+
+    def test_seraph_audit_file_env_not_set_uses_yaml(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SERAPH_AUDIT_FILE", raising=False)
+        cfg_file = tmp_path / "audit_no_env.yaml"
+        cfg_file.write_text("logging:\n  audit_file: /yaml/path.db\n")
+        config = load_config(str(cfg_file))
+        assert config.logging.audit_file == "/yaml/path.db"
