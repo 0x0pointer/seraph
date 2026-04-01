@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir \
 
 COPY . .
 
-RUN useradd --create-home --shell /bin/bash seraph
+RUN useradd --create-home --shell /bin/bash seraph \
+    && mkdir -p /data && chown seraph:seraph /data
 USER seraph
 
 EXPOSE 8000

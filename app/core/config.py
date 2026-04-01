@@ -89,10 +89,14 @@ def load_config(path: str | None = None) -> Config:
 
     _config = Config(**raw)
 
-    # Allow env var override for upstream_api_key (so secrets stay out of YAML)
+    # Allow env var overrides (so secrets and deployment-specific values stay out of YAML)
     env_key = os.environ.get("UPSTREAM_API_KEY")
     if env_key:
         _config.upstream_api_key = env_key
+
+    env_audit = os.environ.get("SERAPH_AUDIT_FILE")
+    if env_audit:
+        _config.logging.audit_file = env_audit
 
     logger.info("Loaded config from %s", path)
     return _config

@@ -29,7 +29,7 @@ logging:
 nemo_tier:
   enabled: true
   config_dir: "app/services/nemo_config"
-  embedding_threshold: 0.85
+  embedding_threshold: 0.82
   model: "gpt-4o-mini"
   model_engine: "openai"
   # api_key: ""  # Falls back to upstream_api_key / UPSTREAM_API_KEY env var
