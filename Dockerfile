@@ -19,10 +19,10 @@ RUN pip install --no-cache-dir \
     "pyyaml==6.0.3" \
     "httpx==0.27.0" \
     "aiosqlite==0.20.0" \
-    "sentence-transformers==2.7.0" \
+    "sentence-transformers==5.4.0" \
     "nemoguardrails==0.21.0" \
     "langgraph==1.1.3" \
-    "langchain-core==1.2.22" \
+    "langchain-core==1.2.28" \
     "langchain-openai==1.1.12"
 
 COPY . .
