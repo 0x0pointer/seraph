@@ -35,23 +35,31 @@ class NemoTier:
     """Wraps NeMo Guardrails for use as Seraph's first scanning tier."""
 
     def __init__(self, config_dir: str, embedding_threshold: float = 0.85,
-                 model: str = "gpt-4o-mini", model_engine: str = "openai",
+                 model: str = "mistral:7b-instruct", model_engine: str = "openai",
+                 base_url: str | None = None,
                  api_key: str | None = None) -> None:
         self._config_dir = config_dir
         self._embedding_threshold = embedding_threshold
         self._model = model
         self._model_engine = model_engine
+        self._base_url = base_url
         self._api_key = api_key
 
         self._input_rails: LLMRails | None = None
         self._output_rails: LLMRails | None = None
 
     def _ensure_api_key(self) -> None:
-        """Set the API key in env if provided (NeMo reads from env)."""
+        """Set the API key in env if provided (NeMo reads from env).
+
+        Local models (Ollama/vLLM) don't need a real key, but the OpenAI
+        SDK requires the env var to be set — use a placeholder.
+        """
         if self._api_key:
             os.environ.setdefault("OPENAI_API_KEY", self._api_key)
         elif os.environ.get("UPSTREAM_API_KEY"):
             os.environ.setdefault("OPENAI_API_KEY", os.environ["UPSTREAM_API_KEY"])
+        elif self._base_url:
+            os.environ.setdefault("OPENAI_API_KEY", "ollama")
 
     @staticmethod
     def _parse_colang_intents(colang_content: str) -> list[tuple[str, list[str]]]:
@@ -122,12 +130,19 @@ class NemoTier:
         intent_names = [name for name, _ in intents]
         intent_list = ", ".join(intent_names) if intent_names else "none defined"
 
+        params_block = ""
+        if self._base_url:
+            params_block = f"""
+    parameters:
+      openai_api_base: "{self._base_url}"
+"""
+
         return f"""
 models:
   - type: main
     engine: {self._model_engine}
     model: {self._model}
-
+{params_block}
 settings:
   allow_free_text: false
   default_reply: false
@@ -192,7 +207,13 @@ instructions:
         elapsed = (time.perf_counter() - start) * 1000
         response_text = response.strip() if isinstance(response, str) else str(response).strip()
 
-        if response_text.startswith(_BLOCKED_PREFIXES):
+        # NeMo may return "BLOCKED:..." directly or wrap it as
+        # "bot block request\n\"BLOCKED:...\"" — check both formats.
+        is_blocked = (
+            response_text.startswith(_BLOCKED_PREFIXES)
+            or any(prefix in response_text for prefix in _BLOCKED_PREFIXES)
+        )
+        if is_blocked:
             return NemoResult(
                 passed=False, matched_flow=None, risk_score=1.0,
                 latency_ms=elapsed, detail=response_text,
@@ -215,6 +236,7 @@ instructions:
                embedding_threshold: float | None = None,
                model: str | None = None,
                model_engine: str | None = None,
+               base_url: str | None = None,
                api_key: str | None = None) -> None:
         """Reload Colang definitions (invalidates cached rails)."""
         if config_dir is not None:
@@ -225,6 +247,8 @@ instructions:
             self._model = model
         if model_engine is not None:
             self._model_engine = model_engine
+        if base_url is not None:
+            self._base_url = base_url
         if api_key is not None:
             self._api_key = api_key
 

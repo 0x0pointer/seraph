@@ -371,7 +371,7 @@ class TestOutputScanTwoTier:
         from app.services.scanner_engine import invalidate_cache
         invalidate_cache()
 
-    def test_output_scan_nemo_block(self):
+    def test_output_scan_nemo_block_when_scan_output_enabled(self):
         from app.services.scanner_engine import run_output_scan, invalidate_cache
         invalidate_cache()
 
@@ -386,14 +386,85 @@ class TestOutputScanTwoTier:
         mock_nemo = MagicMock()
         mock_nemo.evaluate_output = AsyncMock(return_value=FakeNemoResult())
 
-        with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
-            with patch("app.services.scanner_engine._get_judge", return_value=None):
-                result = _run(run_output_scan("hello", "here is how to make a bomb"))
+        mock_config = MagicMock()
+        mock_config.nemo_tier.scan_output = True
+        mock_config.judge.enabled = False
+
+        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+            with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+                with patch("app.services.scanner_engine._get_judge", return_value=None):
+                    result = _run(run_output_scan("hello", "here is how to make a bomb"))
 
         is_valid = result[0]
         violations = result[3]
         assert is_valid is False
         assert "NeMoGuardrails" in violations
+        invalidate_cache()
+
+    def test_output_scan_skips_nemo_when_scan_output_disabled(self):
+        from app.services.scanner_engine import run_output_scan, invalidate_cache
+        invalidate_cache()
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate_output = AsyncMock()
+
+        mock_config = MagicMock()
+        mock_config.nemo_tier.scan_output = False
+        mock_config.judge.enabled = False
+
+        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+            with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+                with patch("app.services.scanner_engine._get_judge", return_value=None):
+                    result = _run(run_output_scan("hello", "some output"))
+
+        mock_nemo.evaluate_output.assert_not_called()
+        is_valid = result[0]
+        assert is_valid is True
+        invalidate_cache()
+
+    def test_input_scan_skips_nemo_when_scan_input_disabled(self):
+        from app.services.scanner_engine import run_input_scan, invalidate_cache
+        invalidate_cache()
+
+        mock_nemo = MagicMock()
+        mock_nemo.evaluate = AsyncMock()
+
+        mock_config = MagicMock()
+        mock_config.nemo_tier.scan_input = False
+        mock_config.judge.enabled = False
+
+        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+            with patch("app.services.scanner_engine._get_nemo_tier", return_value=mock_nemo):
+                with patch("app.services.scanner_engine._get_judge", return_value=None):
+                    result = _run(run_input_scan("hello"))
+
+        mock_nemo.evaluate.assert_not_called()
+        is_valid = result[0]
+        assert is_valid is True
+        invalidate_cache()
+
+    def test_judge_skips_output_when_scan_output_disabled(self):
+        from app.services.scanner_engine import run_output_scan, invalidate_cache
+        invalidate_cache()
+
+        mock_judge = MagicMock()
+        mock_judge.evaluate = AsyncMock()
+
+        mock_config = MagicMock()
+        mock_config.nemo_tier.scan_output = False
+        mock_config.judge.enabled = True
+        mock_config.judge.scan_input = True
+        mock_config.judge.scan_output = False
+        mock_config.judge.run_on_every_request = True
+
+        with patch("app.services.scanner_engine.get_config", return_value=mock_config):
+            with patch("app.services.scanner_engine._get_nemo_tier", return_value=None):
+                with patch("app.services.scanner_engine._get_judge", return_value=mock_judge):
+                    result = _run(run_output_scan("hello", "some output"))
+
+        mock_judge.evaluate.assert_not_called()
+        is_valid = result[0]
+        assert is_valid is True
         invalidate_cache()
 
 

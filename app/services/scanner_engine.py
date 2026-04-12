@@ -76,6 +76,7 @@ def _get_nemo_tier():
         embedding_threshold=config.nemo_tier.embedding_threshold,
         model=config.nemo_tier.model,
         model_engine=config.nemo_tier.model_engine,
+        base_url=config.nemo_tier.base_url,
         api_key=config.nemo_tier.api_key or config.upstream_api_key or None,
     )
     logger.info("NeMo tier initialized (model=%s, threshold=%.2f)",
@@ -94,10 +95,14 @@ def _get_judge():
         return None
 
     from app.services.langgraph_judge import LangGraphJudge
+    # Local models (Ollama/vLLM) don't need a real key, but ChatOpenAI requires one
+    api_key = config.judge.api_key or config.upstream_api_key or None
+    if not api_key and config.judge.base_url:
+        api_key = "ollama"
     _judge = LangGraphJudge(
         model=config.judge.model,
         base_url=config.judge.base_url,
-        api_key=config.judge.api_key or config.upstream_api_key or None,
+        api_key=api_key,
         temperature=config.judge.temperature,
         max_tokens=config.judge.max_tokens,
         risk_threshold=config.judge.risk_threshold,
@@ -110,10 +115,14 @@ def _get_judge():
 
 # ── Tier helpers ─────────────────────────────────────────────────────────────
 
-def _should_run_judge(nemo_risk_score: float) -> bool:
+def _should_run_judge(nemo_risk_score: float, direction: str = "input") -> bool:
     """Determine if Tier 2 judge should run based on config and NeMo result."""
     config = get_config()
     if not config.judge.enabled:
+        return False
+    if direction == "input" and not config.judge.scan_input:
+        return False
+    if direction == "output" and not config.judge.scan_output:
         return False
     if config.judge.run_on_every_request:
         return True
@@ -135,13 +144,13 @@ async def _run_judge_tier(
     text: str,
     direction: str,
     nemo_risk_score: float,
-    results_score: dict[str, float],
+    results_score: dict[str, Any],
     violation_scanners: list[str],
     on_fail_actions: dict[str, str],
     prompt_context: str | None = None,
 ) -> bool:
     """Run Tier 2 LLM-as-a-Judge if applicable. Returns True if judge blocked."""
-    if not _should_run_judge(nemo_risk_score):
+    if not _should_run_judge(nemo_risk_score, direction):
         return False
     judge = _get_judge()
     if judge is None:
@@ -149,6 +158,11 @@ async def _run_judge_tier(
     try:
         judge_result = await judge.evaluate(text, direction=direction, prompt_context=prompt_context)
         results_score["LLMJudge"] = judge_result.risk_score
+        results_score["LLMJudge_latency_ms"] = judge_result.latency_ms
+        results_score["LLMJudge_passed"] = 1.0 if judge_result.passed else 0.0
+        results_score["LLMJudge_reasoning"] = judge_result.reasoning
+        if judge_result.threats:
+            results_score["LLMJudge_threats"] = ", ".join(judge_result.threats)
         if not judge_result.passed:
             violation_scanners.append("LLMJudge")
             on_fail_actions["LLMJudge"] = "blocked"
@@ -164,6 +178,8 @@ async def _run_judge_tier(
     except Exception as e:
         logger.error("LLM Judge (%s) failed: %s", direction, e)
         results_score["LLMJudge"] = 1.0
+        results_score["LLMJudge_latency_ms"] = 0.0
+        results_score["LLMJudge_passed"] = 0.0
         violation_scanners.append("LLMJudge")
         on_fail_actions["LLMJudge"] = "blocked"
         return True
@@ -188,12 +204,21 @@ async def _run_two_tier_scan(
     """Two-tier pipeline: NeMo Guardrails then LLM-as-a-Judge."""
     nemo_passed, nemo_risk_score = _unpack_nemo_result(nemo_result)
 
-    results_score: dict[str, float] = {}
+    results_score: dict[str, Any] = {}
     violation_scanners: list[str] = []
     on_fail_actions: dict[str, str] = {}
 
-    if not nemo_passed:
+    # Capture per-tier details for audit flow visualization
+    if nemo_result is not None and not isinstance(nemo_result, Exception):
         results_score["NeMoGuardrails"] = nemo_risk_score
+        results_score["NeMoGuardrails_latency_ms"] = nemo_result.latency_ms
+        results_score["NeMoGuardrails_passed"] = 1.0 if nemo_result.passed else 0.0
+        if nemo_result.matched_flow:
+            results_score["NeMoGuardrails_intent"] = nemo_result.matched_flow
+
+    if not nemo_passed:
+        if "NeMoGuardrails" not in results_score:
+            results_score["NeMoGuardrails"] = nemo_risk_score
         violation_scanners.append("NeMoGuardrails")
         on_fail_actions["NeMoGuardrails"] = "blocked"
         return _build_scan_result(False, text, results_score, violation_scanners, on_fail_actions)
@@ -218,11 +243,13 @@ async def run_input_scan(
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
+    config = get_config()
     nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate(text), return_exceptions=True)
-        nemo_result = nemo_result[0]
+    if config.nemo_tier.scan_input:
+        nemo = _get_nemo_tier()
+        if nemo is not None:
+            nemo_result = await asyncio.gather(nemo.evaluate(text), return_exceptions=True)
+            nemo_result = nemo_result[0]
 
     result = await _run_two_tier_scan(text, "input", nemo_result)
     _result_cache_put(cache_key, result)
@@ -239,11 +266,13 @@ async def run_output_scan(
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
+    config = get_config()
     nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate_output(prompt, output), return_exceptions=True)
-        nemo_result = nemo_result[0]
+    if config.nemo_tier.scan_output:
+        nemo = _get_nemo_tier()
+        if nemo is not None:
+            nemo_result = await asyncio.gather(nemo.evaluate_output(prompt, output), return_exceptions=True)
+            nemo_result = nemo_result[0]
 
     result = await _run_two_tier_scan(output, "output", nemo_result, prompt_context=prompt)
     _result_cache_put(cache_key, result)
