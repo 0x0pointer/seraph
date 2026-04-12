@@ -207,7 +207,13 @@ instructions:
         elapsed = (time.perf_counter() - start) * 1000
         response_text = response.strip() if isinstance(response, str) else str(response).strip()
 
-        if response_text.startswith(_BLOCKED_PREFIXES):
+        # NeMo may return "BLOCKED:..." directly or wrap it as
+        # "bot block request\n\"BLOCKED:...\"" — check both formats.
+        is_blocked = (
+            response_text.startswith(_BLOCKED_PREFIXES)
+            or any(prefix in response_text for prefix in _BLOCKED_PREFIXES)
+        )
+        if is_blocked:
             return NemoResult(
                 passed=False, matched_flow=None, risk_score=1.0,
                 latency_ms=elapsed, detail=response_text,

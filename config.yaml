@@ -29,12 +29,12 @@ logging:
 nemo_tier:
   enabled: true
   config_dir: "app/services/nemo_config"
-  embedding_threshold: 0.82
+  embedding_threshold: 0.80  # Lowered for healthcare — varied phrasing (medical jargon, casual, anxious)
   model: "mistral:7b-instruct"
   model_engine: "openai"
   base_url: "http://localhost:11434/v1"  # Ollama local endpoint
   scan_input: true   # NeMo classifies user input against allowed intents
-  scan_output: true  # NeMo classifies LLM output (disable to save ~19s on CPU)
+  scan_output: true  # NeMo classifies LLM output (adds latency on CPU)
   # api_key: ""  # Not needed for local Ollama
 
 # ─── Tier 2: LLM-as-a-Judge (LangGraph) ─────────────────────────────────────
