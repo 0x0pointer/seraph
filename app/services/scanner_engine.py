@@ -144,7 +144,7 @@ async def _run_judge_tier(
     text: str,
     direction: str,
     nemo_risk_score: float,
-    results_score: dict[str, float],
+    results_score: dict[str, Any],
     violation_scanners: list[str],
     on_fail_actions: dict[str, str],
     prompt_context: str | None = None,
@@ -158,6 +158,11 @@ async def _run_judge_tier(
     try:
         judge_result = await judge.evaluate(text, direction=direction, prompt_context=prompt_context)
         results_score["LLMJudge"] = judge_result.risk_score
+        results_score["LLMJudge_latency_ms"] = judge_result.latency_ms
+        results_score["LLMJudge_passed"] = 1.0 if judge_result.passed else 0.0
+        results_score["LLMJudge_reasoning"] = judge_result.reasoning
+        if judge_result.threats:
+            results_score["LLMJudge_threats"] = ", ".join(judge_result.threats)
         if not judge_result.passed:
             violation_scanners.append("LLMJudge")
             on_fail_actions["LLMJudge"] = "blocked"
@@ -173,6 +178,8 @@ async def _run_judge_tier(
     except Exception as e:
         logger.error("LLM Judge (%s) failed: %s", direction, e)
         results_score["LLMJudge"] = 1.0
+        results_score["LLMJudge_latency_ms"] = 0.0
+        results_score["LLMJudge_passed"] = 0.0
         violation_scanners.append("LLMJudge")
         on_fail_actions["LLMJudge"] = "blocked"
         return True
@@ -197,12 +204,21 @@ async def _run_two_tier_scan(
     """Two-tier pipeline: NeMo Guardrails then LLM-as-a-Judge."""
     nemo_passed, nemo_risk_score = _unpack_nemo_result(nemo_result)
 
-    results_score: dict[str, float] = {}
+    results_score: dict[str, Any] = {}
     violation_scanners: list[str] = []
     on_fail_actions: dict[str, str] = {}
 
-    if not nemo_passed:
+    # Capture per-tier details for audit flow visualization
+    if nemo_result is not None and not isinstance(nemo_result, Exception):
         results_score["NeMoGuardrails"] = nemo_risk_score
+        results_score["NeMoGuardrails_latency_ms"] = nemo_result.latency_ms
+        results_score["NeMoGuardrails_passed"] = 1.0 if nemo_result.passed else 0.0
+        if nemo_result.matched_flow:
+            results_score["NeMoGuardrails_intent"] = nemo_result.matched_flow
+
+    if not nemo_passed:
+        if "NeMoGuardrails" not in results_score:
+            results_score["NeMoGuardrails"] = nemo_risk_score
         violation_scanners.append("NeMoGuardrails")
         on_fail_actions["NeMoGuardrails"] = "blocked"
         return _build_scan_result(False, text, results_score, violation_scanners, on_fail_actions)
