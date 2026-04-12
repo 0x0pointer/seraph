@@ -23,8 +23,9 @@ class TestNemoTierInit:
     def test_default_values(self):
         tier = NemoTier(config_dir="/tmp/fake")
         assert tier._embedding_threshold == 0.85
-        assert tier._model == "gpt-4o-mini"
+        assert tier._model == "mistral:7b-instruct"
         assert tier._model_engine == "openai"
+        assert tier._base_url is None
         assert tier._input_rails is None
         assert tier._output_rails is None
 
@@ -59,6 +60,15 @@ class TestEnsureApiKey:
         assert os.environ.get("OPENAI_API_KEY") == "sk-from-upstream"
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("UPSTREAM_API_KEY", raising=False)
+
+    def test_sets_placeholder_for_local_model(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("UPSTREAM_API_KEY", raising=False)
+        tier = NemoTier(config_dir="/tmp", base_url="http://localhost:11434/v1")
+        tier._ensure_api_key()
+        import os
+        assert os.environ.get("OPENAI_API_KEY") == "ollama"
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
 class TestParseColangIntents:
@@ -162,6 +172,21 @@ class TestBuildYamlContent:
         tier = NemoTier(config_dir=str(tmp_path))
         yaml = tier._build_yaml_content("missing.co")
         assert "sample_conversation" not in yaml
+
+    def test_includes_base_url_when_set(self, tmp_path):
+        tier = NemoTier(
+            config_dir=str(tmp_path),
+            model="mistral:7b-instruct",
+            base_url="http://localhost:11434/v1",
+        )
+        yaml = tier._build_yaml_content("input_rails.co")
+        assert "openai_api_base" in yaml
+        assert "http://localhost:11434/v1" in yaml
+
+    def test_no_base_url_when_not_set(self, tmp_path):
+        tier = NemoTier(config_dir=str(tmp_path), model="gpt-4o-mini")
+        yaml = tier._build_yaml_content("input_rails.co")
+        assert "openai_api_base" not in yaml
 
 
 class TestLoadColang:

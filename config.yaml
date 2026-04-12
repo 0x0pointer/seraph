@@ -30,9 +30,12 @@ nemo_tier:
   enabled: true
   config_dir: "app/services/nemo_config"
   embedding_threshold: 0.82
-  model: "gpt-4o-mini"
+  model: "mistral:7b-instruct"
   model_engine: "openai"
-  # api_key: ""  # Falls back to upstream_api_key / UPSTREAM_API_KEY env var
+  base_url: "http://localhost:11434/v1"  # Ollama local endpoint
+  scan_input: true   # NeMo classifies user input against allowed intents
+  scan_output: true  # NeMo classifies LLM output (disable to save ~19s on CPU)
+  # api_key: ""  # Not needed for local Ollama
 
 # ─── Tier 2: LLM-as-a-Judge (LangGraph) ─────────────────────────────────────
 #
@@ -42,15 +45,37 @@ nemo_tier:
 
 judge:
   enabled: true
-  model: "gpt-4o-mini"
-  # base_url: "http://localhost:11434/v1"  # Uncomment for Ollama / vLLM
-  # api_key: ""                            # Falls back to upstream_api_key
+  model: "mistral:7b-instruct"
+  base_url: "http://localhost:11434/v1"  # Ollama local endpoint (same model as NeMo tier)
+  # To use OpenAI instead:  model: "gpt-4o-mini", base_url: null, api_key: "sk-..."
   temperature: 0.0
   max_tokens: 512
   risk_threshold: 0.7
   prompt_file: "app/services/judge_prompt.txt"
+  scan_input: true   # Judge evaluates user input for threats
+  scan_output: true  # Judge evaluates LLM output for leaks/harmful content
   run_on_every_request: true
   # When run_on_every_request is false, judge only runs when NeMo's
   # embedding score falls in this uncertain band:
   uncertainty_band_low: 0.70
   uncertainty_band_high: 0.85
+
+# ─── Scanning Profiles ─────────────────────────────────────────────────────
+#
+# Mix and match the toggles above to fit your needs:
+#
+#   All 4 stages (max security):
+#     nemo_tier.scan_input: true, nemo_tier.scan_output: true
+#     judge.scan_input: true,     judge.scan_output: true
+#
+#   NeMo input + Judge both (recommended, fast):
+#     nemo_tier.scan_input: true, nemo_tier.scan_output: false
+#     judge.scan_input: true,     judge.scan_output: true
+#
+#   NeMo only (no external API calls for scanning):
+#     nemo_tier.scan_input: true, nemo_tier.scan_output: true
+#     judge.scan_input: false,    judge.scan_output: false
+#
+#   Judge only (no local model needed):
+#     nemo_tier.scan_input: false, nemo_tier.scan_output: false
+#     judge.scan_input: true,      judge.scan_output: true

@@ -76,6 +76,7 @@ def _get_nemo_tier():
         embedding_threshold=config.nemo_tier.embedding_threshold,
         model=config.nemo_tier.model,
         model_engine=config.nemo_tier.model_engine,
+        base_url=config.nemo_tier.base_url,
         api_key=config.nemo_tier.api_key or config.upstream_api_key or None,
     )
     logger.info("NeMo tier initialized (model=%s, threshold=%.2f)",
@@ -94,10 +95,14 @@ def _get_judge():
         return None
 
     from app.services.langgraph_judge import LangGraphJudge
+    # Local models (Ollama/vLLM) don't need a real key, but ChatOpenAI requires one
+    api_key = config.judge.api_key or config.upstream_api_key or None
+    if not api_key and config.judge.base_url:
+        api_key = "ollama"
     _judge = LangGraphJudge(
         model=config.judge.model,
         base_url=config.judge.base_url,
-        api_key=config.judge.api_key or config.upstream_api_key or None,
+        api_key=api_key,
         temperature=config.judge.temperature,
         max_tokens=config.judge.max_tokens,
         risk_threshold=config.judge.risk_threshold,
@@ -110,10 +115,14 @@ def _get_judge():
 
 # ── Tier helpers ─────────────────────────────────────────────────────────────
 
-def _should_run_judge(nemo_risk_score: float) -> bool:
+def _should_run_judge(nemo_risk_score: float, direction: str = "input") -> bool:
     """Determine if Tier 2 judge should run based on config and NeMo result."""
     config = get_config()
     if not config.judge.enabled:
+        return False
+    if direction == "input" and not config.judge.scan_input:
+        return False
+    if direction == "output" and not config.judge.scan_output:
         return False
     if config.judge.run_on_every_request:
         return True
@@ -141,7 +150,7 @@ async def _run_judge_tier(
     prompt_context: str | None = None,
 ) -> bool:
     """Run Tier 2 LLM-as-a-Judge if applicable. Returns True if judge blocked."""
-    if not _should_run_judge(nemo_risk_score):
+    if not _should_run_judge(nemo_risk_score, direction):
         return False
     judge = _get_judge()
     if judge is None:
@@ -218,11 +227,13 @@ async def run_input_scan(
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
+    config = get_config()
     nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate(text), return_exceptions=True)
-        nemo_result = nemo_result[0]
+    if config.nemo_tier.scan_input:
+        nemo = _get_nemo_tier()
+        if nemo is not None:
+            nemo_result = await asyncio.gather(nemo.evaluate(text), return_exceptions=True)
+            nemo_result = nemo_result[0]
 
     result = await _run_two_tier_scan(text, "input", nemo_result)
     _result_cache_put(cache_key, result)
@@ -239,11 +250,13 @@ async def run_output_scan(
     if cached is not None:
         return cached
 
-    nemo = _get_nemo_tier()
+    config = get_config()
     nemo_result = None
-    if nemo is not None:
-        nemo_result = await asyncio.gather(nemo.evaluate_output(prompt, output), return_exceptions=True)
-        nemo_result = nemo_result[0]
+    if config.nemo_tier.scan_output:
+        nemo = _get_nemo_tier()
+        if nemo is not None:
+            nemo_result = await asyncio.gather(nemo.evaluate_output(prompt, output), return_exceptions=True)
+            nemo_result = nemo_result[0]
 
     result = await _run_two_tier_scan(output, "output", nemo_result, prompt_context=prompt)
     _result_cache_put(cache_key, result)
