@@ -29,7 +29,7 @@ logging:
 nemo_tier:
   enabled: true
   config_dir: "app/services/nemo_config"
-  embedding_threshold: 0.80  # Lowered for healthcare — varied phrasing (medical jargon, casual, anxious)
+  embedding_threshold: 0.80
   model: "mistral:7b-instruct"
   model_engine: "openai"
   base_url: "http://localhost:11434/v1"  # Ollama local endpoint
