@@ -33,6 +33,36 @@ flowchart LR
 
 **Tier 1** uses [NVIDIA NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails) as a semantic allow-list firewall — you define what users *are allowed* to ask via Colang flows; everything else is blocked. **Tier 2** runs a local [Mistral 7B](https://mistral.ai/) model via [LangGraph](https://langchain-ai.github.io/langgraph/) to evaluate requests for prompt injection, jailbreaks, data exfiltration, and policy violations.
 
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant Seraph
+    participant NeMo as Tier 1: NeMo Guardrails
+    participant Judge as Tier 2: Mistral 7B Judge
+    participant LLM as LLM Provider
+
+    App->>Seraph: POST /v1/chat/completions
+
+    Seraph->>Seraph: Auth check
+    Seraph->>NeMo: Scan input
+    NeMo-->>Seraph: Pass
+    Seraph->>Judge: Deep evaluation (Mistral 7B)
+    Judge-->>Seraph: Safe
+
+    Seraph->>LLM: Forward request
+
+    LLM-->>Seraph: Response
+
+    Seraph->>NeMo: Scan output
+    NeMo-->>Seraph: Pass
+    Seraph->>Judge: Evaluate output
+    Judge-->>Seraph: Safe
+
+    Seraph-->>App: Return response
+```
+
 ## Quick Start
 
 ```bash
