@@ -20,11 +20,16 @@ services:
       dockerfile: Dockerfile
     environment:
       - SERAPH_CONFIG=/app/seraph-config.yaml
+      - SERAPH_AUDIT_FILE=/data/seraph_audit.db
+      - NEMO_BASE_URL=http://host.docker.internal:11434/v1
+      - JUDGE_BASE_URL=http://host.docker.internal:11434/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ../../.env
     volumes:
       - audit-data:/data
-      - ./config.yaml:/app/seraph-config.yaml:ro
+      - ../../config.yaml:/app/seraph-config.yaml:ro
     restart: unless-stopped
 
   chatbot:

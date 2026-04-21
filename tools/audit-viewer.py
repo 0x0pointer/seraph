@@ -57,7 +57,7 @@ def get_logs(limit=50, direction=None, violations_only=False, near_misses=False)
                 if row["is_valid"] == 0:
                     continue
                 scores = json.loads(row.get("scanner_results") or "{}")
-                max_score = max((v for v in scores.values() if v > 0), default=0)
+                max_score = max((v for v in scores.values() if isinstance(v, (int, float)) and v > 0), default=0)
                 if max_score >= 0.4:
                     row["_near_miss_score"] = max_score
                     filtered.append(row)
@@ -322,20 +322,8 @@ h1 .h1-accent { color: var(--green); }
   </div>
   <div class="legend-body" id="legend-body">
     <div class="legend-grid">
-      <div class="legend-item"><span class="sname">PromptInjection</span><span class="sdesc">ML model (DeBERTa v3) detecting prompt injection attempts — instruction overrides, jailbreaks, persona hijacking</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Toxicity</span><span class="sdesc">ML classifier (DistilBERT) detecting hate speech, threats, harassment, self-harm content</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">BanSubstrings</span><span class="sdesc">Exact phrase blocklist — 273 input phrases (DAN, instruction wipes, identity reassignment) + 61 output phrases (jailbreak success indicators)</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">BanTopics</span><span class="sdesc">NLI zero-shot topic classifier blocking 14 categories: weapons, drugs, hacking, malware, exploits, phishing, terrorism, etc.</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">Regex</span><span class="sdesc">93 structural patterns: credential leaks, DAN/jailbreak syntax, no-restriction declarations, encoding attacks, system prompt extraction, multi-language evasion</span><span class="sdir inp">in+out</span></div>
-      <div class="legend-item"><span class="sname">EmbeddingShield</span><span class="sdesc">Semantic similarity scanner using sentence-transformers — compares input embeddings against 49 known attack patterns (paraphrased injections)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Secrets</span><span class="sdesc">Detects API keys, tokens, credentials in text. Action: fix (redacts in-place rather than blocking)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">TokenLimit</span><span class="sdesc">Token counter (tiktoken) — blocks requests exceeding 4096 tokens to prevent context stuffing</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">InvisibleText</span><span class="sdesc">Detects Unicode invisible characters (zero-width spaces, RTL overrides) used to hide injection payloads</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Language</span><span class="sdesc">Language detection — flags non-English input. Defends against multi-language injection bypass (ES/FR/DE/PT/IT)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Sentiment</span><span class="sdesc">VADER lexicon sentiment analysis — flags extremely negative sentiment (threats, hostility)</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">Gibberish</span><span class="sdesc">ML classifier detecting nonsensical/gibberish text — catches encoded payloads and adversarial strings</span><span class="sdir inp">input</span></div>
-      <div class="legend-item"><span class="sname">NoRefusal</span><span class="sdesc">Detects when the LLM refuses to answer — triggers reask so the model retries with adjusted phrasing</span><span class="sdir out">output</span></div>
-      <div class="legend-item"><span class="sname">BanCode</span><span class="sdesc">Detects code in output (markdown fences, programming languages) — blocks code generation when enabled</span><span class="sdir out">output</span></div>
+      <div class="legend-item"><span class="sname">NeMo Guardrails</span><span class="sdesc">Tier 1 — Semantic allow-list firewall using NVIDIA NeMo with Colang DSL. Matches user input against allowed intents via embedding similarity (threshold 0.85). Blocks anything that doesn't match known-safe categories.</span><span class="sdir inp">in+out</span></div>
+      <div class="legend-item"><span class="sname">LLM-as-a-Judge</span><span class="sdesc">Tier 2 — LangGraph StateGraph evaluating: prompt injection, jailbreak attempts, harmful intent, data exfiltration, social engineering, policy violations, information leakage, harmful content generation.</span><span class="sdir inp">in+out</span></div>
     </div>
     <p style="color:var(--text-dim);font-size:10px;margin-top:10px;font-family:'IBM Plex Mono',monospace">Score interpretation: -1.0 = passed cleanly (no risk detected) | 0.0-0.3 = low risk | 0.3-0.7 = medium (near miss) | 0.7+ = high (violation triggered)</p>
   </div>
@@ -443,13 +431,64 @@ async function refresh(){
       // Scanner details
       let scores={};try{scores=JSON.parse(L.scanner_results||'{}')}catch(e){}
       let mainS='',fullS='';
+      const coreKeys=['NeMoGuardrails','LLMJudge'];
       for(const[n,v]of Object.entries(scores)){
-        if(v<0)continue;
+        if(typeof v!=='number'||v<0)continue;
+        if(n.includes('_'))continue;
         const c=sc(v);
         const chip=`<span class="chip ${c}">${esc(n)}: ${(v*100).toFixed(0)}%</span>`;
         fullS+=chip+' ';
-        if(!n.includes('['))mainS+=chip;
+        if(coreKeys.includes(n))mainS+=chip;
       }
+
+      // Flow visualization
+      const nemoRan='NeMoGuardrails' in scores && typeof scores.NeMoGuardrails==='number';
+      const judgeRan='LLMJudge' in scores && typeof scores.LLMJudge==='number';
+      const nemoPassed=scores.NeMoGuardrails_passed===1.0;
+      const judgePassed=scores.LLMJudge_passed===1.0;
+      const nemoMs=scores.NeMoGuardrails_latency_ms;
+      const judgeMs=scores.LLMJudge_latency_ms;
+      const nemoScore=scores.NeMoGuardrails;
+      const judgeScore=scores.LLMJudge;
+      const nemoIntent=scores.NeMoGuardrails_intent||'';
+      const judgeReason=scores.LLMJudge_reasoning||'';
+      const totalMs=(nemoMs||0)+(judgeMs||0);
+
+      let flowH='<div class="flow"><div class="flow-pipeline">';
+      // Source node
+      const srcLabel=dir==='input'?'User':'LLM';
+      flowH+=`<div class="flow-node passed"><div class="fn-name">${srcLabel}</div><div class="fn-latency" style="color:#888">start</div></div>`;
+
+      // NeMo node
+      if(nemoRan){
+        const nc=nemoPassed?'passed':'blocked';
+        const arrow=`<span class="flow-arrow ${nemoPassed?'ok':'fail'}">&rarr;</span>`;
+        flowH+=arrow;
+        flowH+=`<div class="flow-node ${nc}"><div class="fn-name">NeMo</div><div class="fn-latency">${nemoMs?nemoMs.toFixed(0)+'ms':'?'}</div><div class="fn-score">score: ${typeof nemoScore==='number'?(nemoScore*100).toFixed(0)+'%':'?'}</div>${nemoIntent?`<div class="fn-detail" title="${esc(nemoIntent)}">${esc(nemoIntent)}</div>`:''}</div>`;
+      } else {
+        flowH+=`<span class="flow-arrow">&rarr;</span><div class="flow-node skipped"><div class="fn-name">NeMo</div><div class="fn-latency">skipped</div></div>`;
+      }
+
+      // Judge node
+      if(judgeRan){
+        const jc=judgePassed?'passed':'blocked';
+        const arrow=nemoRan&&!nemoPassed?`<span class="flow-arrow fail">&cross;</span>`:`<span class="flow-arrow ${judgePassed?'ok':'fail'}">&rarr;</span>`;
+        flowH+=arrow;
+        flowH+=`<div class="flow-node ${jc}"><div class="fn-name">Judge</div><div class="fn-latency">${judgeMs?judgeMs.toFixed(0)+'ms':'?'}</div><div class="fn-score">score: ${typeof judgeScore==='number'?(judgeScore*100).toFixed(0)+'%':'?'}</div>${judgeReason?`<div class="fn-detail" title="${esc(judgeReason)}">${esc(judgeReason.substring(0,40))}</div>`:''}</div>`;
+      } else if(nemoRan&&nemoPassed) {
+        flowH+=`<span class="flow-arrow">&rarr;</span><div class="flow-node skipped"><div class="fn-name">Judge</div><div class="fn-latency">skipped</div></div>`;
+      }
+
+      // Result node
+      const resultOk=v===1;
+      flowH+=`<span class="flow-arrow ${resultOk?'ok':'fail'}">&rarr;</span>`;
+      flowH+=`<div class="flow-node ${resultOk?'passed':'blocked'}"><div class="fn-name">${resultOk?'Passed':'Blocked'}</div><div class="fn-latency" style="color:${resultOk?'#2ecc71':'#e74c3c'}">${resultOk?'&#10003;':'&#10007;'}</div></div>`;
+
+      // Total time
+      if(totalMs>0){
+        flowH+=`<div class="flow-total"><div class="ft-label">scan total</div><div class="ft-time">${totalMs.toFixed(0)}ms</div></div>`;
+      }
+      flowH+='</div></div>';
 
       h+=`<div class="entry ${cls}">
         <div class="hdr">
@@ -459,7 +498,7 @@ async function refresh(){
           <span style="color:#444;font-size:10px">${L.text_length||0} chars</span>
           ${violH} ${mainS}
         </div>
-        ${metaH}${tcH}${segH}
+        ${metaH}${flowH}${tcH}${segH}
         <div class="toggle" onclick="tog(${id})">Scanner details (${Object.keys(scores).length})</div>
         <div class="details" id="det-${id}">${fullS||'<span style="color:#444">-</span>'}</div>
       </div>`;

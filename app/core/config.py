@@ -33,20 +33,25 @@ class NemoTierConfig(BaseModel):
     enabled: bool = True
     config_dir: str = "app/services/nemo_config"
     embedding_threshold: float = 0.85
-    model: str = "gpt-4o-mini"
+    model: str = "mistral:7b-instruct"
     model_engine: str = "openai"
+    base_url: str | None = "http://localhost:11434/v1"  # Ollama / vLLM endpoint
+    scan_input: bool = True   # NeMo intent classification on user input
+    scan_output: bool = True  # NeMo intent classification on LLM output
     api_key: str | None = None  # Falls back to upstream_api_key
 
 
 class JudgeConfig(BaseModel):
     enabled: bool = True
-    model: str = "gpt-4o-mini"
-    base_url: str | None = None  # For Ollama / vLLM local endpoints
-    api_key: str | None = None  # Falls back to upstream_api_key
+    model: str = "mistral:7b-instruct"
+    base_url: str | None = "http://localhost:11434/v1"  # Ollama / vLLM endpoint
+    api_key: str | None = None  # Falls back to upstream_api_key; not needed for local Ollama
     temperature: float = 0.0
     max_tokens: int = 512
     risk_threshold: float = 0.7
     prompt_file: str = "app/services/judge_prompt.txt"
+    scan_input: bool = True   # Judge evaluates user input
+    scan_output: bool = True  # Judge evaluates LLM output
     run_on_every_request: bool = True
     uncertainty_band_low: float = 0.70
     uncertainty_band_high: float = 0.85
@@ -89,10 +94,22 @@ def load_config(path: str | None = None) -> Config:
 
     _config = Config(**raw)
 
-    # Allow env var override for upstream_api_key (so secrets stay out of YAML)
+    # Allow env var overrides (so secrets and deployment-specific values stay out of YAML)
     env_key = os.environ.get("UPSTREAM_API_KEY")
     if env_key:
         _config.upstream_api_key = env_key
+
+    env_audit = os.environ.get("SERAPH_AUDIT_FILE")
+    if env_audit:
+        _config.logging.audit_file = env_audit
+
+    env_nemo_base_url = os.environ.get("NEMO_BASE_URL")
+    if env_nemo_base_url:
+        _config.nemo_tier.base_url = env_nemo_base_url
+
+    env_judge_base_url = os.environ.get("JUDGE_BASE_URL")
+    if env_judge_base_url:
+        _config.judge.base_url = env_judge_base_url
 
     logger.info("Loaded config from %s", path)
     return _config
