@@ -33,7 +33,7 @@ class NemoTierConfig(BaseModel):
     enabled: bool = True
     config_dir: str = "app/services/nemo_config"
     embedding_threshold: float = 0.85
-    model: str = "mistral:7b-instruct"
+    model: str = "qwen2.5:3b"
     model_engine: str = "openai"
     base_url: str | None = "http://localhost:11434/v1"  # Ollama / vLLM endpoint
     scan_input: bool = True   # NeMo intent classification on user input

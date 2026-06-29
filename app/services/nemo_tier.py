@@ -35,7 +35,7 @@ class NemoTier:
     """Wraps NeMo Guardrails for use as Seraph's first scanning tier."""
 
     def __init__(self, config_dir: str, embedding_threshold: float = 0.85,
-                 model: str = "mistral:7b-instruct", model_engine: str = "openai",
+                 model: str = "qwen2.5:3b", model_engine: str = "openai",
                  base_url: str | None = None,
                  api_key: str | None = None) -> None:
         self._config_dir = config_dir
