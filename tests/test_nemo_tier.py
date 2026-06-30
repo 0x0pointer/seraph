@@ -23,7 +23,7 @@ class TestNemoTierInit:
     def test_default_values(self):
         tier = NemoTier(config_dir="/tmp/fake")
         assert tier._embedding_threshold == 0.85
-        assert tier._model == "mistral:7b-instruct"
+        assert tier._model == "qwen2.5:3b"
         assert tier._model_engine == "openai"
         assert tier._base_url is None
         assert tier._input_rails is None
@@ -176,7 +176,7 @@ class TestBuildYamlContent:
     def test_includes_base_url_when_set(self, tmp_path):
         tier = NemoTier(
             config_dir=str(tmp_path),
-            model="mistral:7b-instruct",
+            model="qwen2.5:3b",
             base_url="http://localhost:11434/v1",
         )
         yaml = tier._build_yaml_content("input_rails.co")

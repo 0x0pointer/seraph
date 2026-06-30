@@ -30,7 +30,7 @@ nemo_tier:
   enabled: true
   config_dir: "app/services/nemo_config"
   embedding_threshold: 0.80
-  model: "mistral:7b-instruct"
+  model: "qwen2.5:3b"
   model_engine: "openai"
   base_url: "http://localhost:11434/v1"  # Ollama local endpoint
   scan_input: true   # NeMo classifies user input against allowed intents
@@ -46,7 +46,7 @@ nemo_tier:
 judge:
   enabled: true
   model: "mistral:7b-instruct"
-  base_url: "http://localhost:11434/v1"  # Ollama local endpoint (same model as NeMo tier)
+  base_url: "http://localhost:11434/v1"  # Ollama local endpoint (NeMo tier 1 uses qwen2.5:3b)
   # To use OpenAI instead:  model: "gpt-4o-mini", base_url: null, api_key: "sk-..."
   temperature: 0.0
   max_tokens: 512
